@@ -1,0 +1,16 @@
+[package]
+name = "warp"
+version = "0.0.0"
+description = "serve the web at warp speeds"
+authors = ["Sean McArthur <sean@seanmonstar.com>"]
+license = "MIT"
+
+[dependencies]
+futures = "0.1"
+http = "0.1"
+hyper = { version = "0.11.23", default-features = false, features = ["compat"] }
+log = "0.4"
+
+[dev-dependencies]
+pretty_env_logger = "0.2"
+
