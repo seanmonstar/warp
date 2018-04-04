@@ -1,10 +1,9 @@
 use std::marker::PhantomData;
-use std::ops::Div;
 use std::str::FromStr;
 
 use http::Uri;
 
-use ::filter::{And, Filter};
+use ::filter::{Filter};
 use ::Request;
 
 pub fn path<T>() -> Extract<T> {
@@ -91,6 +90,7 @@ impl Filter for &'static str {
 //
 // extract::<&str>() / extract::<u64>
 
+/*
 impl<T> Div<Extract<T>> for &'static str
 where
     T: FromStr,
@@ -103,3 +103,4 @@ where
         }.and(rhs)
     }
 }
+*/
