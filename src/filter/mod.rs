@@ -7,7 +7,7 @@ mod map;
 mod or;
 mod service;
 
-pub use self::and::{And, UnitAnd};
+pub use self::and::{And, AndUnit, UnitAnd};
 pub use self::map::Map;
 pub use self::or::{Either, Or};
 pub use self::service::FilteredService;
@@ -31,10 +31,21 @@ pub trait Filter {
 
     fn unit_and<F>(self, other: F) -> UnitAnd<Self, F>
     where
-        Self: Sized,
+        Self: Filter<Extract=()> + Sized,
         F: Filter,
     {
         UnitAnd {
+            first: self,
+            second: other,
+        }
+    }
+
+    fn and_unit<F>(self, other: F) -> AndUnit<Self, F>
+    where
+        Self: Sized,
+        F: Filter<Extract=()>,
+    {
+        AndUnit {
             first: self,
             second: other,
         }

@@ -13,6 +13,12 @@ pub struct UnitAnd<T, U> {
     pub(super) second: U,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct AndUnit<T, U> {
+    pub(super) first: T,
+    pub(super) second: U,
+}
+
 impl<T, U> Filter for And<T, U>
 where
     T: Filter,
@@ -44,6 +50,24 @@ where
             .and_then(|()| {
                 self.second
                     .filter(input)
+            })
+    }
+}
+
+impl<T, U> Filter for AndUnit<T, U>
+where
+    T: Filter,
+    U: Filter<Extract=()>,
+{
+    type Extract = T::Extract;
+
+    fn filter(&self, input: &mut Request) -> Option<Self::Extract> {
+        self.first
+            .filter(input)
+            .and_then(|ex| {
+                self.second
+                    .filter(input)
+                    .map(|()| ex)
             })
     }
 }
