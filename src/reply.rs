@@ -1,6 +1,8 @@
 use http::Response;
 use hyper::Body;
 
+use ::filter::Either;
+
 pub trait Reply {
     fn into_response(self) -> Response<WarpBody>;
 }
@@ -28,5 +30,14 @@ impl Reply for String {
             .header("content-length", &*self.len().to_string())
             .body(WarpBody(Body::from(self)))
             .unwrap()
+    }
+}
+
+impl<T: Reply, U: Reply> Reply for Either<T, U> {
+    fn into_response(self) -> Response<WarpBody> {
+        match self {
+            Either::A(a) => a.into_response(),
+            Either::B(b) => b.into_response(),
+        }
     }
 }

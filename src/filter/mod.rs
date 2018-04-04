@@ -1,13 +1,21 @@
-use std::ops::Add;
-
 use ::Request;
+use ::reply::Reply;
 
-pub mod method;
-pub mod paths;
+mod and;
+mod map;
+mod or;
+mod service;
+
+pub use self::and::And;
+pub use self::map::Map;
+pub use self::or::{Either, Or};
+pub use self::service::FilteredService;
 
 pub trait Filter {
+
     type Extract;
-    fn filter(&self, input: &mut Request) -> FilterResult<Self::Extract>;
+
+    fn filter(&self, input: &mut Request) -> Option<Self::Extract>;
 
     fn and<F>(self, other: F) -> And<Self, F>
     where
@@ -19,36 +27,36 @@ pub trait Filter {
             second: other,
         }
     }
-}
 
-pub enum FilterResult<E> {
-    Matched(E),
-    Skipped,
-}
+    fn or<F>(self, other: F) -> Or<Self, F>
+    where
+        Self: Sized,
+        F: Filter,
+    {
+        Or {
+            first: self,
+            second: other,
+        }
+    }
 
-pub struct And<T, U> {
-    first: T,
-    second: U,
-}
+    fn map<F, U>(self, fun: F) -> Map<Self, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Extract) -> U,
+    {
+        Map {
+            filter: self,
+            callback: fun,
+        }
+    }
 
-impl<T, U> Filter for And<T, U>
-where
-    T: Filter,
-    U: Filter,
-{
-    type Extract = (T::Extract, U::Extract);
-
-    fn filter(&self, input: &mut Request) -> FilterResult<Self::Extract> {
-        match self.first.filter(input) {
-            FilterResult::Matched(extract1) => {
-                match self.second.filter(input) {
-                    FilterResult::Matched(extract2) => {
-                        FilterResult::Matched((extract1, extract2))
-                    },
-                    FilterResult::Skipped => FilterResult::Skipped,
-                }
-            },
-            FilterResult::Skipped => FilterResult::Skipped,
+    fn service(self) -> FilteredService<Self>
+    where
+        Self: Sized,
+        Self::Extract: Reply,
+    {
+        FilteredService {
+            filter: self,
         }
     }
 }

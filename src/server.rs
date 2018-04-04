@@ -28,17 +28,19 @@ where
     where
         A: Into<SocketAddr>,
     {
-        let inner = self.service.into_warp_service();;
+        let inner = self.service.into_warp_service();
         let service = const_service(service_fn(move |req: ::hyper::Request<Body>| {
             let req: Request<Body> = req.into();
             let res = inner.call(req.map(WarpBody)).into_response();
             let res: ::hyper::Response<Body> = res.map(|w| w.0).into();
             Ok(res)
         }));
-        Http::new()
+        let srv = Http::new()
             .bind(&addr.into(), service)
-            .expect("error binding to address")
-            .run()
+            .expect("error binding to address");
+        info!("warp drive engaged: listening on {}", srv.local_addr().unwrap());
+
+        srv.run()
             .expect("error running server");
     }
 }
