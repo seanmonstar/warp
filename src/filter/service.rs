@@ -1,32 +1,28 @@
-
-use http::{Request, Response};
-use hyper::Body;
-
-use ::{Filter};
-use ::reply::{Reply, WarpBody};
+use ::{Filter, Request};
+use ::filter::Either;
+use ::reply::{Reply};
 use ::server::{WarpService};
 
-pub struct FilteredService<F> {
+#[derive(Debug)]
+pub struct FilteredService<F, N> {
     pub(super) filter: F,
+    pub(super) not_found: N,
 }
 
-impl<F> WarpService for FilteredService<F>
+impl<F, N> WarpService for FilteredService<F, N>
 where
     F: Filter,
     F::Extract: Reply,
+    N: WarpService,
 {
-    type Reply = Response<WarpBody>;
+    type Reply = Either<F::Extract, N::Reply>;
 
-    fn call(&self, mut req: Request<WarpBody>) -> Self::Reply {
+    fn call(&self, mut req: Request) -> Self::Reply {
         self.filter
             .filter(&mut req)
-            .map(Reply::into_response)
+            .map(Either::A)
             .unwrap_or_else(|| {
-                Response::builder()
-                    .status(404)
-                    .header("content-length", "0")
-                    .body(WarpBody(Body::empty()))
-                    .unwrap()
+                Either::B(self.not_found.call(req))
             })
     }
 }

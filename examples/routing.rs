@@ -35,6 +35,9 @@ fn main() {
     let routes = warp::get(
         hello
             .or(bye)
+            // Map the strings into replies
+            // With trait specialization, this won't be needed.
+            .map(warp::reply)
     );
 
     warp::serve(routes.service())

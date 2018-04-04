@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
 
+use futures::Future;
 use http::{Request};
 //use hyper::server::Service;
 use hyper::Body;
 use hyper::server::{Http, const_service, service_fn};
 
-use ::reply::{Reply, WarpBody};
+use ::reply::{NotFound, Reply, Response, WarpBody};
 
 pub fn serve<S>(service: S) -> Server<S>
 where
@@ -31,9 +32,13 @@ where
         let inner = self.service.into_warp_service();
         let service = const_service(service_fn(move |req: ::hyper::Request<Body>| {
             let req: Request<Body> = req.into();
-            let res = inner.call(req.map(WarpBody)).into_response();
-            let res: ::hyper::Response<Body> = res.map(|w| w.0).into();
-            Ok(res)
+            inner.call(req.map(WarpBody))
+                .into_response()
+                .map(|res: Response| {
+                    let res: ::hyper::Response<Body> = res.0.map(|w| w.0).into();
+                    res
+                })
+                .map_err(|x: !| -> ::hyper::Error { x })
         }));
         let srv = Http::new()
             .bind(&addr.into(), service)
@@ -70,8 +75,17 @@ impl<T> WarpService for T
 where
     T: Fn() -> &'static str,
 {
-    type Reply = &'static str;
+    type Reply = Response;
+
     fn call(&self, _: Request<WarpBody>) -> Self::Reply {
-        (*self)()
+        (*self)().into()
+    }
+}
+
+impl WarpService for NotFound {
+    type Reply = NotFound;
+
+    fn call(&self, _: Request<WarpBody>) -> Self::Reply {
+        *self
     }
 }
