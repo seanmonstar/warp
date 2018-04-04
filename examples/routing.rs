@@ -23,18 +23,17 @@ fn main() {
     //
     // - /hello/:num
     // - /hello/:name
-    let hello = prefix.and(num.or(name));
+    let hello = prefix.unit_and(num.or(name));
 
     let bye = warp::path::exact("/good")
-        .and(warp::path::exact("/bye"))
-        .and(warp::path::<String>())
-        //XXX: fix up this argument crap
-        .map(|(((), ()), name)| format!("Good bye, {}!", name));
+        // With impl specialization, unit_add won't be needed.
+        .unit_and(warp::path::exact("/bye"))
+        .unit_and(warp::path::<String>())
+        .map(|name| format!("Good bye, {}!", name));
 
     // GET (hello)
     let routes = warp::get(
-        //XXX: weirdo map that should go away
-        hello.map(|((), out)| out)
+        hello
             .or(bye)
     );
 
