@@ -1,4 +1,4 @@
-use ::Request;
+use ::route::Route;
 use super::Filter;
 
 #[derive(Clone, Copy, Debug)]
@@ -20,14 +20,14 @@ where
 {
     type Extract = Either<T::Extract, U::Extract>;
 
-    fn filter(&self, input: &mut Request) -> Option<Self::Extract> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
         self.first
-            .filter(input)
-            .map(Either::A)
+            .filter(route.clone())
+            .map(|(route, ex)| (route, Either::A(ex)))
             .or_else(|| {
                 self.second
-                    .filter(input)
-                    .map(Either::B)
+                    .filter(route)
+                    .map(|(route, ex)| (route, Either::B(ex)))
             })
     }
 }

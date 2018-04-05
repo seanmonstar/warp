@@ -1,4 +1,4 @@
-use ::Request;
+use ::route::Route;
 use super::Filter;
 
 #[derive(Clone, Copy, Debug)]
@@ -26,13 +26,13 @@ where
 {
     type Extract = (T::Extract, U::Extract);
 
-    fn filter(&self, input: &mut Request) -> Option<Self::Extract> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
         self.first
-            .filter(input)
-            .and_then(|ex1| {
+            .filter(route)
+            .and_then(|(route, ex1)| {
                 self.second
-                    .filter(input)
-                    .map(|ex2| (ex1, ex2))
+                    .filter(route)
+                    .map(|(route, ex2)| (route, (ex1, ex2)))
             })
     }
 }
@@ -44,12 +44,12 @@ where
 {
     type Extract = U::Extract;
 
-    fn filter(&self, input: &mut Request) -> Option<Self::Extract> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
         self.first
-            .filter(input)
-            .and_then(|()| {
+            .filter(route)
+            .and_then(|(route, ())| {
                 self.second
-                    .filter(input)
+                    .filter(route)
             })
     }
 }
@@ -61,13 +61,13 @@ where
 {
     type Extract = T::Extract;
 
-    fn filter(&self, input: &mut Request) -> Option<Self::Extract> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
         self.first
-            .filter(input)
-            .and_then(|ex| {
+            .filter(route)
+            .and_then(|(route, ex)| {
                 self.second
-                    .filter(input)
-                    .map(|()| ex)
+                    .filter(route)
+                    .map(|(route, ())| (route, ex))
             })
     }
 }

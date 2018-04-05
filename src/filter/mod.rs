@@ -1,5 +1,5 @@
-use ::Request;
 use ::reply::{NOT_FOUND, NotFound, Reply};
+use ::route::Route;
 use ::server::WarpService;
 
 mod and;
@@ -16,7 +16,7 @@ pub trait Filter {
 
     type Extract;
 
-    fn filter(&self, input: &mut Request) -> Option<Self::Extract>;
+    fn filter<'a>(&self, input: Route<'a>) -> Option<(Route<'a>, Self::Extract)>;
 
     fn and<F>(self, other: F) -> And<Self, F>
     where

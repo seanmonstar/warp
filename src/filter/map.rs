@@ -1,4 +1,4 @@
-use ::Request;
+use ::route::Route;
 use super::Filter;
 
 pub struct Map<T, F> {
@@ -12,9 +12,9 @@ where
     F: Fn(T::Extract) -> U,
 {
     type Extract = U;
-    fn filter(&self, input: &mut Request) -> Option<U> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, U)> {
         self.filter
-            .filter(input)
-            .map(|ex| (self.callback)(ex))
+            .filter(route)
+            .map(|(route, ex)| (route, (self.callback)(ex)))
     }
 }

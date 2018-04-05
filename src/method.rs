@@ -1,7 +1,7 @@
 use http;
 
 use ::filter::Filter;
-use ::Request;
+use ::route::Route;
 
 pub fn get<F: Filter>(filter: F) -> Method<F> {
     Method::new(http::Method::GET, filter)
@@ -36,10 +36,10 @@ impl<F: Filter> Method<F> {
 impl<F: Filter> Filter for Method<F> {
     type Extract = F::Extract;
 
-    fn filter(&self, input: &mut Request) -> Option<F::Extract> {
-        trace!("method::{:?}: {:?}", self.m, input.method());
-        if &self.m == input.method() {
-            self.next.filter(input)
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, F::Extract)> {
+        trace!("method::{:?}: {:?}", self.m, route.method());
+        if &self.m == route.method() {
+            self.next.filter(route)
         } else {
             None
         }

@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use ::{Filter, Request};
+use ::{Filter};
+use ::route::Route;
 
 pub fn header<T>(name: &'static str) -> Extract<T> {
     Extract {
@@ -26,9 +27,9 @@ pub struct Exact {
 impl Filter for Exact {
     type Extract = ();
 
-    fn filter(&self, input: &mut Request) -> Option<()> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
         trace!("header::Exact({:?}, {:?})", self.name, self.value);
-        input.headers()
+        route.headers()
             .get(self.name)
             .and_then(|val| {
                 if val == self.value {
@@ -37,6 +38,7 @@ impl Filter for Exact {
                     None
                 }
             })
+            .map(|()| (route, ()))
     }
 }
 
@@ -51,9 +53,9 @@ where
 {
     type Extract = T;
 
-    fn filter(&self, input: &mut Request) -> Option<T> {
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, T)> {
         trace!("header::Extract({:?})", self.name);
-        input.headers()
+        route.headers()
             .get(self.name)
             .and_then(|val| {
                 val.to_str().ok()
@@ -61,5 +63,6 @@ where
             .and_then(|s| {
                 T::from_str(s).ok()
             })
+            .map(|val| (route, val))
     }
 }

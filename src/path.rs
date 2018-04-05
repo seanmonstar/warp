@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use http::Uri;
+//use http::Uri;
 
 use ::filter::{Filter};
-use ::Request;
+use ::route::Route;
 
 pub fn path<T>() -> Extract<T> {
     Extract {
@@ -13,6 +13,8 @@ pub fn path<T>() -> Extract<T> {
 }
 
 pub fn exact(p: &'static str) -> Const {
+    assert!(!p.is_empty(), "exact path segments should not be empty");
+    assert!(!p.contains('/'), "exact path segments should not contain a slash: {:?}", p);
     Const {
         p,
     }
@@ -39,48 +41,26 @@ where
 {
     type Extract = T;
 
-    fn filter(&self, input: &mut Request) -> Option<T> {
-        trace!("filter::Extract: {:?}", input.uri().path());
-        let mut path_segs = input.uri().path().split('/');
-        if let Some(seg) = path_segs.next() {
-            // Should hopefully be empty
-            debug_assert!(seg.is_empty());
-        }
-        path_segs.next()
-            .and_then(|seg| {
-                T::from_str(seg).ok()
-            })
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, T)> {
+        //trace!("filter::Extract: {:?}", route.segment());
+        route.filter_segment(|seg| {
+            T::from_str(seg).ok()
+        })
     }
 }
 
 impl Filter for Const {
     type Extract = ();
 
-    fn filter(&self, input: &mut Request) -> Option<()> {
-        trace!("filter::Const({:?}): {:?}", self.p, input.uri().path());
-        if input.uri().path().contains(self.p) {
-            *input.uri_mut() = {
-                if self.p.len() == input.uri().path().len() {
-                    Uri::default()
-                } else {
-                    Uri::from_str(&input.uri().path()[self.p.len()..])
-                        .expect("unimplemented")
-                }
-            };
-            Some(())
-        } else {
-            None
-        }
-    }
-}
-
-impl Filter for &'static str {
-    type Extract = ();
-
-    fn filter(&self, input: &mut Request) -> Option<()> {
-        Const {
-            p: self,
-        }.filter(input)
+    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
+        //trace!("filter::Const({:?}): {:?}", self.p, route.segment());
+        route.filter_segment(|seg| {
+            if seg == self.p {
+                Some(())
+            } else {
+                None
+            }
+        })
     }
 }
 

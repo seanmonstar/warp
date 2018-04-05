@@ -1,6 +1,7 @@
 use ::{Filter, Request};
 use ::filter::Either;
 use ::reply::{Reply};
+use ::route::Route;
 use ::server::{WarpService};
 
 #[derive(Debug)]
@@ -17,10 +18,17 @@ where
 {
     type Reply = Either<F::Extract, N::Reply>;
 
-    fn call(&self, mut req: Request) -> Self::Reply {
+    fn call(&self,  req: Request) -> Self::Reply {
         self.filter
-            .filter(&mut req)
-            .map(Either::A)
+            .filter(Route::new(&req))
+            .and_then(|(route, reply)| {
+                if !route.has_more_segments() {
+                    Some(Either::A(reply))
+                } else {
+                    trace!("unmatched segments remain in route");
+                    None
+                }
+            })
             .unwrap_or_else(|| {
                 Either::B(self.not_found.call(req))
             })

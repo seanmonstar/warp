@@ -9,7 +9,7 @@ fn main() {
     //let index = warp::path::index();
 
     // A common prefix, /hello
-    let prefix = warp::path::exact("/hello");
+    let prefix = warp::path::exact("hello");
 
     // extract /:name
     let name = warp::path::<String>()
@@ -25,9 +25,9 @@ fn main() {
     // - /hello/:name
     let hello = prefix.unit_and(num.or(name));
 
-    let bye = warp::path::exact("/good")
+    let bye = warp::path::exact("good")
         // With impl specialization, unit_add won't be needed.
-        .unit_and(warp::path::exact("/bye"))
+        .unit_and(warp::path::exact("bye"))
         .unit_and(warp::path::<String>())
         .map(|name| format!("Good bye, {}!", name));
 

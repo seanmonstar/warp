@@ -1,12 +1,13 @@
 use std::net::SocketAddr;
 
 use futures::Future;
-use http::{Request};
+use http;
 //use hyper::server::Service;
 use hyper::Body;
 use hyper::server::{Http, const_service, service_fn};
 
 use ::reply::{NotFound, Reply, Response, WarpBody};
+use ::Request;
 
 pub fn serve<S>(service: S) -> Server<S>
 where
@@ -31,7 +32,7 @@ where
     {
         let inner = self.service.into_warp_service();
         let service = const_service(service_fn(move |req: ::hyper::Request<Body>| {
-            let req: Request<Body> = req.into();
+            let req: http::Request<Body> = req.into();
             inner.call(req.map(WarpBody))
                 .into_response()
                 .map(|res: Response| {
@@ -57,7 +58,7 @@ pub trait IntoWarpService {
 
 pub trait WarpService {
     type Reply: Reply;
-    fn call(&self, req: Request<WarpBody>) -> Self::Reply;
+    fn call(&self, req: Request) -> Self::Reply;
 }
 
 impl<T> IntoWarpService for T
@@ -77,7 +78,7 @@ where
 {
     type Reply = Response;
 
-    fn call(&self, _: Request<WarpBody>) -> Self::Reply {
+    fn call(&self, _: Request) -> Self::Reply {
         (*self)().into()
     }
 }
@@ -85,7 +86,7 @@ where
 impl WarpService for NotFound {
     type Reply = NotFound;
 
-    fn call(&self, _: Request<WarpBody>) -> Self::Reply {
+    fn call(&self, _: Request) -> Self::Reply {
         *self
     }
 }

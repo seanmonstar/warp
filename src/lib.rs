@@ -11,7 +11,9 @@ pub mod header;
 mod method;
 pub mod path;
 mod reply;
+mod route;
 mod server;
+pub mod test;
 
 pub use self::blocking::{blocking, blocking_new};
 pub use self::filter::Filter;

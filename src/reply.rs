@@ -57,7 +57,7 @@ pub trait Reply {
     fn into_response(self) -> Self::Future;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WarpBody(pub(crate) Body);
 
 impl Reply for Response {
