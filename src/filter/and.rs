@@ -1,5 +1,5 @@
 use ::route::Route;
-use super::Filter;
+use super::{Filter, FilterAnd};
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {
@@ -21,7 +21,7 @@ pub struct AndUnit<T, U> {
 
 impl<T, U> Filter for And<T, U>
 where
-    T: Filter,
+    T: FilterAnd,
     U: Filter,
 {
     type Extract = (T::Extract, U::Extract);
@@ -37,9 +37,11 @@ where
     }
 }
 
+impl<T: FilterAnd, U: FilterAnd> FilterAnd for And<T, U> {}
+
 impl<T, U> Filter for UnitAnd<T, U>
 where
-    T: Filter<Extract=()>,
+    T: FilterAnd<Extract=()>,
     U: Filter,
 {
     type Extract = U::Extract;
@@ -54,9 +56,11 @@ where
     }
 }
 
+impl<T: FilterAnd<Extract=()>, U: FilterAnd> FilterAnd for UnitAnd<T, U> {}
+
 impl<T, U> Filter for AndUnit<T, U>
 where
-    T: Filter,
+    T: FilterAnd,
     U: Filter<Extract=()>,
 {
     type Extract = T::Extract;
@@ -71,4 +75,6 @@ where
             })
     }
 }
+
+impl<T: FilterAnd, U: FilterAnd<Extract=()>> FilterAnd for AndUnit<T, U> {}
 

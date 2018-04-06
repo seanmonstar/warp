@@ -22,7 +22,7 @@ impl RequestBuilder {
         self
     }
 
-    pub fn route(&self) -> Route {
-        Route::new(&self.req)
+    pub fn route(&mut self) -> Route {
+        Route::new(&mut self.req)
     }
 }

@@ -1,3 +1,5 @@
+use std::mem;
+
 use futures::{future, Future};
 use http;
 use hyper::Body;
@@ -24,7 +26,7 @@ impl From<&'static str> for Response {
     fn from(s: &'static str) -> Response {
         http::Response::builder()
             .header("content-length", &*s.len().to_string())
-            .body(WarpBody(Body::from(s)))
+            .body(WarpBody::wrap(Body::from(s)))
             .unwrap()
             .into()
     }
@@ -34,7 +36,7 @@ impl From<String> for Response {
     fn from(s: String) -> Response {
         http::Response::builder()
             .header("content-length", &*s.len().to_string())
-            .body(WarpBody(Body::from(s)))
+            .body(WarpBody::wrap(Body::from(s)))
             .unwrap()
             .into()
     }
@@ -58,7 +60,35 @@ pub trait Reply {
 }
 
 #[derive(Debug, Default)]
-pub struct WarpBody(pub(crate) Body);
+pub struct WarpBody{
+    body: Body,
+    #[cfg(debug_assertions)]
+    route_taken: bool,
+}
+
+impl WarpBody {
+    pub(crate) fn wrap(body: Body) -> Self {
+        WarpBody {
+            body,
+            #[cfg(debug_assertions)]
+            route_taken: false,
+        }
+    }
+
+    pub(crate) fn unwrap(self) -> Body {
+        self.body
+    }
+
+    pub(crate) fn route_take(&mut self) -> Self {
+        debug_assert!(!self.route_taken);
+        #[cfg(debug_assertions)]
+        {
+            self.route_taken = true;
+        }
+
+        WarpBody::wrap(mem::replace(&mut self.body, Body::empty()))
+    }
+}
 
 impl Reply for Response {
     type Future = future::FutureResult<Response, !>;
@@ -98,8 +128,41 @@ impl Reply for NotFound {
             Response(http::Response::builder()
                 .status(404)
                 .header("content-length", "0")
-                .body(WarpBody(Body::empty()))
+                .body(WarpBody::wrap(Body::empty()))
                 .unwrap())
                 .into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn body_route_take() {
+        let mut body = WarpBody::wrap(Body::from("test"));
+        // A new body has not been taken yet.
+        assert!(!body.route_taken);
+        // The body has the string 'test'
+        assert!(!body.body.is_empty());
+
+        let taken = body.route_take();
+        // The taken body itself isn't taken from.
+        assert!(!taken.route_taken);
+        // The taken body has the 'test' body
+        assert!(!taken.body.is_empty());
+
+        // The first body knows it's been taken.
+        assert!(body.route_taken);
+        assert!(body.body.is_empty());
+    }
+
+    #[test]
+    #[should_panic]
+    fn body_route_take_twice() {
+        let mut body = WarpBody::wrap(Body::from("test"));
+        let _b1 = body.route_take();
+        let _oh_noes = body.route_take();
+    }
+}
+

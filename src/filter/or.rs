@@ -1,5 +1,5 @@
 use ::route::Route;
-use super::Filter;
+use super::{Filter, FilterAnd};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -21,14 +21,19 @@ where
     type Extract = Either<T::Extract, U::Extract>;
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
-        self.first
-            .filter(route.clone())
-            .map(|(route, ex)| (route, Either::A(ex)))
-            .or_else(|| {
-                self.second
-                    .filter(route)
-                    .map(|(route, ex)| (route, Either::B(ex)))
-            })
+        let (route, opt) = route.scoped(|route| {
+            self.first
+                .filter(route)
+        });
+        if let Some(ex) = opt {
+            Some((route, Either::A(ex)))
+        } else {
+            self.second
+                .filter(route)
+                .map(|(route, ex)| (route, Either::B(ex)))
+        }
     }
 }
+
+impl<T: FilterAnd, U: FilterAnd> FilterAnd for Or<T, U> {}
 

@@ -20,7 +20,7 @@ pub trait Filter {
 
     fn and<F>(self, other: F) -> And<Self, F>
     where
-        Self: Sized,
+        Self: FilterAnd + Sized,
         F: Filter,
     {
         And {
@@ -31,7 +31,7 @@ pub trait Filter {
 
     fn unit_and<F>(self, other: F) -> UnitAnd<Self, F>
     where
-        Self: Filter<Extract=()> + Sized,
+        Self: Filter<Extract=()> + FilterAnd + Sized,
         F: Filter,
     {
         UnitAnd {
@@ -42,7 +42,7 @@ pub trait Filter {
 
     fn and_unit<F>(self, other: F) -> AndUnit<Self, F>
     where
-        Self: Sized,
+        Self: FilterAnd + Sized,
         F: Filter<Extract=()>,
     {
         AndUnit {
@@ -94,3 +94,4 @@ pub trait Filter {
     }
 }
 
+pub trait FilterAnd: Filter {}

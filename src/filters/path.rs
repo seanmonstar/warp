@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-//use http::Uri;
-
-use ::filter::{Filter};
+use ::filter::{Filter, FilterAnd};
 use ::route::Route;
 
 pub fn path<T>() -> Extract<T> {
@@ -49,6 +47,8 @@ where
     }
 }
 
+impl<T: FromStr> FilterAnd for Extract<T> {}
+
 impl Filter for Const {
     type Extract = ();
 
@@ -63,6 +63,8 @@ impl Filter for Const {
         })
     }
 }
+
+impl FilterAnd for Const {}
 
 // Silly operator overloads...
 //

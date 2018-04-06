@@ -1,5 +1,5 @@
 use ::route::Route;
-use super::Filter;
+use super::{Filter, FilterAnd};
 
 pub struct Map<T, F> {
     pub(super) filter: T,
@@ -18,3 +18,5 @@ where
             .map(|(route, ex)| (route, (self.callback)(ex)))
     }
 }
+
+impl<T: FilterAnd, F: Fn(T::Extract) -> U, U> FilterAnd for Map<T, F> {}

@@ -7,9 +7,7 @@ extern crate hyper;
 
 mod blocking;
 mod filter;
-pub mod header;
-mod method;
-pub mod path;
+mod filters;
 mod reply;
 mod route;
 mod server;
@@ -17,9 +15,16 @@ pub mod test;
 
 pub use self::blocking::{blocking, blocking_new};
 pub use self::filter::Filter;
-pub use self::header::header;
-pub use self::method::{get, post, put, delete};
-pub use self::path::{path};
+pub use self::filters::{
+    body,
+    header,
+    path,
+    // header() function
+    header::header,
+    method::{get, post, put, delete},
+    // path() function
+    path::path,
+};
 pub use self::reply::reply;
 pub use self::server::{serve, Server};
 

@@ -33,10 +33,10 @@ where
         let inner = self.service.into_warp_service();
         let service = const_service(service_fn(move |req: ::hyper::Request<Body>| {
             let req: http::Request<Body> = req.into();
-            inner.call(req.map(WarpBody))
+            inner.call(req.map(WarpBody::wrap))
                 .into_response()
                 .map(|res: Response| {
-                    let res: ::hyper::Response<Body> = res.0.map(|w| w.0).into();
+                    let res: ::hyper::Response<Body> = res.0.map(WarpBody::unwrap).into();
                     res
                 })
                 .map_err(|x: !| -> ::hyper::Error { x })

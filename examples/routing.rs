@@ -23,6 +23,10 @@ fn main() {
     //
     // - /hello/:num
     // - /hello/:name
+    //
+    // `unit_and` toss the `()` from `prefix`, and just keeps the value
+    // from the other filter. With trait specialization, it should be
+    // possible to make `and` specialized over types returning `()`.
     let hello = prefix.unit_and(num.or(name));
 
     let bye = warp::path::exact("good")

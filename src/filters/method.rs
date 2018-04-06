@@ -1,6 +1,6 @@
 use http;
 
-use ::filter::Filter;
+use ::filter::{Filter, FilterAnd};
 use ::route::Route;
 
 pub fn get<F: Filter>(filter: F) -> Method<F> {
@@ -46,3 +46,4 @@ impl<F: Filter> Filter for Method<F> {
     }
 }
 
+impl<F: FilterAnd> FilterAnd for Method<F> {}
