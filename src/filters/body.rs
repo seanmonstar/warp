@@ -67,12 +67,12 @@ impl Future for ConcatFut {
 }
 
 pub struct Json<T> {
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 pub struct JsonFut<T> {
     concat: ConcatFut,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T> Filter for Json<T> {

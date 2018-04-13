@@ -25,7 +25,7 @@ pub fn index() -> Const {
 }
 
 pub struct Extract<T> {
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 #[derive(Clone, Copy, Debug)]

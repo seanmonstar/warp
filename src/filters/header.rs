@@ -46,7 +46,7 @@ impl FilterAnd for Exact {}
 
 pub struct Extract<T> {
     name: &'static str,
-    _marker: PhantomData<T>,
+    _marker: PhantomData<fn() -> T>,
 }
 
 impl<T> Filter for Extract<T>
