@@ -98,6 +98,12 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let buf = try_ready!(self.concat.poll());
-        Ok(Async::Ready(serde_json::from_slice(&buf).unwrap()))
+        match serde_json::from_slice(&buf) {
+            Ok(val) => Ok(Async::Ready(val)),
+            Err(err) => {
+                trace!("request json body error: {}", err);
+                Err(Error(()))
+            }
+        }
     }
 }

@@ -2,7 +2,10 @@ use std::mem;
 
 use futures::{future, Future};
 use http;
+use http::header::{CONTENT_TYPE, HeaderValue};
 use hyper::Body;
+use serde::Serialize;
+use serde_json;
 
 use ::filter::Either;
 
@@ -13,8 +16,42 @@ where
     Response::from(val)
 }
 
+pub fn client_error() -> Response {
+    http::Response::builder()
+        .status(400)
+        .header("content-length", "0")
+        .body(WarpBody::wrap(Body::empty()))
+        .unwrap()
+        .into()
+}
+
+pub fn json<T>(val: T) -> Response
+where
+    T: Serialize,
+{
+    match serde_json::to_string(&val) {
+        Ok(s) => {
+            let mut res = reply(s);
+            res.0.headers_mut().insert(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/json")
+            );
+            res
+        },
+        Err(e) => {
+            debug!("reply::json error: {}", e);
+            http::Response::builder()
+                .status(500)
+                .header("content-length", "0")
+                .body(WarpBody::wrap(Body::empty()))
+                .unwrap()
+                .into()
+        }
+    }
+}
+
 #[derive(Debug)]
-pub struct Response(pub (crate) http::Response<WarpBody>);
+pub struct Response(pub(crate) http::Response<WarpBody>);
 
 impl From<http::Response<WarpBody>> for Response {
     fn from(http: http::Response<WarpBody>) -> Response {
@@ -120,7 +157,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct NotFound(());
 
-pub const NOT_FOUND: NotFound = NotFound(());
+pub(crate) const NOT_FOUND: NotFound = NotFound(());
 
 impl Reply for NotFound {
     type Future = future::FutureResult<Response, !>;

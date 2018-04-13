@@ -10,7 +10,7 @@ mod blocking;
 mod error;
 mod filter;
 mod filters;
-mod reply;
+pub mod reply;
 mod route;
 mod server;
 pub mod test;
@@ -30,5 +30,7 @@ pub use self::filters::{
 };
 pub use self::reply::reply;
 pub use self::server::{serve, Server};
+
+pub use futures::Future;
 
 pub type Request = http::Request<self::reply::WarpBody>;
