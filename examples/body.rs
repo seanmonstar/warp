@@ -29,6 +29,6 @@ fn main() {
     // POST /employees/:rate  {"name":"Sean","rate":2}
     let routes = warp::post(promote);
 
-    warp::serve(routes.service())
+    warp::serve(routes)
         .run(([127, 0, 0, 1], 3030));
 }

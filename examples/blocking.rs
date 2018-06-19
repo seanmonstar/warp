@@ -21,6 +21,6 @@ fn main() {
             //.map_async(warp::reply)
     );
 
-    warp::serve(routes.service())
+    warp::serve(routes)
         .run(([127, 0, 0, 1], 3030));
 }

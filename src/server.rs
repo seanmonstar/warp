@@ -63,6 +63,7 @@ pub trait WarpService {
     fn call(&self, req: Request) -> Self::Reply;
 }
 
+/*
 impl<T> IntoWarpService for T
 where
     T: WarpService + Send + Sync + 'static,
@@ -73,17 +74,7 @@ where
         self
     }
 }
-
-impl<T> WarpService for T
-where
-    T: Fn() -> &'static str,
-{
-    type Reply = Response;
-
-    fn call(&self, _: Request) -> Self::Reply {
-        (*self)().into()
-    }
-}
+*/
 
 impl WarpService for NotFound {
     type Reply = NotFound;

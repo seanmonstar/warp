@@ -1,8 +1,8 @@
 use ::{Filter, Request};
 use ::filter::Either;
-use ::reply::{Reply};
+use ::reply::{NOT_FOUND, NotFound, Reply};
 use ::route::Route;
-use ::server::{WarpService};
+use ::server::{IntoWarpService, WarpService};
 
 #[derive(Debug)]
 pub struct FilteredService<F, N> {
@@ -35,3 +35,27 @@ where
     }
 }
 
+impl<F, N> IntoWarpService for FilteredService<F, N>
+where
+    F: Filter + Send + Sync + 'static,
+    F::Extract: Reply,
+    N: WarpService + Send + Sync + 'static,
+{
+    type Service = FilteredService<F, N>;
+
+    fn into_warp_service(self) -> Self::Service {
+        self
+    }
+}
+
+impl<T> IntoWarpService for T
+where
+    T: Filter + Send + Sync + 'static,
+    T::Extract: Reply,
+{
+    type Service = FilteredService<T, NotFound>;
+
+    fn into_warp_service(self) -> Self::Service {
+        self.service_with_not_found(NOT_FOUND)
+    }
+}

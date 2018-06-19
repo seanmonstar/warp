@@ -1,4 +1,4 @@
-use ::reply::{NOT_FOUND, NotFound, Reply};
+use ::reply::Reply;
 use ::route::Route;
 use ::server::WarpService;
 
@@ -71,14 +71,6 @@ pub trait Filter {
             filter: self,
             callback: fun,
         }
-    }
-
-    fn service(self) -> FilteredService<Self, NotFound>
-    where
-        Self: Sized,
-        Self::Extract: Reply,
-    {
-        self.service_with_not_found(NOT_FOUND)
     }
 
     fn service_with_not_found<N>(self, not_found: N) -> FilteredService<Self, N>
