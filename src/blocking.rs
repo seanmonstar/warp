@@ -4,6 +4,8 @@ use crossbeam_channel as crossbeam;
 use futures::{Future, Poll};
 use futures::sync::oneshot;
 
+use ::never::Never;
+
 pub fn blocking<F, A, R>(threads: usize, blocker: F) -> impl Fn(A) -> Blocking<R>
 where
     F: Fn(A) -> R + Clone + Send + 'static,
@@ -51,7 +53,7 @@ pub struct Blocking<T> {
 
 impl<T> Future for Blocking<T> {
     type Item = T;
-    type Error = !;
+    type Error = Never;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.i.poll().map_err(|_| panic!("pool is gone"))

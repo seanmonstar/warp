@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use futures::Future;
 use http;
-//use hyper::server::Service;
-use hyper::Body;
-use hyper::server::{Http, const_service, service_fn};
+use hyper::{rt, Body, Server as HyperServer};
+use hyper::service::{service_fn};
 
+use ::never::Never;
 use ::reply::{NotFound, Reply, Response, WarpBody};
 use ::Request;
 
@@ -30,29 +31,30 @@ where
     where
         A: Into<SocketAddr>,
     {
-        let inner = self.service.into_warp_service();
-        let service = const_service(service_fn(move |req: ::hyper::Request<Body>| {
-            let req: http::Request<Body> = req.into();
-            inner.call(req.map(WarpBody::wrap))
-                .into_response()
-                .map(|res: Response| {
-                    let res: ::hyper::Response<Body> = res.0.map(WarpBody::unwrap).into();
-                    res
-                })
-                .map_err(|x: !| -> ::hyper::Error { x })
-        }));
-        let srv = Http::new()
-            .bind(&addr.into(), service)
-            .expect("error binding to address");
-        info!("warp drive engaged: listening on {}", srv.local_addr().unwrap());
+        let inner = Arc::new(self.service.into_warp_service());
+        let service = move || {
+            let inner = inner.clone();
+            service_fn(move |req: ::hyper::Request<Body>| {
+                let req: http::Request<Body> = req.into();
+                inner.call(req.map(WarpBody::wrap))
+                    .into_response()
+                    .map(|res: Response| {
+                        let res: ::hyper::Response<Body> = res.0.map(WarpBody::unwrap).into();
+                        res
+                    })
+                    .map_err(|x: Never| -> ::hyper::Error { match x {} })
+            })
+        };
+        let srv = HyperServer::bind(&addr.into())
+            .serve(service);
+        info!("warp drive engaged: listening on {}", srv.local_addr());
 
-        srv.run()
-            .expect("error running server");
+        rt::run(srv.map_err(|e| error!("server error: {}", e)));
     }
 }
 
 pub trait IntoWarpService {
-    type Service: WarpService;
+    type Service: WarpService + Send + Sync + 'static;
     fn into_warp_service(self) -> Self::Service;
 }
 
@@ -63,7 +65,7 @@ pub trait WarpService {
 
 impl<T> IntoWarpService for T
 where
-    T: WarpService,
+    T: WarpService + Send + Sync + 'static,
 {
     type Service = T;
 

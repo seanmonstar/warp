@@ -8,6 +8,7 @@ use serde::Serialize;
 use serde_json;
 
 use ::filter::Either;
+use ::never::Never;
 
 pub fn reply<T>(val: T) -> Response
 where
@@ -92,7 +93,7 @@ where
 }
 
 pub trait Reply {
-    type Future: Future<Item=Response, Error=!>;
+    type Future: Future<Item=Response, Error=Never> + Send + 'static;
     fn into_response(self) -> Self::Future;
 }
 
@@ -128,7 +129,7 @@ impl WarpBody {
 }
 
 impl Reply for Response {
-    type Future = future::FutureResult<Response, !>;
+    type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {
         future::ok(self)
     }
@@ -146,7 +147,7 @@ impl<T: Reply, U: Reply> Reply for Either<T, U> {
 
 impl<T> Reply for T
 where
-    T: Future<Item=Response, Error=!>,
+    T: Future<Item=Response, Error=Never> + Send + 'static,
 {
     type Future = T;
     fn into_response(self) -> Self::Future {
@@ -160,7 +161,7 @@ pub struct NotFound(());
 pub(crate) const NOT_FOUND: NotFound = NotFound(());
 
 impl Reply for NotFound {
-    type Future = future::FutureResult<Response, !>;
+    type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {
             Response(http::Response::builder()
                 .status(404)
@@ -174,6 +175,7 @@ impl Reply for NotFound {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use hyper::body::Payload;
 
     #[test]
     fn body_route_take() {
@@ -181,17 +183,17 @@ mod tests {
         // A new body has not been taken yet.
         assert!(!body.route_taken);
         // The body has the string 'test'
-        assert!(!body.body.is_empty());
+        assert!(!body.body.is_end_stream());
 
         let taken = body.route_take();
         // The taken body itself isn't taken from.
         assert!(!taken.route_taken);
         // The taken body has the 'test' body
-        assert!(!taken.body.is_empty());
+        assert!(!taken.body.is_end_stream());
 
         // The first body knows it's been taken.
         assert!(body.route_taken);
-        assert!(body.body.is_empty());
+        assert!(body.body.is_end_stream());
     }
 
     #[test]
