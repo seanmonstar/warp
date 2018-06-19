@@ -1,5 +1,6 @@
 use http::Request;
 
+use ::filter::Filter;
 use ::reply::WarpBody;
 use ::route::Route;
 
@@ -22,7 +23,18 @@ impl RequestBuilder {
         self
     }
 
-    pub fn route(&mut self) -> Route {
-        Route::new(&mut self.req)
+    pub fn filter<F>(mut self, f: F) -> Option<F::Extract>
+    where
+        F: Filter,
+    {
+        f.filter(Route::new(&mut self.req))
+            .map(|(_, e)| e)
+    }
+
+    pub fn matches<F>(mut self, f: F) -> bool
+    where
+        F: Filter,
+    {
+        f.filter(Route::new(&mut self.req)).is_some()
     }
 }

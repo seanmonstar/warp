@@ -20,7 +20,7 @@ use hyper::{Body, Chunk};
 use serde::de::DeserializeOwned;
 use serde_json;
 
-use ::filter::Filter;
+use ::filter::FilterBase;
 use ::route::Route;
 use ::Error;
 
@@ -45,7 +45,7 @@ pub struct ConcatFut {
     fut: Concat2<Body>,
 }
 
-impl Filter for Concat {
+impl FilterBase for Concat {
     type Extract = ConcatFut;
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
@@ -78,7 +78,7 @@ pub struct JsonFut<T> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T> Filter for Json<T> {
+impl<T> FilterBase for Json<T> {
     type Extract = JsonFut<T>;
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {

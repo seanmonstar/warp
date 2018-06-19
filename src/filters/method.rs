@@ -1,6 +1,6 @@
 use http;
 
-use ::filter::{Filter, FilterAnd};
+use ::filter::{FilterBase, Filter, FilterAnd};
 use ::route::Route;
 
 pub fn get<F: Filter>(filter: F) -> Method<F> {
@@ -33,7 +33,7 @@ impl<F: Filter> Method<F> {
     }
 }
 
-impl<F: Filter> Filter for Method<F> {
+impl<F: Filter> FilterBase for Method<F> {
     type Extract = F::Extract;
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, F::Extract)> {

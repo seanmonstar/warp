@@ -26,19 +26,11 @@ impl<'a> Route<'a> {
         }
     }
 
-    pub fn method(&self) -> &http::Method {
+    pub(crate) fn method(&self) -> &http::Method {
         self.req.method()
     }
 
-    pub fn uri_mut(&mut self) -> &mut http::Uri {
-        self.req.uri_mut()
-    }
-
-    pub fn uri(&self) -> &http::Uri {
-        self.req.uri()
-    }
-
-    pub fn headers(&self) -> &http::HeaderMap {
+    pub(crate) fn headers(&self) -> &http::HeaderMap {
         self.req.headers()
     }
 

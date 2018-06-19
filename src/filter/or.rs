@@ -1,5 +1,5 @@
 use ::route::Route;
-use super::{Filter, FilterAnd};
+use super::{FilterBase, Filter, FilterAnd};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -13,7 +13,7 @@ pub enum Either<T, U> {
     B(U),
 }
 
-impl<T, U> Filter for Or<T, U>
+impl<T, U> FilterBase for Or<T, U>
 where
     T: Filter,
     U: Filter,

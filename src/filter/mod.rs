@@ -12,12 +12,38 @@ use self::map::Map;
 pub(crate) use self::or::{Either, Or};
 use self::service::FilteredService;
 
-pub trait Filter {
-
+// A crate-private base trait, allowing the actual `filter` method to change
+// signatures without it being a breaking change.
+pub trait FilterBase {
     type Extract;
 
     fn filter<'a>(&self, input: Route<'a>) -> Option<(Route<'a>, Self::Extract)>;
+}
 
+impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
+    type Extract = T::Extract;
+
+    fn filter<'f>(&self, input: Route<'f>) -> Option<(Route<'f>, Self::Extract)> {
+        (**self).filter(input)
+    }
+}
+
+/// This just makes use of rustdoc's ability to make compile_fail tests.
+/// This is specifically testing to make sure `Filter::filter` isn't
+/// able to be called from outside the crate (since rustdoc tests are
+/// compiled as new crates).
+///
+/// ```compile_fail
+/// use warp::Filter;
+///
+/// let any = warp::any();
+/// let closure = |route| {
+///     any.filter(route)
+/// };
+/// ```
+pub fn __warp_filter_compilefail_doctest() {}
+
+pub trait Filter: FilterBase {
     fn and<F>(self, other: F) -> And<Self, F>
     where
         Self: FilterAnd + Sized,
@@ -86,5 +112,10 @@ pub trait Filter {
     }
 }
 
+impl<T: FilterBase> Filter for T {}
+
 pub trait FilterAnd: Filter {}
 
+fn _assert_object_safe() {
+    fn _assert(_f: &Filter<Extract=()>) {}
+}

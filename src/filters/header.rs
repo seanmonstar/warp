@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use ::filter::{Filter, FilterAnd};
+use ::filter::{FilterBase, FilterAnd};
 use ::route::Route;
 
 pub fn header<T>(name: &'static str) -> Extract<T> {
@@ -24,7 +24,7 @@ pub struct Exact {
     value: &'static str,
 }
 
-impl Filter for Exact {
+impl FilterBase for Exact {
     type Extract = ();
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
@@ -49,7 +49,7 @@ pub struct Extract<T> {
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T> Filter for Extract<T>
+impl<T> FilterBase for Extract<T>
 where
     T: FromStr,
 {

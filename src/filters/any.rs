@@ -1,4 +1,4 @@
-use ::filter::{Filter, FilterAnd};
+use ::filter::{FilterBase, FilterAnd};
 use ::route::Route;
 
 /// A filter that matches any route.
@@ -13,7 +13,7 @@ pub struct Any {
     _inner: (),
 }
 
-impl Filter for Any {
+impl FilterBase for Any {
     type Extract = ();
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {

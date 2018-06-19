@@ -1,12 +1,12 @@
 use ::route::Route;
-use super::{Filter, FilterAnd};
+use super::{FilterBase, Filter, FilterAnd};
 
 pub struct Map<T, F> {
     pub(super) filter: T,
     pub(super) callback: F,
 }
 
-impl<T, F, U> Filter for Map<T, F>
+impl<T, F, U> FilterBase for Map<T, F>
 where
     T: Filter,
     F: Fn(T::Extract) -> U,

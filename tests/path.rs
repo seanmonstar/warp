@@ -9,43 +9,51 @@ fn exact() {
     let foo_bar = foo.unit_and(bar);
 
     // /foo
-    let mut req = warp::test::request()
-        .path("/foo");
+    let foo_req = || {
+        warp::test::request()
+            .path("/foo")
+    };
 
-    assert!(foo.filter(req.route()).is_some());
-    assert!(bar.filter(req.route()).is_none());
-    assert!(foo_bar.filter(req.route()).is_none());
+    assert!(foo_req().matches(&foo));
+    assert!(!foo_req().matches(&bar));
+    assert!(!foo_req().matches(&foo_bar));
+
 
     // /foo/bar
-    let mut req = warp::test::request()
-        .path("/foo/bar");
+    let foo_bar_req = || {
+        warp::test::request()
+            .path("/foo/bar")
+    };
 
-    assert!(foo.filter(req.route()).is_some());
-    assert!(bar.filter(req.route()).is_none());
-    assert!(foo_bar.filter(req.route()).is_some());
+    assert!(foo_bar_req().matches(&foo));
+    assert!(!foo_bar_req().matches(&bar));
+    assert!(foo_bar_req().matches(&foo_bar));
 }
 
 #[test]
 fn extract() {
     let num = warp::path::<u32>();
 
-    let mut req = warp::test::request()
+    let req = warp::test::request()
         .path("/321");
-    assert_eq!(num.filter(req.route()).unwrap().1, 321);
+    assert_eq!(req.filter(num), Some(321));
 
     let s = warp::path::<String>();
 
-    let mut req = warp::test::request()
+    let req = warp::test::request()
         .path("/warp");
-    assert_eq!(s.filter(req.route()).unwrap().1, "warp");
+    assert_eq!(req.filter(s).unwrap(), "warp");
+
     // u32 doesn't extract a non-int
-    assert!(num.filter(req.route()).is_none());
+    let req = warp::test::request()
+        .path("/warp");
+    assert_eq!(req.filter(num), None);
 
     let combo = num.map(|n| n + 5).and(s);
 
-    let mut req = warp::test::request()
+    let req = warp::test::request()
         .path("/42/vroom");
-    assert_eq!(combo.filter(req.route()).unwrap().1, (47, "vroom".to_string()));
+    assert_eq!(req.filter(combo), Some((47, "vroom".to_string())));
 }
 
 #[test]
@@ -57,14 +65,14 @@ fn or() {
     let p = foo.and(bar.or(baz));
 
     // /foo/bar
-    let mut req = warp::test::request()
+    let req = warp::test::request()
         .path("/foo/bar");
 
-    assert!(p.filter(req.route()).is_some());
+    assert!(req.matches(p));
 
     // /foo/baz
-    let mut req = warp::test::request()
+    let req = warp::test::request()
         .path("/foo/baz");
 
-    assert!(p.filter(req.route()).is_some());
+    assert!(req.matches(p));
 }

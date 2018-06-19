@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-use ::filter::{Filter, FilterAnd};
+use ::filter::{FilterBase, FilterAnd};
 use ::route::Route;
 
 pub fn path<T>() -> Extract<T> {
@@ -28,12 +28,20 @@ pub struct Extract<T> {
     _marker: PhantomData<fn() -> T>,
 }
 
+impl<T> Clone for Extract<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for Extract<T> {}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Const {
     p: &'static str,
 }
 
-impl<T> Filter for Extract<T>
+impl<T> FilterBase for Extract<T>
 where
     T: FromStr,
 {
@@ -49,7 +57,7 @@ where
 
 impl<T: FromStr> FilterAnd for Extract<T> {}
 
-impl Filter for Const {
+impl FilterBase for Const {
     type Extract = ();
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
