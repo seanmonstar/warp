@@ -23,7 +23,7 @@ fn main() {
                 employee.rate = rate;
                 warp::reply::json(employee)
             })
-            .or_else(|_| Ok(warp::reply::client_error()))
+            .or_else(|_| warp::reply::client_error())
         });
 
     // POST /employees/:rate  {"name":"Sean","rate":2}

@@ -40,8 +40,8 @@ where
     type Extract = T;
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, T)> {
-        //trace!("filter::Extract: {:?}", route.segment());
         route.filter_segment(|seg| {
+            trace!("extract?: {:?}", seg);
             T::from_str(seg).ok()
         })
     }
@@ -53,8 +53,8 @@ impl Filter for Const {
     type Extract = ();
 
     fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
-        //trace!("filter::Const({:?}): {:?}", self.p, route.segment());
         route.filter_segment(|seg| {
+            trace!("({:?})?: {:?}", self.p, seg);
             if seg == self.p {
                 Some(())
             } else {

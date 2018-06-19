@@ -62,7 +62,10 @@ impl Future for ConcatFut {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.fut.poll()
-            .map_err(|e| unimplemented!("concat error: {}", e))
+            .map_err(|e| {
+                debug!("concat error: {}", e);
+                Error(())
+            })
     }
 }
 
@@ -101,7 +104,7 @@ where
         match serde_json::from_slice(&buf) {
             Ok(val) => Ok(Async::Ready(val)),
             Err(err) => {
-                trace!("request json body error: {}", err);
+                debug!("request json body error: {}", err);
                 Err(Error(()))
             }
         }

@@ -1,6 +1,6 @@
 use std::mem;
 
-use futures::{future, Future};
+use futures::{future, Future, IntoFuture};
 use http;
 use http::header::{CONTENT_TYPE, HeaderValue};
 use hyper::Body;
@@ -98,7 +98,7 @@ pub trait Reply {
 }
 
 #[derive(Debug, Default)]
-pub struct WarpBody{
+pub struct WarpBody {
     body: Body,
     #[cfg(debug_assertions)]
     route_taken: bool,
@@ -135,6 +135,15 @@ impl Reply for Response {
     }
 }
 
+impl IntoFuture for Response {
+    type Item = Response;
+    type Error = Never;
+    type Future = future::FutureResult<Response, Never>;
+    fn into_future(self) -> Self::Future {
+        future::ok(self)
+    }
+}
+
 impl<T: Reply, U: Reply> Reply for Either<T, U> {
     type Future = future::Either<T::Future, U::Future>;
     fn into_response(self) -> Self::Future {
@@ -163,12 +172,13 @@ pub(crate) const NOT_FOUND: NotFound = NotFound(());
 impl Reply for NotFound {
     type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {
-            Response(http::Response::builder()
-                .status(404)
-                .header("content-length", "0")
-                .body(WarpBody::wrap(Body::empty()))
-                .unwrap())
-                .into_response()
+        trace!("NOT_FOUND");
+        Response(http::Response::builder()
+            .status(404)
+            .header("content-length", "0")
+            .body(WarpBody::wrap(Body::empty()))
+            .unwrap())
+            .into_response()
     }
 }
 
