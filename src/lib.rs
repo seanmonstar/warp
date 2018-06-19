@@ -20,6 +20,8 @@ pub use self::blocking::{blocking, blocking_new};
 pub use self::error::Error;
 pub use self::filter::Filter;
 pub use self::filters::{
+    // any() function
+    any::any,
     body,
     header,
     path,
