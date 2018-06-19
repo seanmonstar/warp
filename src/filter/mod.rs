@@ -7,10 +7,10 @@ mod map;
 mod or;
 mod service;
 
-pub use self::and::{And, AndUnit, UnitAnd};
-pub use self::map::Map;
-pub use self::or::{Either, Or};
-pub use self::service::FilteredService;
+use self::and::{And, AndUnit, UnitAnd};
+use self::map::Map;
+pub(crate) use self::or::{Either, Or};
+use self::service::FilteredService;
 
 pub trait Filter {
 
