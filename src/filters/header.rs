@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 use ::filter::{FilterBase, FilterAnd};
-use ::route::Route;
+use ::route;
 
 pub fn header<T>(name: &'static str) -> Extract<T> {
     Extract {
@@ -27,18 +27,19 @@ pub struct Exact {
 impl FilterBase for Exact {
     type Extract = ();
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
+    fn filter(&self) -> Option<()> {
         trace!("header::Exact({:?}, {:?})", self.name, self.value);
-        route.headers()
-            .get(self.name)
-            .and_then(|val| {
-                if val == self.value {
-                    Some(())
-                } else {
-                    None
-                }
-            })
-            .map(|()| (route, ()))
+        route::with(|route| {
+            route.headers()
+                .get(self.name)
+                .and_then(|val| {
+                    if val == self.value {
+                        Some(())
+                    } else {
+                        None
+                    }
+                })
+        })
     }
 }
 
@@ -55,17 +56,18 @@ where
 {
     type Extract = T;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, T)> {
+    fn filter(&self) -> Option<T> {
         trace!("header::Extract({:?})", self.name);
-        route.headers()
-            .get(self.name)
-            .and_then(|val| {
-                val.to_str().ok()
-            })
-            .and_then(|s| {
-                T::from_str(s).ok()
-            })
-            .map(|val| (route, val))
+        route::with(|route| {
+            route.headers()
+                .get(self.name)
+                .and_then(|val| {
+                    val.to_str().ok()
+                })
+                .and_then(|s| {
+                    T::from_str(s).ok()
+                })
+        })
     }
 }
 

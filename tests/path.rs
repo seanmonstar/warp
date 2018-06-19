@@ -75,4 +75,21 @@ fn or() {
         .path("/foo/baz");
 
     assert!(req.matches(p));
+
+    // deeper nested ORs
+    // /foo/bar/baz OR /foo/baz/bar OR /foo/bar/bar
+    let p = foo.and(bar.and(baz).map(|_| panic!("shouldn't match")))
+        .or(foo.and(baz.and(bar)).map(|_| panic!("shouldn't match")))
+        .or(foo.and(bar.and(bar)));
+
+    // /foo/baz
+    let req = warp::test::request()
+        .path("/foo/baz/baz");
+    assert!(!req.matches(&p));
+
+
+    // /foo/bar/bar
+    let req = warp::test::request()
+        .path("/foo/bar/bar");
+    assert!(req.matches(&p));
 }

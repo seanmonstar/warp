@@ -2,7 +2,7 @@ use http::Request;
 
 use ::filter::Filter;
 use ::reply::WarpBody;
-use ::route::Route;
+use ::route::{self, Route};
 
 pub fn request() -> RequestBuilder {
     RequestBuilder {
@@ -23,18 +23,25 @@ impl RequestBuilder {
         self
     }
 
-    pub fn filter<F>(mut self, f: F) -> Option<F::Extract>
+    pub fn filter<F>(self, f: F) -> Option<F::Extract>
     where
         F: Filter,
     {
-        f.filter(Route::new(&mut self.req))
-            .map(|(_, e)| e)
+        assert!(!route::is_set(), "nested filter calls");
+        let r = Route::new(self.req);
+        route::set(&r, || {
+            f.filter()
+        })
     }
 
-    pub fn matches<F>(mut self, f: F) -> bool
+    pub fn matches<F>(self, f: F) -> bool
     where
         F: Filter,
     {
-        f.filter(Route::new(&mut self.req)).is_some()
+        assert!(!route::is_set(), "nested filter calls");
+        let r = Route::new(self.req);
+        route::set(&r, || {
+            f.filter().is_some()
+        })
     }
 }

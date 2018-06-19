@@ -21,7 +21,7 @@ use serde::de::DeserializeOwned;
 use serde_json;
 
 use ::filter::FilterBase;
-use ::route::Route;
+use ::route;
 use ::Error;
 
 pub fn concat() -> Concat {
@@ -48,11 +48,13 @@ pub struct ConcatFut {
 impl FilterBase for Concat {
     type Extract = ConcatFut;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
-        route.take_body()
-            .map(|(route, body)| (route, ConcatFut {
-                fut: body.unwrap().concat2(),
-            }))
+    fn filter(&self) -> Option<Self::Extract> {
+        route::with(|route| {
+            route.take_body()
+                .map(|body| ConcatFut {
+                    fut: body.unwrap().concat2(),
+                })
+        })
     }
 }
 
@@ -81,14 +83,13 @@ pub struct JsonFut<T> {
 impl<T> FilterBase for Json<T> {
     type Extract = JsonFut<T>;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
-        route.take_body()
-            .map(|(route, body)| (route, JsonFut {
-                concat: ConcatFut {
-                    fut: body.unwrap().concat2(),
-                },
+    fn filter(&self) -> Option<Self::Extract> {
+        concat()
+            .filter()
+            .map(|concat| JsonFut {
+                concat,
                 _marker: PhantomData,
-            }))
+            })
     }
 }
 

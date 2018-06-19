@@ -1,4 +1,4 @@
-use ::route::Route;
+use ::route;
 use super::{FilterBase, Filter, FilterAnd};
 
 #[derive(Clone, Copy, Debug)]
@@ -20,18 +20,25 @@ where
 {
     type Extract = Either<T::Extract, U::Extract>;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
-        let (route, opt) = route.scoped(|route| {
-            self.first
-                .filter(route)
-        });
-        if let Some(ex) = opt {
-            Some((route, Either::A(ex)))
-        } else {
-            self.second
-                .filter(route)
-                .map(|(route, ex)| (route, Either::B(ex)))
-        }
+    fn filter(&self) -> Option<Self::Extract> {
+        route::with(|route| {
+            let txn = route.transaction();
+            if let Some(ex) = self.first.filter() {
+                // txn implicitly commited
+                return Some(Either::A(ex))
+            }
+
+            // revert any changes made to route
+            txn.revert(route);
+
+            if let Some(ex) = self.second.filter() {
+                // txn implicitly commited
+                return Some(Either::B(ex))
+            }
+
+            txn.revert(route);
+            None
+        })
     }
 }
 

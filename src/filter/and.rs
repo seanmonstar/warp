@@ -1,4 +1,3 @@
-use ::route::Route;
 use super::{FilterBase, Filter, FilterAnd};
 
 #[derive(Clone, Copy, Debug)]
@@ -26,13 +25,13 @@ where
 {
     type Extract = (T::Extract, U::Extract);
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
+    fn filter(&self) -> Option<Self::Extract> {
         self.first
-            .filter(route)
-            .and_then(|(route, ex1)| {
+            .filter()
+            .and_then(|ex1| {
                 self.second
-                    .filter(route)
-                    .map(|(route, ex2)| (route, (ex1, ex2)))
+                    .filter()
+                    .map(|ex2| (ex1, ex2))
             })
     }
 }
@@ -46,12 +45,12 @@ where
 {
     type Extract = U::Extract;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
+    fn filter<'a>(&self) -> Option<Self::Extract> {
         self.first
-            .filter(route)
-            .and_then(|(route, ())| {
+            .filter()
+            .and_then(|()| {
                 self.second
-                    .filter(route)
+                    .filter()
             })
     }
 }
@@ -65,13 +64,13 @@ where
 {
     type Extract = T::Extract;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, Self::Extract)> {
+    fn filter(&self) -> Option<Self::Extract> {
         self.first
-            .filter(route)
-            .and_then(|(route, ex)| {
+            .filter()
+            .and_then(|ex| {
                 self.second
-                    .filter(route)
-                    .map(|(route, ())| (route, ex))
+                    .filter()
+                    .map(move |()| ex)
             })
     }
 }

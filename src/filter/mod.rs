@@ -1,5 +1,4 @@
 use ::reply::Reply;
-use ::route::Route;
 use ::server::WarpService;
 
 mod and;
@@ -17,14 +16,14 @@ use self::service::FilteredService;
 pub trait FilterBase {
     type Extract;
 
-    fn filter<'a>(&self, input: Route<'a>) -> Option<(Route<'a>, Self::Extract)>;
+    fn filter(&self) -> Option<Self::Extract>;
 }
 
 impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
     type Extract = T::Extract;
 
-    fn filter<'f>(&self, input: Route<'f>) -> Option<(Route<'f>, Self::Extract)> {
-        (**self).filter(input)
+    fn filter(&self) -> Option<Self::Extract> {
+        (**self).filter()
     }
 }
 

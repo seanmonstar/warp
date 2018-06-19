@@ -1,7 +1,7 @@
 use ::{Filter, Request};
 use ::filter::Either;
 use ::reply::{NOT_FOUND, NotFound, Reply};
-use ::route::Route;
+use ::route::{self, Route};
 use ::server::{IntoWarpService, WarpService};
 
 #[derive(Debug)]
@@ -18,19 +18,22 @@ where
 {
     type Reply = Either<F::Extract, N::Reply>;
 
-    fn call(&self,  mut req: Request) -> Self::Reply {
-        self.filter
-            .filter(Route::new(&mut req))
-            .and_then(|(route, reply)| {
-                if !route.has_more_segments() {
-                    Some(Either::A(reply))
-                } else {
-                    trace!("unmatched segments remain in route");
-                    None
-                }
-            })
+    fn call(&self,  req: Request) -> Self::Reply {
+        let r = Route::new(req);
+        route::set(&r, || {
+            self.filter
+                .filter()
+                .and_then(|reply| {
+                    if !route::with(|route| route.has_more_segments()) {
+                        Some(Either::A(reply))
+                    } else {
+                        trace!("unmatched segments remain in route");
+                        None
+                    }
+                })
+        })
             .unwrap_or_else(|| {
-                Either::B(self.not_found.call(req))
+                Either::B(self.not_found.call(r.into_req()))
             })
     }
 }

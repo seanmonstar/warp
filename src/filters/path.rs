@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 use ::filter::{FilterBase, FilterAnd};
-use ::route::Route;
+use ::route;
 
 pub fn path<T>() -> Extract<T> {
     Extract {
@@ -47,10 +47,12 @@ where
 {
     type Extract = T;
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, T)> {
-        route.filter_segment(|seg| {
-            trace!("extract?: {:?}", seg);
-            T::from_str(seg).ok()
+    fn filter(&self) -> Option<T> {
+        route::with(|route| {
+            route.filter_segment(|seg| {
+                trace!("extract?: {:?}", seg);
+                T::from_str(seg).ok()
+            })
         })
     }
 }
@@ -60,14 +62,16 @@ impl<T: FromStr> FilterAnd for Extract<T> {}
 impl FilterBase for Const {
     type Extract = ();
 
-    fn filter<'a>(&self, route: Route<'a>) -> Option<(Route<'a>, ())> {
-        route.filter_segment(|seg| {
-            trace!("({:?})?: {:?}", self.p, seg);
-            if seg == self.p {
-                Some(())
-            } else {
-                None
-            }
+    fn filter(&self) -> Option<()> {
+        route::with(|route| {
+            route.filter_segment(|seg| {
+                trace!("({:?})?: {:?}", self.p, seg);
+                if seg == self.p {
+                    Some(())
+                } else {
+                    None
+                }
+            })
         })
     }
 }

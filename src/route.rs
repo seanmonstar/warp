@@ -1,27 +1,80 @@
+use std::cell::{Cell, RefCell};
+
 use http;
 
 use ::Request;
 use ::reply::WarpBody;
 
-#[derive(Debug)]
-pub struct Route<'a> {
-    req: &'a mut Request,
+thread_local!(static ROUTE: Cell<usize> = Cell::new(0));
 
-    segments_index: usize,
+pub(crate) fn set<F, R>(route: &Route, f: F) -> R
+where
+    F: FnOnce() -> R
+{
+    struct Reset(usize);
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            ROUTE.with(|cell| cell.set(self.0));
+        }
+    }
+
+    let prev = ROUTE.with(|cell| {
+        let prev = cell.get();
+        cell.set(route as *const Route as usize);
+        prev
+    });
+
+    let _guard = Reset(prev);
+    f()
+}
+
+pub(crate) fn with<F, R>(f: F) -> R
+where
+    F: Fn(&Route) -> R,
+{
+    let p = ROUTE.with(|cell| cell.get());
+    assert!(p != 0, "route::with() must be used from inside route::set()");
+    unsafe {
+        f(&*(p as *const Route))
+    }
+}
+
+pub(crate) fn is_set() -> bool {
+    ROUTE.with(|cell| cell.get() != 0)
+}
+
+#[derive(Debug)]
+pub(crate) struct Route {
+    req: http::Request<()>,
+    body: RefCell<WarpBody>,
+
+    segments_index: Cell<usize>,
     segments_total: usize,
 }
 
-impl<'a> Route<'a> {
-    pub(crate) fn new(req: &'a mut Request) -> Route<'a> {
+/// Save a snapshot of the current segment index, and optionally
+/// revert.
+#[must_use = "transaction does nothing by itself"]
+pub(crate) struct Transaction {
+    segments_index: usize,
+}
+
+
+impl Route {
+    pub(crate) fn new(req: Request) -> Route {
         let cnt = req
             .uri()
             .path()
             .split('/')
             // -1 because the before the first slash is skipped
             .count() - 1;
+        let (parts, body) = req.into_parts();
+        let req = http::Request::from_parts(parts, ());
         Route {
             req,
-            segments_index: 0,
+            body: RefCell::new(body),
+            segments_index: Cell::new(0),
             segments_total: cnt,
         }
     }
@@ -35,14 +88,20 @@ impl<'a> Route<'a> {
     }
 
     pub(crate) fn has_more_segments(&self) -> bool {
-        self.segments_index != self.segments_total
+        self.segments_index.get() != self.segments_total
     }
 
-    pub(crate) fn filter_segment<F, U>(mut self, fun: F) -> Option<(Self, U)>
+    pub(crate) fn transaction(&self) -> Transaction {
+        Transaction {
+            segments_index: self.segments_index.get(),
+        }
+    }
+
+    pub(crate) fn filter_segment<F, U>(&self, fun: F) -> Option<U>
     where
         F: FnOnce(&str) -> Option<U>,
     {
-        if self.segments_index == self.segments_total {
+        if self.segments_index.get() == self.segments_total {
             None
         } else {
             fun(
@@ -52,51 +111,37 @@ impl<'a> Route<'a> {
                     .path()
                     //TODO: record this on Route::init
                     .split('/')
-                    .skip(self.segments_index + 1)
+                    .skip(self.segments_index.get() + 1)
                     .next()
                     .expect("Route segment unimplemented")
             )
                 .map(|val| {
-                    self.segments_index += 1;
-                    (self, val)
+                    let idx = self.segments_index.get();
+                    self.segments_index.set(idx + 1);
+                    val
                 })
         }
     }
 
-    pub(crate) fn take_body(self) -> Option<(Self, WarpBody)> {
-        if self.segments_index == self.segments_total {
-            let body = self.req.body_mut().route_take();
-            Some((self, body))
+    pub(crate) fn take_body(&self) -> Option<WarpBody> {
+        if self.segments_index.get() == self.segments_total {
+            let body = self.body.borrow_mut().route_take();
+            Some(body)
         } else {
+            trace!("route segments not fully matched, cannot take body");
             None
         }
     }
 
-    pub(crate) fn scoped<F, U>(self, fun: F) -> (Self, Option<U>)
-    where
-        F: FnOnce(Route) -> Option<(Route, U)>,
-    {
-        // Woah! What's going on here!
-        //
-        // TODO: make sure this is actually safe.
-        //
-        // The idea is that we need to give a sub-scoped Route to a closure,
-        // which *may* return a mutated Route, or might drop it. If they return
-        // a new one, we drop our original. If they dropped the sub-scope, we
-        // assume it's gone, and return our original.
-        unsafe {
-            let sub = Route {
-                req: ::std::mem::transmute::<_, &mut Request>(self.req as *mut _),
-                segments_index: self.segments_index,
-                segments_total: self.segments_total,
-            };
+    pub(crate) fn into_req(self) -> Request {
+        let body = self.body.into_inner();
+        self.req.map(move |()| body)
+    }
+}
 
-            if let Some((sub, val)) = fun(sub) {
-                (sub, Some(val))
-            } else {
-                (self, None)
-            }
-        }
+impl Transaction {
+    pub(crate) fn revert(&self, route: &Route) {
+        route.segments_index.set(self.segments_index);
     }
 }
 
