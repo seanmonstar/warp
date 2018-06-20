@@ -19,19 +19,20 @@ where
     type Reply = Either<F::Extract, N::Reply>;
 
     fn call(&self,  req: Request) -> Self::Reply {
+        debug_assert!(!route::is_set(), "nested FilteredService::calls");
+
         let r = Route::new(req);
         route::set(&r, || {
-            self.filter
-                .filter()
-                .and_then(|reply| {
-                    if !route::with(|route| route.has_more_segments()) {
-                        Some(Either::A(reply))
-                    } else {
-                        trace!("unmatched segments remain in route");
-                        None
-                    }
-                })
+            self.filter.filter()
         })
+            .and_then(|reply| {
+                if !r.has_more_segments() {
+                    Some(Either::A(reply))
+                } else {
+                    trace!("unmatched segments remain in route");
+                    None
+                }
+            })
             .unwrap_or_else(|| {
                 Either::B(self.not_found.call(r.into_req()))
             })
