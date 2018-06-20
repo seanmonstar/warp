@@ -22,22 +22,19 @@ where
 
     fn filter(&self) -> Option<Self::Extract> {
         route::with(|route| {
-            let txn = route.transaction();
-            if let Some(ex) = self.first.filter() {
-                // txn implicitly commited
-                return Some(Either::A(ex))
-            }
-
-            // revert any changes made to route
-            txn.revert(route);
-
-            if let Some(ex) = self.second.filter() {
-                // txn implicitly commited
-                return Some(Either::B(ex))
-            }
-
-            txn.revert(route);
-            None
+            route
+                .transaction(|| {
+                    self.first.filter()
+                })
+                .map(Either::A)
+                .or_else(|| {
+                    route.transaction(|| {
+                        self
+                            .second
+                            .filter()
+                            .map(Either::B)
+                    })
+                })
         })
     }
 }

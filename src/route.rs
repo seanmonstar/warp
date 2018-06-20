@@ -53,13 +53,6 @@ pub(crate) struct Route {
     segments_total: usize,
 }
 
-/// Save a snapshot of the current segment index, and optionally
-/// revert.
-#[must_use = "transaction does nothing by itself"]
-pub(crate) struct Transaction {
-    segments_index: usize,
-}
-
 
 impl Route {
     pub(crate) fn new(req: Request) -> Route {
@@ -91,9 +84,17 @@ impl Route {
         self.segments_index.get() != self.segments_total
     }
 
-    pub(crate) fn transaction(&self) -> Transaction {
-        Transaction {
-            segments_index: self.segments_index.get(),
+    pub(crate) fn transaction<F, R>(&self, op: F) -> Option<R>
+    where
+        F: FnOnce() -> Option<R>
+    {
+        let idx = self.segments_index.get();
+        match op() {
+            None => {
+                self.segments_index.set(idx);
+                None
+            },
+            some => some,
         }
     }
 
@@ -136,12 +137,6 @@ impl Route {
     pub(crate) fn into_req(self) -> Request {
         let body = self.body.into_inner();
         self.req.map(move |()| body)
-    }
-}
-
-impl Transaction {
-    pub(crate) fn revert(&self, route: &Route) {
-        route.segments_index.set(self.segments_index);
     }
 }
 
