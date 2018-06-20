@@ -5,43 +5,24 @@ use http;
 use ::Request;
 use ::reply::WarpBody;
 
-thread_local!(static ROUTE: Cell<usize> = Cell::new(0));
+scoped_thread_local!(static ROUTE: Route);
 
 pub(crate) fn set<F, R>(route: &Route, f: F) -> R
 where
     F: FnOnce() -> R
 {
-    struct Reset(usize);
-
-    impl Drop for Reset {
-        fn drop(&mut self) {
-            ROUTE.with(|cell| cell.set(self.0));
-        }
-    }
-
-    let prev = ROUTE.with(|cell| {
-        let prev = cell.get();
-        cell.set(route as *const Route as usize);
-        prev
-    });
-
-    let _guard = Reset(prev);
-    f()
+    ROUTE.set(route, f)
 }
 
 pub(crate) fn with<F, R>(f: F) -> R
 where
     F: Fn(&Route) -> R,
 {
-    let p = ROUTE.with(|cell| cell.get());
-    assert!(p != 0, "route::with() must be used from inside route::set()");
-    unsafe {
-        f(&*(p as *const Route))
-    }
+    ROUTE.with(f)
 }
 
 pub(crate) fn is_set() -> bool {
-    ROUTE.with(|cell| cell.get() != 0)
+    ROUTE.is_set()
 }
 
 #[derive(Debug)]

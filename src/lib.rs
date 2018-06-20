@@ -1,8 +1,11 @@
+#![deny(warnings)]
+
 extern crate crossbeam_channel;
 #[macro_use] extern crate futures;
 extern crate http;
 extern crate hyper;
 #[macro_use] extern crate log;
+#[macro_use] extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;
 
