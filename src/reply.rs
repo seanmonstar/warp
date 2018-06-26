@@ -1,3 +1,4 @@
+//! dox?
 use std::mem;
 
 use futures::{future, Future, IntoFuture};
@@ -9,7 +10,9 @@ use serde_json;
 
 use ::filter::Either;
 use ::never::Never;
+pub(crate) use self::not_found::{NotFound, NOT_FOUND};
 
+/// Easily convert a type into a `Response`.
 pub fn reply<T>(val: T) -> Response
 where
     Response: From<T>,
@@ -17,6 +20,7 @@ where
     Response::from(val)
 }
 
+/// Easily constructor a 400 Bad Request response.
 pub fn client_error() -> Response {
     http::Response::builder()
         .status(400)
@@ -26,6 +30,7 @@ pub fn client_error() -> Response {
         .into()
 }
 
+/// Convert the value into a `Response` with the value encoded as JSON.
 pub fn json<T>(val: T) -> Response
 where
     T: Serialize,
@@ -51,6 +56,7 @@ where
     }
 }
 
+/// An HTTP response used by Warp servers.
 #[derive(Debug)]
 pub struct Response(pub(crate) http::Response<WarpBody>);
 
@@ -92,11 +98,15 @@ where
     }
 }
 
+/// A trait describing the various things that a Warp server can turn into a `Response`.
 pub trait Reply {
+    /// The future of the Response.
     type Future: Future<Item=Response, Error=Never> + Send + 'static;
+    /// Convert self into `Self::Future`.
     fn into_response(self) -> Self::Future;
 }
 
+/// dox?
 #[derive(Debug, Default)]
 pub struct WarpBody {
     body: Body,
@@ -164,10 +174,11 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct NotFound(());
-
-pub(crate) const NOT_FOUND: NotFound = NotFound(());
+mod not_found {
+    #[derive(Clone, Copy, Debug)]
+    pub struct NotFound(());
+    pub(crate) const NOT_FOUND: NotFound = NotFound(());
+}
 
 impl Reply for NotFound {
     type Future = future::FutureResult<Response, Never>;

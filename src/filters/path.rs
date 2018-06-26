@@ -1,15 +1,28 @@
+//! dox?
 use std::marker::PhantomData;
 use std::str::FromStr;
 
 use ::filter::{FilterBase, FilterAnd};
 use ::route;
 
+/// Create an `Extract` path filter.
+///
+/// An `Extract` will try to parse a value from the current request path
+/// segment, and if successful, the value is returned as the `Filter`'s
+/// "extracted" value.
 pub fn path<T>() -> Extract<T> {
     Extract {
         _marker: PhantomData,
     }
 }
 
+/// Create an exact match path `Filter`.
+///
+/// This will try to match exactly to the current request path segment.
+///
+/// # Note
+///
+/// Exact path filters cannot be empty, or contain slashes.
 pub fn exact(p: &'static str) -> Const {
     assert!(!p.is_empty(), "exact path segments should not be empty");
     assert!(!p.contains('/'), "exact path segments should not contain a slash: {:?}", p);
@@ -18,12 +31,15 @@ pub fn exact(p: &'static str) -> Const {
     }
 }
 
+/*
 pub fn index() -> Const {
     Const {
         p: "/",
     }
 }
+*/
 
+/// dox?
 pub struct Extract<T> {
     _marker: PhantomData<fn() -> T>,
 }
@@ -36,6 +52,7 @@ impl<T> Clone for Extract<T> {
 
 impl<T> Copy for Extract<T> {}
 
+/// dox?
 #[derive(Clone, Copy, Debug)]
 pub struct Const {
     p: &'static str,

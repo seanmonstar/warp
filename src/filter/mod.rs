@@ -42,7 +42,9 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
 /// ```
 pub fn __warp_filter_compilefail_doctest() {}
 
+/// Composable request filters.
 pub trait Filter: FilterBase {
+    /// Composes a new `Filter` that requires both this and the other to filter a request.
     fn and<F>(self, other: F) -> And<Self, F>
     where
         Self: FilterAnd + Sized,
@@ -54,6 +56,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /// dox?
     fn unit_and<F>(self, other: F) -> UnitAnd<Self, F>
     where
         Self: Filter<Extract=()> + FilterAnd + Sized,
@@ -65,6 +68,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /// dox?
     fn and_unit<F>(self, other: F) -> AndUnit<Self, F>
     where
         Self: FilterAnd + Sized,
@@ -76,6 +80,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /// Composes a new `Filter` of either this or the other filter.
     fn or<F>(self, other: F) -> Or<Self, F>
     where
         Self: Sized,
@@ -87,6 +92,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /// Composes this `Filter` with a closure receiving the extracted value from this.
     fn map<F, U>(self, fun: F) -> Map<Self, F>
     where
         Self: Sized,
@@ -98,6 +104,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /// dox?
     fn service_with_not_found<N>(self, not_found: N) -> FilteredService<Self, N>
     where
         Self: Sized,

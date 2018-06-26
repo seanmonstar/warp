@@ -24,23 +24,29 @@ use ::filter::FilterBase;
 use ::route;
 use ::Error;
 
+/// Returns a `Filter` that matches any request and extracts a
+/// `Future` of a concatenated body.
 pub fn concat() -> Concat {
     Concat {
         _i: (),
     }
 }
 
+/// Returns a `Filter` that matches any request and extracts a
+/// `Future` of a JSON-decoded body.
 pub fn json<T: DeserializeOwned>() -> Json<T> {
     Json {
         _marker: PhantomData,
     }
 }
 
+/// dox?
 #[derive(Clone, Copy, Debug)]
 pub struct Concat {
     _i: (),
 }
 
+/// dox?
 pub struct ConcatFut {
     fut: Concat2<Body>,
 }
@@ -71,10 +77,12 @@ impl Future for ConcatFut {
     }
 }
 
+/// dox?
 pub struct Json<T> {
     _marker: PhantomData<fn() -> T>,
 }
 
+/// dox?
 pub struct JsonFut<T> {
     concat: ConcatFut,
     _marker: PhantomData<fn() -> T>,

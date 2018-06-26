@@ -1,9 +1,14 @@
+//! dox?
 use std::marker::PhantomData;
 use std::str::FromStr;
 
 use ::filter::{FilterBase, FilterAnd};
 use ::route;
 
+/// Return an extract `Filter` for a specific header name.
+///
+/// This `Filter` will look for a header with supplied name,
+/// and try to parse to a `T`, otherwise rejects the request.
 pub fn header<T>(name: &'static str) -> Extract<T> {
     Extract {
         name,
@@ -11,6 +16,10 @@ pub fn header<T>(name: &'static str) -> Extract<T> {
     }
 }
 
+/// Return an exact `Filter` for a specific header name.
+///
+/// This `Filter` will look for a header with supplied name and
+/// the exact value, otherwise rejects the request.
 pub fn exact(name: &'static str, value: &'static str) -> Exact {
     Exact {
         name,
@@ -18,6 +27,7 @@ pub fn exact(name: &'static str, value: &'static str) -> Exact {
     }
 }
 
+/// dox?
 #[derive(Clone, Debug)]
 pub struct Exact {
     name: &'static str,
@@ -45,6 +55,7 @@ impl FilterBase for Exact {
 
 impl FilterAnd for Exact {}
 
+/// dox?
 pub struct Extract<T> {
     name: &'static str,
     _marker: PhantomData<fn() -> T>,

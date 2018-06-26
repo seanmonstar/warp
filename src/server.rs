@@ -10,6 +10,7 @@ use ::never::Never;
 use ::reply::{NotFound, Reply, Response, WarpBody};
 use ::Request;
 
+/// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
 where
     S: IntoWarpService + 'static,
@@ -19,6 +20,7 @@ where
     }
 }
 
+/// A Warp Server ready to filter requests.
 pub struct Server<S> {
     service: S,
 }
@@ -27,6 +29,7 @@ impl<S> Server<S>
 where
     S: IntoWarpService + 'static,
 {
+    /// Run this `Server` forever on the current thread.
     pub fn run<A>(self, addr: A)
     where
         A: Into<SocketAddr>,

@@ -1,4 +1,6 @@
-#![deny(warnings)]
+#![deny(warnings, missing_docs)]
+
+//! warp
 
 extern crate crossbeam_channel;
 #[macro_use] extern crate futures;
@@ -39,4 +41,5 @@ pub use self::server::{serve, Server};
 
 pub use futures::Future;
 
+/// dox?
 pub type Request = http::Request<self::reply::WarpBody>;

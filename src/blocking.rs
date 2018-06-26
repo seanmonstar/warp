@@ -6,6 +6,7 @@ use futures::sync::oneshot;
 
 use ::never::Never;
 
+/// dox?
 pub fn blocking<F, A, R>(threads: usize, blocker: F) -> impl Fn(A) -> Blocking<R>
 where
     F: Fn(A) -> R + Clone + Send + 'static,
@@ -15,6 +16,7 @@ where
     blocking_new(threads, move || blocker.clone())
 }
 
+/// dox
 pub fn blocking_new<F1, F2, A, R>(threads: usize, factory: F1) -> impl Fn(A) -> Blocking<R>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
