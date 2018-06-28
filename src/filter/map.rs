@@ -1,21 +1,29 @@
-use super::{FilterBase, Filter, FilterAnd};
+use super::{Cons, FilterBase, Filter, FilterAnd, Func, HCons, HList};
 
+#[derive(Clone, Copy)]
 pub struct Map<T, F> {
     pub(super) filter: T,
     pub(super) callback: F,
 }
 
-impl<T, F, U> FilterBase for Map<T, F>
+impl<T, F> FilterBase for Map<T, F>
 where
     T: Filter,
-    F: Fn(T::Extract) -> U,
+    T::Extract: HList,
+    F: Func<<T::Extract as HList>::Tuple>,
 {
-    type Extract = U;
-    fn filter(&self) -> Option<U> {
+    type Extract = Cons<F::Output>;
+    fn filter(&self) -> Option<Self::Extract> {
         self.filter
             .filter()
-            .map(|ex| (self.callback)(ex))
+            .map(|ex| HCons(self.callback.call(ex.flatten()), ()))
     }
 }
 
-impl<T: FilterAnd, F: Fn(T::Extract) -> U, U> FilterAnd for Map<T, F> {}
+impl<T, F> FilterAnd for Map<T, F>
+where
+    T: FilterAnd,
+    T::Extract: HList,
+    F: Func<<T::Extract as HList>::Tuple>,
+{}
+

@@ -6,7 +6,7 @@ use warp::Filter;
 fn exact() {
     let foo = warp::path::exact("foo");
     let bar = warp::path::exact("bar");
-    let foo_bar = foo.unit_and(bar);
+    let foo_bar = foo.and(bar);
 
     // /foo
     let foo_req = || {
@@ -78,8 +78,8 @@ fn or() {
 
     // deeper nested ORs
     // /foo/bar/baz OR /foo/baz/bar OR /foo/bar/bar
-    let p = foo.and(bar.and(baz).map(|_| panic!("shouldn't match")))
-        .or(foo.and(baz.and(bar)).map(|_| panic!("shouldn't match")))
+    let p = foo.and(bar.and(baz).map(|| panic!("shouldn't match")))
+        .or(foo.and(baz.and(bar)).map(|| panic!("shouldn't match")))
         .or(foo.and(bar.and(bar)));
 
     // /foo/baz

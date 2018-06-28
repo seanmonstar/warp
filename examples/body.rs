@@ -15,11 +15,13 @@ fn main() {
     pretty_env_logger::init();
 
     let promote = warp::path::exact("employees")
-        .unit_and(warp::path::<u32>())
+        .and(warp::path::<u32>())
         .and(warp::body::json::<Employee>())
-        .map(|(rate, json)| {
+        .map(|rate, json| {
             // json is a future
-            json.map(move |mut employee| {
+            // but seems type inference is failing... ;_;
+            //json.map(move |mut employee| {
+            Future::map(json, move |mut employee: Employee| {
                 employee.rate = rate;
                 warp::reply::json(employee)
             })

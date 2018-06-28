@@ -20,48 +20,36 @@ use hyper::{Body, Chunk};
 use serde::de::DeserializeOwned;
 use serde_json;
 
-use ::filter::FilterBase;
+use ::filter::{Cons, Filter, filter_fn_cons};
 use ::route;
 use ::Error;
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
-pub fn concat() -> Concat {
-    Concat {
-        _i: (),
-    }
-}
-
-/// Returns a `Filter` that matches any request and extracts a
-/// `Future` of a JSON-decoded body.
-pub fn json<T: DeserializeOwned>() -> Json<T> {
-    Json {
-        _marker: PhantomData,
-    }
-}
-
-/// dox?
-#[derive(Clone, Copy, Debug)]
-pub struct Concat {
-    _i: (),
-}
-
-/// dox?
-pub struct ConcatFut {
-    fut: Concat2<Body>,
-}
-
-impl FilterBase for Concat {
-    type Extract = ConcatFut;
-
-    fn filter(&self) -> Option<Self::Extract> {
+pub fn concat() -> impl Filter<Extract=Cons<ConcatFut>> + Copy {
+    filter_fn_cons(move || {
         route::with(|route| {
             route.take_body()
                 .map(|body| ConcatFut {
                     fut: body.unwrap().concat2(),
                 })
         })
-    }
+    })
+}
+
+/// Returns a `Filter` that matches any request and extracts a
+/// `Future` of a JSON-decoded body.
+pub fn json<T: DeserializeOwned>() -> impl Filter<Extract=Cons<JsonFut<T>>> + Copy {
+    concat()
+        .map(|concat| JsonFut {
+            concat,
+            _marker: PhantomData,
+        })
+}
+
+/// dox?
+pub struct ConcatFut {
+    fut: Concat2<Body>,
 }
 
 impl Future for ConcatFut {
@@ -78,27 +66,9 @@ impl Future for ConcatFut {
 }
 
 /// dox?
-pub struct Json<T> {
-    _marker: PhantomData<fn() -> T>,
-}
-
-/// dox?
 pub struct JsonFut<T> {
     concat: ConcatFut,
     _marker: PhantomData<fn() -> T>,
-}
-
-impl<T> FilterBase for Json<T> {
-    type Extract = JsonFut<T>;
-
-    fn filter(&self) -> Option<Self::Extract> {
-        concat()
-            .filter()
-            .map(|concat| JsonFut {
-                concat,
-                _marker: PhantomData,
-            })
-    }
 }
 
 impl<T> Future for JsonFut<T>

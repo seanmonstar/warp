@@ -1,0 +1,123 @@
+#[derive(Debug)]
+pub struct HCons<H, T>(pub H, pub T);
+
+// The compiler wrongly says this isn't used...
+#[allow(unused)]
+pub type Cons<T> = HCons<T, ()>;
+
+pub trait HList {
+    type Tuple;
+
+    fn flatten(self) -> Self::Tuple;
+}
+
+pub trait Combine<T> {
+    type Output;
+
+    fn combine(self, other: T) -> Self::Output;
+}
+
+pub trait Func<Args> {
+    type Output;
+
+    fn call(&self, args: Args) -> Self::Output;
+}
+
+// ===== impl Combine =====
+
+impl<T> Combine<T> for () {
+    type Output = T;
+    fn combine(self, other: T) -> Self::Output {
+        other
+    }
+}
+
+impl<H, T, U> Combine<U> for HCons<H, T>
+where
+    T: Combine<U>,
+{
+    type Output = HCons<H, <T as Combine<U>>::Output>;
+
+    fn combine(self, other: U) -> Self::Output {
+        HCons(self.0, self.1.combine(other))
+    }
+}
+
+// ===== impl HList =====
+
+impl HList for () {
+    type Tuple = ();
+    fn flatten(self) -> Self::Tuple {
+        ()
+    }
+}
+
+impl<T1> HList for Cons<T1> {
+    type Tuple = (T1,);
+
+    fn flatten(self) -> Self::Tuple {
+        (self.0,)
+    }
+}
+
+impl<T1, T2> HList for HCons<T1, Cons<T2>> {
+    type Tuple = (T1, T2);
+
+    fn flatten(self) -> Self::Tuple {
+        (self.0, (self.1).0)
+    }
+}
+
+impl<T1, T2, T3> HList for HCons<T1, HCons<T2, Cons<T3>>> {
+    type Tuple = (T1, T2, T3);
+
+    fn flatten(self) -> Self::Tuple {
+        (self.0, (self.1).0, (((self.1).1).0))
+    }
+}
+
+// ===== impl Func =====
+
+impl<F, R> Func<()> for F
+where
+    F: Fn() -> R,
+{
+    type Output = R;
+
+    fn call(&self, _args: ()) -> Self::Output {
+        (*self)()
+    }
+}
+
+impl<F, A1, R> Func<(A1,)> for F
+where
+    F: Fn(A1) -> R,
+{
+    type Output = R;
+
+    fn call(&self, args: (A1,)) -> Self::Output {
+        (*self)(args.0)
+    }
+}
+
+impl<F, A1, A2, R> Func<(A1, A2,)> for F
+where
+    F: Fn(A1, A2) -> R,
+{
+    type Output = R;
+
+    fn call(&self, args: (A1, A2,)) -> Self::Output {
+        (*self)(args.0, args.1)
+    }
+}
+
+impl<F, A1, A2, A3, R> Func<(A1, A2, A3,)> for F
+where
+    F: Fn(A1, A2, A3) -> R,
+{
+    type Output = R;
+
+    fn call(&self, args: (A1, A2, A3,)) -> Self::Output {
+        (*self)(args.0, args.1, args.2)
+    }
+}

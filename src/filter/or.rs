@@ -1,5 +1,5 @@
 use ::route;
-use super::{FilterBase, Filter, FilterAnd};
+use super::{Cons, FilterBase, Filter, FilterAnd, HCons};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -18,7 +18,12 @@ where
     T: Filter,
     U: Filter,
 {
-    type Extract = Either<T::Extract, U::Extract>;
+    type Extract = Cons<
+        Either<
+            T::Extract,
+            U::Extract,
+        >
+    >;
 
     fn filter(&self) -> Option<Self::Extract> {
         route::with(|route| {
@@ -35,9 +40,14 @@ where
                             .map(Either::B)
                     })
                 })
+                .map(|e| HCons(e, ()))
         })
     }
 }
 
-impl<T: FilterAnd, U: FilterAnd> FilterAnd for Or<T, U> {}
+impl<T, U> FilterAnd for Or<T, U>
+where
+    T: Filter,
+    U: Filter,
+{}
 

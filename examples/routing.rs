@@ -6,8 +6,6 @@ use warp::Filter;
 fn main() {
     pretty_env_logger::init();
 
-    //let index = warp::path::index();
-
     // A common prefix, /hello
     let prefix = warp::path::exact("hello");
 
@@ -23,16 +21,11 @@ fn main() {
     //
     // - /hello/:num
     // - /hello/:name
-    //
-    // `unit_and` toss the `()` from `prefix`, and just keeps the value
-    // from the other filter. With trait specialization, it should be
-    // possible to make `and` specialized over types returning `()`.
-    let hello = prefix.unit_and(num.or(name));
+    let hello = prefix.and(num.or(name));
 
     let bye = warp::path::exact("good")
-        // With impl specialization, unit_add won't be needed.
-        .unit_and(warp::path::exact("bye"))
-        .unit_and(warp::path::<String>())
+        .and(warp::path::exact("bye"))
+        .and(warp::path::<String>())
         .map(|name| format!("Good bye, {}!", name));
 
     // GET (hello)

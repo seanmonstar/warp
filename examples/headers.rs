@@ -20,10 +20,7 @@ fn main() {
     // Match when we get `accept: */*` exactly.
     let accept_stars = warp::header::exact("accept", "*/*");
 
-
-    // and_unit removes the () from accept_stars...
-    // With trait specialization, it should no longer be needed.
-    let index = host.and_unit(accept_stars)
+    let index = host.and(accept_stars)
         .map(|addr| {
             format!("accepting stars on {}", addr)
         });

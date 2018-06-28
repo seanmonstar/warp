@@ -1,5 +1,5 @@
 use ::{Filter, Request};
-use ::filter::Either;
+use ::filter::{Either};
 use ::reply::{NOT_FOUND, NotFound, Reply};
 use ::route::{self, Route};
 use ::server::{IntoWarpService, WarpService};
@@ -10,13 +10,13 @@ pub struct FilteredService<F, N> {
     pub(super) not_found: N,
 }
 
-impl<F, N> WarpService for FilteredService<F, N>
+impl<F, R, N> WarpService for FilteredService<F, N>
 where
-    F: Filter,
-    F::Extract: Reply,
+    F: Filter<Extract=R>,
+    R: Reply,
     N: WarpService,
 {
-    type Reply = Either<F::Extract, N::Reply>;
+    type Reply = Either<R, N::Reply>;
 
     fn call(&self,  req: Request) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested FilteredService::calls");
@@ -39,10 +39,10 @@ where
     }
 }
 
-impl<F, N> IntoWarpService for FilteredService<F, N>
+impl<F, R, N> IntoWarpService for FilteredService<F, N>
 where
-    F: Filter + Send + Sync + 'static,
-    F::Extract: Reply,
+    F: Filter<Extract=R> + Send + Sync + 'static,
+    R: Reply,
     N: WarpService + Send + Sync + 'static,
 {
     type Service = FilteredService<F, N>;
@@ -52,10 +52,10 @@ where
     }
 }
 
-impl<T> IntoWarpService for T
+impl<T, R> IntoWarpService for T
 where
-    T: Filter + Send + Sync + 'static,
-    T::Extract: Reply,
+    T: Filter<Extract=R> + Send + Sync + 'static,
+    R: Reply,
 {
     type Service = FilteredService<T, NotFound>;
 

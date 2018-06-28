@@ -8,7 +8,7 @@ use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use ::filter::Either;
+use ::filter::{Cons, Either};
 use ::never::Never;
 pub(crate) use self::not_found::{NotFound, NOT_FOUND};
 
@@ -98,6 +98,15 @@ where
     }
 }
 
+impl<T> From<Cons<T>> for Response
+where
+    Response: From<T>,
+{
+    fn from(cons: Cons<T>) -> Response {
+        Response::from(cons.0)
+    }
+}
+
 /// A trait describing the various things that a Warp server can turn into a `Response`.
 pub trait Reply {
     /// The future of the Response.
@@ -161,6 +170,16 @@ impl<T: Reply, U: Reply> Reply for Either<T, U> {
             Either::A(a) => future::Either::A(a.into_response()),
             Either::B(b) => future::Either::B(b.into_response()),
         }
+    }
+}
+
+impl<T> Reply for Cons<T>
+where
+    T: Reply
+{
+    type Future = T::Future;
+    fn into_response(self) -> Self::Future {
+        self.0.into_response()
     }
 }
 
