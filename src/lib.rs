@@ -46,6 +46,7 @@ pub use self::filters::{
     query,
     // query() function
     query::query,
+    ws,
     // ws() function
     ws::ws,
 };

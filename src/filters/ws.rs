@@ -70,6 +70,7 @@ where
         }))
 }
 
+/// dox?
 pub struct Ws {
     accept: Accept,
 }
@@ -94,6 +95,7 @@ impl From<Ws> for Response {
     }
 }
 
+/// A websocket `Stream` and `Sink`, provided to `ws` filters.
 pub struct WebSocket {
     inner: WebSocketStream<::hyper::upgrade::Upgraded>,
 }
