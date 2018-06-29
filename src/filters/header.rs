@@ -1,8 +1,38 @@
 //! dox?
 use std::str::FromStr;
 
+use http::header::HeaderValue;
+
 use ::filter::{Cons, FilterAnd, filter_fn, filter_fn_cons};
 use ::route;
+
+pub(crate) fn value<F, U>(name: &'static str, func: F)
+    -> impl FilterAnd<Extract=Cons<U>> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<U> + Copy,
+{
+    filter_fn_cons(move || {
+        route::with(|route| {
+            route.headers()
+                .get(name)
+                .and_then(func)
+        })
+    })
+}
+
+pub(crate) fn optional_value<F, U>(name: &'static str, func: F)
+    -> impl FilterAnd<Extract=Cons<Option<U>>> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<U> + Copy,
+{
+    filter_fn_cons(move || {
+        route::with(|route| {
+            Some(route.headers()
+                .get(name)
+                .and_then(func))
+        })
+    })
+}
 
 /// Return an extract `Filter` for a specific header name.
 ///

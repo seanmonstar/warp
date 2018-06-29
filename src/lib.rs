@@ -32,11 +32,14 @@ pub use self::filters::{
     // any() function
     any::any,
     body,
+    cookie,
+    // cookie() function
+    cookie::cookie,
     header,
     path,
     // header() function
     header::header,
-    method::{get, post, put, delete},
+    method::{get, method, post, put, delete},
     // path() function
     path::path,
     // ws() function

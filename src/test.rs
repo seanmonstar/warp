@@ -29,6 +29,14 @@ impl RequestBuilder {
         self
     }
 
+    /// Set a header for this request.
+    pub fn header(mut self, key: &str, value: &str) -> Self {
+        let name: ::http::header::HeaderName = key.parse().expect("invalid header name");
+        let value = value.parse().expect("invalid header value");
+        self.req.headers_mut().insert(name, value);
+        self
+    }
+
     /// Tries to apply the `Filter` on this request.
     pub fn filter<F>(self, f: F) -> Option<<<F::Extract as HList>::Tuple as OneOrTuple>::Output>
     where
