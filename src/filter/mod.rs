@@ -1,4 +1,3 @@
-//use ::reply::Reply;
 use ::server::WarpService;
 
 mod and;
@@ -8,10 +7,10 @@ mod service;
 mod tuple;
 
 use self::and::And;
-use self::map::Map;
+use self::map::{Map, MapTuple};
 pub(crate) use self::or::{Either, Or};
 use self::service::FilteredService;
-pub(crate) use self::tuple::{Combine, Cons, Func, HCons, HList};
+pub(crate) use self::tuple::{Combine, Cons, Func, HCons, HList, Tuple};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -112,6 +111,20 @@ pub trait Filter: FilterBase {
         F: Func<<Self::Extract as HList>::Tuple>,
     {
         Map {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Like `map`, but recevies a single tuple, and must return a single tuple.
+    fn tmap<F, U>(self, fun: F) -> MapTuple<Self, F>
+    where
+        Self: Sized,
+        Self::Extract: HList,
+        F: Fn(<Self::Extract as HList>::Tuple) -> U,
+        U: Tuple,
+    {
+        MapTuple {
             filter: self,
             callback: fun,
         }
