@@ -1,3 +1,4 @@
+//! dox?
 use std::str::FromStr;
 
 use base64;
