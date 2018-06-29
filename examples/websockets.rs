@@ -6,6 +6,8 @@ use warp::{Filter, Future, Stream};
 fn main() {
     pretty_env_logger::init();
 
+    // The `ws()` filter will do the full Websocket handshake,
+    // and call our function if the handshake succeeds.
     let ws = warp::ws(|websocket| {
         // Just echo all messages back...
         let (tx, rx) = websocket.split();
