@@ -61,6 +61,10 @@ impl Route {
         self.req.headers()
     }
 
+    pub(crate) fn query(&self) -> Option<&str> {
+        self.req.uri().query()
+    }
+
     pub(crate) fn has_more_segments(&self) -> bool {
         self.segments_index.get() != self.segments_total
     }

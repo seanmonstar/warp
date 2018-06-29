@@ -11,6 +11,7 @@ extern crate hyper;
 #[macro_use] extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;
+extern crate serde_urlencoded;
 extern crate sha1;
 extern crate tungstenite;
 extern crate tokio_tungstenite;
@@ -42,6 +43,9 @@ pub use self::filters::{
     method::{get, method, post, put, delete},
     // path() function
     path::path,
+    query,
+    // query() function
+    query::query,
     // ws() function
     ws::ws,
 };

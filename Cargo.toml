@@ -15,6 +15,7 @@ log = "0.4"
 scoped-tls = "0.1"
 serde = "1.0"
 serde_json = "1.0"
+serde_urlencoded = "0.5.2"
 sha-1 = "0.7"
 tungstenite = "0.5"
 
