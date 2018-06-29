@@ -13,7 +13,9 @@ use ::route;
 use ::reply::{Reply, Response, WarpBody};
 use super::header;
 
-/// dox
+/// Creates a Websocket Filter.
+///
+/// The passed function is called with each successful Websocket accepted.
 pub fn ws<F, U>(fun: F) -> impl Filter<Extract=Cons<Ws>>
 where
     F: Fn(WebSocket) -> U + Clone + Send + 'static,
@@ -28,7 +30,11 @@ where
     })
 }
 
-/// dox
+/// Creates a Websocket Filter, with a supplied factory function.
+///
+/// The factory function is called once for each accepted `WebSocket`. The
+/// factory should return a new function that is ready to handle the
+/// `WebSocket`.
 pub fn ws_new<F1, F2>(factory: F1) -> impl Filter<Extract=Cons<Ws>>
 where
     F1: Fn() -> F2 + Send + 'static,
