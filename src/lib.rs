@@ -3,6 +3,7 @@
 //! warp
 
 extern crate base64;
+extern crate bytes;
 extern crate crossbeam_channel;
 #[macro_use] extern crate futures;
 extern crate http;
@@ -13,8 +14,9 @@ extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
 extern crate sha1;
-extern crate tungstenite;
+extern crate tokio;
 extern crate tokio_tungstenite;
+extern crate tungstenite;
 
 mod blocking;
 mod error;
@@ -36,11 +38,14 @@ pub use self::filters::{
     cookie,
     // cookie() function
     cookie::cookie,
+    fs,
     header,
-    path,
     // header() function
     header::header,
     method::{get, method, post, put, delete},
+    path,
+    // the index() function
+    path::index,
     // path() function
     path::path,
     query,

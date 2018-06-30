@@ -20,6 +20,21 @@ pub fn path<T: FromStr>() -> impl FilterAnd<Extract=Cons<T>> + Copy {
     })
 }
 
+/// Matches the end of a route.
+pub fn index() -> impl FilterAnd<Extract=()> + Copy {
+    filter_fn(move || {
+        route::with(|route| {
+            route.filter_segment(|seg| {
+                if seg.is_empty() {
+                    Some(())
+                } else {
+                    None
+                }
+            })
+        })
+    })
+}
+
 /// Create an exact match path `Filter`.
 ///
 /// This will try to match exactly to the current request path segment.
