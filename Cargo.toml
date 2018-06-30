@@ -11,7 +11,7 @@ bytes = "0.4.8"
 crossbeam-channel = "0.1"
 futures = "0.1"
 http = "0.1"
-hyper = "0.12.4"
+hyper = { path = "../hyper" } #"0.12.4"
 log = "0.4"
 scoped-tls = "0.1"
 serde = "1.0"
@@ -30,3 +30,11 @@ features = ["tokio"]
 [dev-dependencies]
 pretty_env_logger = "0.2"
 serde_derive = "1.0"
+
+[profile.release]
+codegen-units = 1
+incremental = false
+
+[profile.bench]
+codegen-units = 1
+incremental = false

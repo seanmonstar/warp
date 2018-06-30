@@ -32,7 +32,7 @@ pub fn concat() -> impl Filter<Extract=Cons<ConcatFut>> + Copy {
         route::with(|route| {
             route.take_body()
                 .map(|body| ConcatFut {
-                    fut: body.unwrap().concat2(),
+                    fut: body.concat2(),
                 })
         })
     })

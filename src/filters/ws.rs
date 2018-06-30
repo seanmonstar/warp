@@ -11,7 +11,7 @@ use tokio_tungstenite::WebSocketStream;
 use ::filter::{Cons, Filter};
 use ::never::Never;
 use ::route;
-use ::reply::{Reply, Response, WarpBody};
+use ::reply::{Reply, Response};
 use super::header;
 
 /// Creates a Websocket Filter.
@@ -49,7 +49,6 @@ where
             let body = route::with(|route| {
                 route.take_body()
                     .expect("ws filter needs request body")
-                    .unwrap()
             });
             let fun = factory();
             let fut = body.on_upgrade()
@@ -85,14 +84,14 @@ impl Reply for Ws {
 
 impl From<Ws> for Response {
     fn from(ws: Ws) -> Response {
-        Response(http::Response::builder()
+        http::Response::builder()
                 .status(101)
                 .header("content-length", "0")
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-accept", ws.accept.0.as_str())
-                .body(WarpBody::default())
-                .unwrap())
+                .body(Default::default())
+                .unwrap()
     }
 }
 

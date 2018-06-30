@@ -1,5 +1,4 @@
 //! dox?
-use std::mem;
 
 use futures::{future, Future, IntoFuture};
 use http;
@@ -13,21 +12,20 @@ use ::never::Never;
 pub(crate) use self::not_found::{NotFound, NOT_FOUND};
 
 /// Easily convert a type into a `Response`.
-pub fn reply<T>(val: T) -> Response
+#[inline]
+pub fn reply<T>(val: T) -> future::FutureResult<Response, Never>
 where
-    Response: From<T>,
+    Body: From<T>,
 {
-    Response::from(val)
+    future::ok(Response::new(Body::from(val)))
 }
 
 /// Easily constructor a 400 Bad Request response.
 pub fn client_error() -> Response {
     http::Response::builder()
         .status(400)
-        .header("content-length", "0")
-        .body(WarpBody::wrap(Body::empty()))
+        .body(Body::empty())
         .unwrap()
-        .into()
 }
 
 /// Convert the value into a `Response` with the value encoded as JSON.
@@ -37,8 +35,8 @@ where
 {
     match serde_json::to_string(&val) {
         Ok(s) => {
-            let mut res = reply(s);
-            res.0.headers_mut().insert(
+            let mut res = Response::new(s.into()); //reply(s);
+            res.headers_mut().insert(
                 CONTENT_TYPE,
                 HeaderValue::from_static("application/json")
             );
@@ -49,40 +47,28 @@ where
             http::Response::builder()
                 .status(500)
                 .header("content-length", "0")
-                .body(WarpBody::wrap(Body::empty()))
+                .body(Body::empty())
                 .unwrap()
-                .into()
         }
     }
 }
 
+pub type Response = http::Response<Body>;
+/*
 /// An HTTP response used by Warp servers.
 #[derive(Debug)]
-pub struct Response(pub(crate) http::Response<WarpBody>);
-
-impl From<http::Response<WarpBody>> for Response {
-    fn from(http: http::Response<WarpBody>) -> Response {
-        Response(http)
-    }
-}
+pub struct Response(pub(crate) http::Response<Body>);
 
 impl From<&'static str> for Response {
+    #[inline]
     fn from(s: &'static str) -> Response {
-        http::Response::builder()
-            .header("content-length", &*s.len().to_string())
-            .body(WarpBody::wrap(Body::from(s)))
-            .unwrap()
-            .into()
+        Response(http::Response::new(Body::from(s)))
     }
 }
 
 impl From<String> for Response {
     fn from(s: String) -> Response {
-        http::Response::builder()
-            .header("content-length", &*s.len().to_string())
-            .body(WarpBody::wrap(Body::from(s)))
-            .unwrap()
-            .into()
+        Response(http::Response::new(Body::from(s)))
     }
 }
 
@@ -106,6 +92,7 @@ where
         Response::from(cons.0)
     }
 }
+*/
 
 /// A trait describing the various things that a Warp server can turn into a `Response`.
 pub trait Reply {
@@ -115,40 +102,10 @@ pub trait Reply {
     fn into_response(self) -> Self::Future;
 }
 
-/// dox?
-#[derive(Debug, Default)]
-pub struct WarpBody {
-    body: Body,
-    #[cfg(debug_assertions)]
-    route_taken: bool,
-}
-
-impl WarpBody {
-    pub(crate) fn wrap(body: Body) -> Self {
-        WarpBody {
-            body,
-            #[cfg(debug_assertions)]
-            route_taken: false,
-        }
-    }
-
-    pub(crate) fn unwrap(self) -> Body {
-        self.body
-    }
-
-    pub(crate) fn route_take(&mut self) -> Self {
-        debug_assert!(!self.route_taken);
-        #[cfg(debug_assertions)]
-        {
-            self.route_taken = true;
-        }
-
-        WarpBody::wrap(mem::replace(&mut self.body, Body::empty()))
-    }
-}
-
+/*
 impl Reply for Response {
     type Future = future::FutureResult<Response, Never>;
+    #[inline]
     fn into_response(self) -> Self::Future {
         future::ok(self)
     }
@@ -158,13 +115,16 @@ impl IntoFuture for Response {
     type Item = Response;
     type Error = Never;
     type Future = future::FutureResult<Response, Never>;
+    #[inline]
     fn into_future(self) -> Self::Future {
         future::ok(self)
     }
 }
+*/
 
 impl<T: Reply, U: Reply> Reply for Either<T, U> {
     type Future = future::Either<T::Future, U::Future>;
+    #[inline]
     fn into_response(self) -> Self::Future {
         match self {
             Either::A(a) => future::Either::A(a.into_response()),
@@ -178,6 +138,7 @@ where
     T: Reply
 {
     type Future = T::Future;
+    #[inline]
     fn into_response(self) -> Self::Future {
         self.0.into_response()
     }
@@ -203,45 +164,10 @@ impl Reply for NotFound {
     type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {
         trace!("NOT_FOUND");
-        Response(http::Response::builder()
+        future::ok(http::Response::builder()
             .status(404)
-            .header("content-length", "0")
-            .body(WarpBody::wrap(Body::empty()))
+            .body(Body::empty())
             .unwrap())
-            .into_response()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use hyper::body::Payload;
-
-    #[test]
-    fn body_route_take() {
-        let mut body = WarpBody::wrap(Body::from("test"));
-        // A new body has not been taken yet.
-        assert!(!body.route_taken);
-        // The body has the string 'test'
-        assert!(!body.body.is_end_stream());
-
-        let taken = body.route_take();
-        // The taken body itself isn't taken from.
-        assert!(!taken.route_taken);
-        // The taken body has the 'test' body
-        assert!(!taken.body.is_end_stream());
-
-        // The first body knows it's been taken.
-        assert!(body.route_taken);
-        assert!(body.body.is_end_stream());
-    }
-
-    #[test]
-    #[should_panic]
-    fn body_route_take_twice() {
-        let mut body = WarpBody::wrap(Body::from("test"));
-        let _b1 = body.route_take();
-        let _oh_noes = body.route_take();
     }
 }
 

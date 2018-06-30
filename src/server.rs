@@ -6,8 +6,7 @@ use http;
 use hyper::{rt, Body, Server as HyperServer};
 use hyper::service::{service_fn};
 
-use ::never::Never;
-use ::reply::{NotFound, Reply, Response, WarpBody};
+use ::reply::{NotFound, Reply};
 use ::Request;
 
 /// Create a `Server` with the provided service.
@@ -37,18 +36,13 @@ where
         let inner = Arc::new(self.service.into_warp_service());
         let service = move || {
             let inner = inner.clone();
-            service_fn(move |req: ::hyper::Request<Body>| {
-                let req: http::Request<Body> = req.into();
-                inner.call(req.map(WarpBody::wrap))
+            service_fn(move |req: http::Request<Body>| {
+                inner.call(req)
                     .into_response()
-                    .map(|res: Response| {
-                        let res: ::hyper::Response<Body> = res.0.map(WarpBody::unwrap).into();
-                        res
-                    })
-                    .map_err(|x: Never| -> ::hyper::Error { match x {} })
             })
         };
         let srv = HyperServer::bind(&addr.into())
+            .pipeline()
             .serve(service);
         info!("warp drive engaged: listening on {}", srv.local_addr());
 

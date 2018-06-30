@@ -1,4 +1,4 @@
-#![deny(warnings, missing_docs)]
+//#![deny(warnings, missing_docs)]
 
 //! warp
 
@@ -61,5 +61,4 @@ pub use hyper::rt::spawn;
 
 pub use futures::{Future, Stream};
 
-/// dox?
-pub type Request = http::Request<self::reply::WarpBody>;
+pub(crate) type Request = http::Request<hyper::Body>;

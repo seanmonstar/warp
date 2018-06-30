@@ -12,7 +12,7 @@ use tokio::io::AsyncRead;
 
 use ::filter::{Cons, HCons, FilterAnd, filter_fn};
 use ::never::Never;
-use ::reply::{Reply, Response, WarpBody};
+use ::reply::{Reply, Response};
 use ::route;
 
 /// Creates a `Filter` that serves a File at the `path`.
@@ -99,10 +99,10 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Never> + Send {
                     _ => 500,
                 };
 
-                let resp = Response(http::Response::builder()
+                let resp = http::Response::builder()
                     .status(code)
-                    .body(WarpBody::default())
-                    .unwrap());
+                    .body(Default::default())
+                    .unwrap();
                 Either::B(future::ok(resp))
             }
         })
@@ -118,19 +118,19 @@ fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=Never> + Send 
 
         ::hyper::rt::spawn(copy_to_body(f.take().unwrap(), tx, len));
 
-        Ok(Response(http::Response::builder()
+        Ok(http::Response::builder()
             .status(200)
             .header("content-length", len)
-            .body(WarpBody::wrap(body))
-            .unwrap()).into())
+            .body(body)
+            .unwrap().into())
     })
         .or_else(|err: ::std::io::Error| {
             trace!("file metadata error: {}", err);
 
-            Ok(Response(http::Response::builder()
+            Ok(http::Response::builder()
                 .status(500)
-                .body(WarpBody::default())
-                .unwrap()))
+                .body(Default::default())
+                .unwrap())
         })
 }
 

@@ -13,6 +13,7 @@ where
     F: Func<<T::Extract as HList>::Tuple>,
 {
     type Extract = Cons<F::Output>;
+    #[inline]
     fn filter(&self) -> Option<Self::Extract> {
         self.filter
             .filter()
@@ -42,6 +43,7 @@ where
     U: Tuple,
 {
     type Extract = U::HList;
+    #[inline]
     fn filter(&self) -> Option<Self::Extract> {
         self.filter
             .filter()

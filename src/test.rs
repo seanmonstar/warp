@@ -1,9 +1,8 @@
 //! Test utilities to test your filters.
-use http::Request;
 
 use ::filter::{Filter, HList};
-use ::reply::WarpBody;
 use ::route::{self, Route};
+use ::Request;
 
 use self::inner::OneOrTuple;
 
@@ -17,7 +16,7 @@ pub fn request() -> RequestBuilder {
 /// A request builder for testing filters.
 #[derive(Debug)]
 pub struct RequestBuilder {
-    req: Request<WarpBody>,
+    req: Request,
 }
 
 impl RequestBuilder {

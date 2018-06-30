@@ -36,6 +36,7 @@ pub trait Func<Args> {
 
 impl<T> Combine<T> for () {
     type Output = T;
+    #[inline]
     fn combine(self, other: T) -> Self::Output {
         other
     }
@@ -47,6 +48,7 @@ where
 {
     type Output = HCons<H, <T as Combine<U>>::Output>;
 
+    #[inline]
     fn combine(self, other: U) -> Self::Output {
         HCons(self.0, self.1.combine(other))
     }
@@ -56,6 +58,7 @@ where
 
 impl HList for () {
     type Tuple = ();
+    #[inline]
     fn flatten(self) -> Self::Tuple {
         ()
     }
@@ -64,6 +67,7 @@ impl HList for () {
 impl<T1> HList for Cons<T1> {
     type Tuple = (T1,);
 
+    #[inline]
     fn flatten(self) -> Self::Tuple {
         (self.0,)
     }
@@ -72,6 +76,7 @@ impl<T1> HList for Cons<T1> {
 impl<T1, T2> HList for HCons<T1, Cons<T2>> {
     type Tuple = (T1, T2);
 
+    #[inline]
     fn flatten(self) -> Self::Tuple {
         (self.0, (self.1).0)
     }
@@ -80,6 +85,7 @@ impl<T1, T2> HList for HCons<T1, Cons<T2>> {
 impl<T1, T2, T3> HList for HCons<T1, HCons<T2, Cons<T3>>> {
     type Tuple = (T1, T2, T3);
 
+    #[inline]
     fn flatten(self) -> Self::Tuple {
         (self.0, (self.1).0, (((self.1).1).0))
     }
@@ -89,6 +95,7 @@ impl<T1, T2, T3> HList for HCons<T1, HCons<T2, Cons<T3>>> {
 
 impl Tuple for () {
     type HList = ();
+    #[inline]
     fn hlist(self) -> Self::HList {
         ()
     }
@@ -96,6 +103,7 @@ impl Tuple for () {
 
 impl<T1> Tuple for (T1,) {
     type HList = Cons<T1>;
+    #[inline]
     fn hlist(self) -> Self::HList {
         HCons(self.0, ())
     }
@@ -103,6 +111,7 @@ impl<T1> Tuple for (T1,) {
 
 impl<T1, T2> Tuple for (T1, T2,) {
     type HList = HCons<T1, Cons<T2>>;
+    #[inline]
     fn hlist(self) -> Self::HList {
         HCons(self.0, HCons(self.1, ()))
     }
@@ -110,6 +119,7 @@ impl<T1, T2> Tuple for (T1, T2,) {
 
 impl<T1, T2, T3> Tuple for (T1, T2, T3,) {
     type HList = HCons<T1, HCons<T2, Cons<T3>>>;
+    #[inline]
     fn hlist(self) -> Self::HList {
         HCons(self.0, HCons(self.1, HCons(self.2, ())))
     }
@@ -117,6 +127,7 @@ impl<T1, T2, T3> Tuple for (T1, T2, T3,) {
 
 impl<T1, T2, T3, T4> Tuple for (T1, T2, T3, T4,) {
     type HList = HCons<T1, HCons<T2, HCons<T3, Cons<T4>>>>;
+    #[inline]
     fn hlist(self) -> Self::HList {
         HCons(self.0, HCons(self.1, HCons(self.2, HCons(self.3, ()))))
     }
@@ -130,6 +141,7 @@ where
 {
     type Output = R;
 
+    #[inline]
     fn call(&self, _args: ()) -> Self::Output {
         (*self)()
     }
@@ -141,6 +153,7 @@ where
 {
     type Output = R;
 
+    #[inline]
     fn call(&self, args: (A1,)) -> Self::Output {
         (*self)(args.0)
     }
@@ -152,6 +165,7 @@ where
 {
     type Output = R;
 
+    #[inline]
     fn call(&self, args: (A1, A2,)) -> Self::Output {
         (*self)(args.0, args.1)
     }
@@ -163,6 +177,7 @@ where
 {
     type Output = R;
 
+    #[inline]
     fn call(&self, args: (A1, A2, A3,)) -> Self::Output {
         (*self)(args.0, args.1, args.2)
     }

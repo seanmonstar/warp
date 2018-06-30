@@ -1,9 +1,10 @@
 use std::cell::{Cell, RefCell};
+use std::mem;
 
 use http;
+use hyper::Body;
 
 use ::Request;
-use ::reply::WarpBody;
 
 scoped_thread_local!(static ROUTE: Route);
 
@@ -28,7 +29,7 @@ pub(crate) fn is_set() -> bool {
 #[derive(Debug)]
 pub(crate) struct Route {
     req: http::Request<()>,
-    body: RefCell<WarpBody>,
+    body: RefCell<Body>,
 
     segments_index: Cell<usize>,
     segments_total: usize,
@@ -37,19 +38,21 @@ pub(crate) struct Route {
 
 impl Route {
     pub(crate) fn new(req: Request) -> Route {
+        /*
         let cnt = req
             .uri()
             .path()
             .split('/')
             // -1 because the before the first slash is skipped
             .count() - 1;
+            */
         let (parts, body) = req.into_parts();
         let req = http::Request::from_parts(parts, ());
         Route {
             req,
             body: RefCell::new(body),
             segments_index: Cell::new(0),
-            segments_total: cnt,
+            segments_total: 1,//cnt,
         }
     }
 
@@ -109,19 +112,14 @@ impl Route {
         }
     }
 
-    pub(crate) fn take_body(&self) -> Option<WarpBody> {
+    pub(crate) fn take_body(&self) -> Option<Body> {
         if self.segments_index.get() == self.segments_total {
-            let body = self.body.borrow_mut().route_take();
+            let body = mem::replace(&mut *self.body.borrow_mut(), Body::empty());
             Some(body)
         } else {
             trace!("route segments not fully matched, cannot take body");
             None
         }
-    }
-
-    pub(crate) fn into_req(self) -> Request {
-        let body = self.body.into_inner();
-        self.req.map(move |()| body)
     }
 }
 

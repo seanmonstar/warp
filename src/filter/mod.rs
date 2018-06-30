@@ -1,5 +1,3 @@
-use ::server::WarpService;
-
 mod and;
 mod map;
 mod or;
@@ -127,19 +125,6 @@ pub trait Filter: FilterBase {
         MapTuple {
             filter: self,
             callback: fun,
-        }
-    }
-
-    #[doc(hidden)]
-    fn service_with_not_found<N>(self, not_found: N) -> FilteredService<Self, N>
-    where
-        Self: Sized,
-        //Self::Extract: Reply,
-        N: WarpService,
-    {
-        FilteredService {
-            filter: self,
-            not_found,
         }
     }
 }

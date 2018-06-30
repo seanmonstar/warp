@@ -7,7 +7,7 @@ pub fn any() -> Any {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Any {
     _inner: (),
 }

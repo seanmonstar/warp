@@ -3,8 +3,8 @@ extern crate warp;
 use warp::Filter;
 
 fn main() {
-    // Match / and return hello world!
-    let routes = warp::index()
+    // Match any request and return hello world!
+    let routes = warp::any()
         .map(|| warp::reply("Hello, World!"));
 
     warp::serve(routes)
