@@ -1,6 +1,6 @@
 //! dox?
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bytes::{BufMut, BytesMut};
@@ -13,14 +13,50 @@ use tokio::io::AsyncRead;
 use ::filter::{Cons, HCons, FilterAnd, filter_fn};
 use ::never::Never;
 use ::reply::{Reply, Response, WarpBody};
+use ::route;
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn file(path: impl AsRef<Path> + Send + Sync + 'static) -> impl FilterAnd<Extract=Cons<File>> {
-    let path = Arc::new(path);
+pub fn file(path: impl Into<PathBuf>) -> impl FilterAnd<Extract=Cons<File>> {
+    let path = Arc::new(path.into());
     filter_fn(move || {
-        trace!("file: {:?}", (*path).as_ref());
+        trace!("file: {:?}", path);
         Some(HCons(File {
             path: ArcPath(path.clone()),
+        }, ()))
+    })
+}
+
+/// Creates a `Filter` that serves a File at the `path`.
+pub fn dir(path: impl AsRef<Path> + Send + 'static) -> impl FilterAnd<Extract=Cons<File>> {
+    filter_fn(move || {
+        let mut buf = PathBuf::from(path.as_ref());
+        route::with(|route| {
+            //TODO: this could probably be factored out into a `path::tail()`
+            //or similar Filter...
+            while route.has_more_segments() {
+                route.filter_segment(|seg| {
+                    // For starters, be really strict. This can
+                    // be relaxed as test cases come up...
+                    if seg.starts_with(".") {
+                        trace!("dir: rejecting segment starting with '.'");
+                        None
+                    } else if seg.starts_with("*") {
+                        trace!("dir: rejecting segment starting with '*'");
+                        None
+                    }else {
+                        buf.push(seg);
+                        Some(())
+                    }
+                })?;
+            }
+
+            Some(())
+        })?;
+
+        trace!("dir: {:?}", buf);
+        let path = Arc::new(buf);
+        Some(HCons(File {
+            path: ArcPath(path),
         }, ()))
     })
 }
@@ -31,7 +67,7 @@ pub struct File {
 }
 
 // Silly wrapper since Arc<AsRef<Path>> doesn't implement AsRef<Path> ;_;
-struct ArcPath(Arc<AsRef<Path> + Send + Sync>);
+struct ArcPath(Arc<PathBuf>);
 
 impl AsRef<Path> for ArcPath {
     fn as_ref(&self) -> &Path {
@@ -51,9 +87,15 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Never> + Send {
         .then(|res| match res {
             Ok(f) => Either::A(file_metadata(f)),
             Err(err) => {
-                debug!("file open error: {}", err);
+                debug!("file open error: {} ", err);
                 let code = match err.kind() {
                     io::ErrorKind::NotFound => 404,
+                    // There are actually other errors that could
+                    // occur that really mean a 404, but the kind
+                    // return is Other, making it hard to tell.
+                    //
+                    // A fix would be to check `Path::is_file` first,
+                    // using `tokio_threadpool::blocking` around it...
                     _ => 500,
                 };
 

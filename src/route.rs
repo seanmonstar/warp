@@ -16,7 +16,7 @@ where
 
 pub(crate) fn with<F, R>(f: F) -> R
 where
-    F: Fn(&Route) -> R,
+    F: FnMut(&Route) -> R,
 {
     ROUTE.with(f)
 }
