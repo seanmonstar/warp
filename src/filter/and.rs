@@ -1,4 +1,4 @@
-use super::{Combine, FilterBase, Filter, FilterAnd};
+use super::{Combine, FilterBase, Filter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {
@@ -8,7 +8,7 @@ pub struct And<T, U> {
 
 impl<T, U> FilterBase for And<T, U>
 where
-    T: FilterAnd,
+    T: Filter,
     T::Extract: Combine<U::Extract>,
     U: Filter,
 {
@@ -24,11 +24,4 @@ where
             })
     }
 }
-
-impl<T, U> FilterAnd for And<T, U>
-where
-    T: FilterAnd,
-    T::Extract: Combine<U::Extract>,
-    U: Filter,
-{}
 

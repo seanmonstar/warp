@@ -3,11 +3,11 @@ use std::str::FromStr;
 
 use http::header::HeaderValue;
 
-use ::filter::{Cons, FilterAnd, filter_fn, filter_fn_cons};
+use ::filter::{Cons, Filter, filter_fn, filter_fn_cons};
 use ::route;
 
 pub(crate) fn value<F, U>(name: &'static str, func: F)
-    -> impl FilterAnd<Extract=Cons<U>> + Copy
+    -> impl Filter<Extract=Cons<U>> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
 {
@@ -21,7 +21,7 @@ where
 }
 
 pub(crate) fn optional_value<F, U>(name: &'static str, func: F)
-    -> impl FilterAnd<Extract=Cons<Option<U>>> + Copy
+    -> impl Filter<Extract=Cons<Option<U>>> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
 {
@@ -38,7 +38,7 @@ where
 ///
 /// This `Filter` will look for a header with supplied name,
 /// and try to parse to a `T`, otherwise rejects the request.
-pub fn header<T: FromStr>(name: &'static str) -> impl FilterAnd<Extract=Cons<T>> {
+pub fn header<T: FromStr>(name: &'static str) -> impl Filter<Extract=Cons<T>> {
     filter_fn_cons(move || {
         trace!("header::Extract({:?})", name);
         route::with(|route| {
@@ -59,7 +59,7 @@ pub fn header<T: FromStr>(name: &'static str) -> impl FilterAnd<Extract=Cons<T>>
 ///
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, otherwise rejects the request.
-pub fn exact(name: &'static str, value: &'static str) -> impl FilterAnd<Extract=()> + Copy {
+pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=()> + Copy {
     filter_fn(move || {
         trace!("exact({:?}, {:?})", name, value);
         route::with(|route| {
@@ -80,7 +80,7 @@ pub fn exact(name: &'static str, value: &'static str) -> impl FilterAnd<Extract=
 ///
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, ignoring ASCII case, otherwise rejects the request.
-pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl FilterAnd<Extract=()> + Copy {
+pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=()> + Copy {
     filter_fn(move || {
         trace!("exact_ignore_case({:?}, {:?})", name, value);
         route::with(|route| {

@@ -1,16 +1,6 @@
 //! Body filters
 //!
 //! Filters that extract a body for a route.
-//!
-//! # Body filters must "end" a filter chain
-//!
-//! ```compile_fail
-//! let a = warp::body::concat();
-//! let b = warp::body::concat();
-//!
-//! // Cannot 'and' chain something after 'a'
-//! a.and(b)
-//! ```
 
 use std::marker::PhantomData;
 

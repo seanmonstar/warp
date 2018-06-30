@@ -1,4 +1,4 @@
-use ::filter::{FilterBase, FilterAnd};
+use ::filter::{FilterBase};
 
 /// A filter that matches any route.
 pub fn any() -> Any {
@@ -21,5 +21,4 @@ impl FilterBase for Any {
     }
 }
 
-impl FilterAnd for Any {}
 

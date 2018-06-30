@@ -1,6 +1,6 @@
 use http;
 
-use ::filter::{Cons, FilterBase, Filter, FilterAnd, filter_fn_cons};
+use ::filter::{Cons, FilterBase, Filter, filter_fn_cons};
 use ::route;
 
 /// Wrap a `Filter` in a new one that requires the request method to be `GET`.
@@ -24,7 +24,7 @@ pub fn delete<F: Filter>(filter: F) -> Method<F> {
 }
 
 /// Extract the `Method` from the request.
-pub fn method() -> impl FilterAnd<Extract=Cons<http::Method>> + Copy {
+pub fn method() -> impl Filter<Extract=Cons<http::Method>> + Copy {
     filter_fn_cons(|| {
         route::with(|route| {
             Some(route.method().clone())
@@ -61,5 +61,4 @@ impl<F: Filter> FilterBase for Method<F> {
     }
 }
 
-impl<F: FilterAnd> FilterAnd for Method<F> {}
 

@@ -10,13 +10,13 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
-use ::filter::{Cons, HCons, FilterAnd, filter_fn};
+use ::filter::{Cons, HCons, Filter, filter_fn};
 use ::never::Never;
 use ::reply::{Reply, Response};
 use ::route;
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn file(path: impl Into<PathBuf>) -> impl FilterAnd<Extract=Cons<File>> {
+pub fn file(path: impl Into<PathBuf>) -> impl Filter<Extract=Cons<File>> {
     let path = Arc::new(path.into());
     filter_fn(move || {
         trace!("file: {:?}", path);
@@ -27,7 +27,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterAnd<Extract=Cons<File>> {
 }
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn dir(path: impl AsRef<Path> + Send + 'static) -> impl FilterAnd<Extract=Cons<File>> {
+pub fn dir(path: impl AsRef<Path> + Send + 'static) -> impl Filter<Extract=Cons<File>> {
     filter_fn(move || {
         let mut buf = PathBuf::from(path.as_ref());
         route::with(|route| {

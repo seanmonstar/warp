@@ -2,13 +2,13 @@
 
 use http::header::HeaderValue;
 
-use ::filter::{Cons, FilterAnd};
+use ::filter::{Cons, Filter};
 use super::header;
 
 /// Creates a `Filter` that requires a cookie by name.
 ///
 /// If found, extracts the value of the cookie, otherwise rejects.
-pub fn cookie(name: &'static str) -> impl FilterAnd<Extract=Cons<String>> + Copy {
+pub fn cookie(name: &'static str) -> impl Filter<Extract=Cons<String>> + Copy {
     header::value("cookie", move |val| {
         find_cookie(name, val)
     })
@@ -18,7 +18,7 @@ pub fn cookie(name: &'static str) -> impl FilterAnd<Extract=Cons<String>> + Copy
 ///
 /// If found, extracts the value of the cookie, otherwise continues
 /// the request, extracting `None`.
-pub fn optional(name: &'static str) -> impl FilterAnd<Extract=Cons<Option<String>>> + Copy {
+pub fn optional(name: &'static str) -> impl Filter<Extract=Cons<Option<String>>> + Copy {
     header::optional_value("cookie", move |val| {
         find_cookie(name, val)
     })

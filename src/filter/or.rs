@@ -1,5 +1,5 @@
 use ::route;
-use super::{Cons, FilterBase, Filter, FilterAnd, HCons};
+use super::{Cons, FilterBase, Filter, HCons};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -44,10 +44,4 @@ where
         })
     }
 }
-
-impl<T, U> FilterAnd for Or<T, U>
-where
-    T: Filter,
-    U: Filter,
-{}
 

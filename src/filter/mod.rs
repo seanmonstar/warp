@@ -56,7 +56,7 @@ pub trait Filter: FilterBase {
     /// ```
     fn and<F>(self, other: F) -> And<Self, F>
     where
-        Self: FilterAnd + Sized,
+        Self: Sized,
         Self::Extract: HList + Combine<F::Extract>,
         F: Filter,
         F::Extract: HList,
@@ -131,8 +131,6 @@ pub trait Filter: FilterBase {
 
 impl<T: FilterBase> Filter for T {}
 
-pub trait FilterAnd: Filter {}
-
 fn _assert_object_safe() {
     fn _assert(_f: &Filter<Extract=()>) {}
 }
@@ -175,8 +173,3 @@ where
     }
 }
 
-impl<F, U> FilterAnd for FilterFn<F>
-where
-    F: Fn() -> Option<U>,
-    U: HList,
-{}
