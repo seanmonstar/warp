@@ -16,16 +16,15 @@ where
     R: Reply,
 {
     type Reply = Either<R::Future, <NotFound as Reply>::Future>;
-    //type Reply = R;
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested FilteredService::calls");
 
-        //let r = Route::new(req);
-        //route::set(&r, || {
+        let r = Route::new(req);
+        route::set(&r, || {
             self.filter.filter()
-        //})
+        })
             .map(|reply| {
                 Either::A(reply.into_response())
             })

@@ -38,21 +38,19 @@ pub(crate) struct Route {
 
 impl Route {
     pub(crate) fn new(req: Request) -> Route {
-        /*
         let cnt = req
             .uri()
             .path()
             .split('/')
             // -1 because the before the first slash is skipped
             .count() - 1;
-            */
         let (parts, body) = req.into_parts();
         let req = http::Request::from_parts(parts, ());
         Route {
             req,
             body: RefCell::new(body),
             segments_index: Cell::new(0),
-            segments_total: 1,//cnt,
+            segments_total: cnt,
         }
     }
 
