@@ -47,6 +47,7 @@ impl RequestBuilder {
     {
         assert!(!route::is_set(), "nested filter calls");
         let r = Route::new(self.req);
+        trace!("test filter: path={:?}", r.path());
         route::set(&r, || {
             f.filter()
                 .wait()

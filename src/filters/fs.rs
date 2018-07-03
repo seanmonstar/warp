@@ -34,6 +34,8 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
         let opt = route::with(|route| {
             //TODO: this could probably be factored out into a `path::tail()`
             //or similar Filter...
+
+            /* FIXME
             while route.has_more_segments() {
                 route.filter_segment(|seg| {
                     // For starters, be really strict. This can
@@ -50,6 +52,7 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
                     }
                 })?;
             }
+            */
 
             Some(())
         });

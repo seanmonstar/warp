@@ -32,25 +32,20 @@ pub(crate) struct Route {
     body: RefCell<Body>,
 
     segments_index: Cell<usize>,
-    segments_total: usize,
 }
 
 
 impl Route {
     pub(crate) fn new(req: Request) -> Route {
-        let cnt = req
-            .uri()
-            .path()
-            .split('/')
-            // -1 because the before the first slash is skipped
-            .count() - 1;
+        debug_assert_eq!(req.uri().path().as_bytes()[0], b'/');
+
         let (parts, body) = req.into_parts();
         let req = http::Request::from_parts(parts, ());
         Route {
             req,
             body: RefCell::new(body),
-            segments_index: Cell::new(0),
-            segments_total: cnt,
+            // always start at 1, since paths are `/...`.
+            segments_index: Cell::new(1),
         }
     }
 
@@ -62,12 +57,33 @@ impl Route {
         self.req.headers()
     }
 
+    pub(crate) fn path(&self) -> &str {
+        &self.req.uri().path()[self.segments_index.get()..]
+    }
+
+    pub(crate) fn set_unmatched_path(&self, index: usize) {
+        let index = self.segments_index.get() + index;
+
+        let path = self.req.uri().path();
+
+        if path.len() == index {
+            self.segments_index.set(index);
+        } else {
+            debug_assert_eq!(
+                path.as_bytes()[index],
+                b'/',
+            );
+
+            self.segments_index.set(index + 1);
+        }
+    }
+
     pub(crate) fn query(&self) -> Option<&str> {
         self.req.uri().query()
     }
 
     pub(crate) fn has_more_segments(&self) -> bool {
-        self.segments_index.get() != self.segments_total
+        self.segments_index.get() < self.req.uri().path().len()
     }
 
     pub(crate) fn transaction<F, R>(&self, op: F) -> Option<R>
@@ -81,32 +97,6 @@ impl Route {
                 None
             },
             some => some,
-        }
-    }
-
-    pub(crate) fn filter_segment<F, U>(&self, fun: F) -> Option<U>
-    where
-        F: FnOnce(&str) -> Option<U>,
-    {
-        if self.segments_index.get() == self.segments_total {
-            None
-        } else {
-            fun(
-                self
-                    .req
-                    .uri()
-                    .path()
-                    //TODO: record this on Route::init
-                    .split('/')
-                    .skip(self.segments_index.get() + 1)
-                    .next()
-                    .expect("Route segment unimplemented")
-            )
-                .map(|val| {
-                    let idx = self.segments_index.get();
-                    self.segments_index.set(idx + 1);
-                    val
-                })
         }
     }
 

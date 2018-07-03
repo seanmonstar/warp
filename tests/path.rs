@@ -1,3 +1,4 @@
+extern crate pretty_env_logger;
 #[macro_use]
 extern crate warp;
 
@@ -5,6 +6,8 @@ use warp::Filter;
 
 #[test]
 fn exact() {
+    let _ = pretty_env_logger::try_init();
+
     let foo = warp::path("foo");
     let bar = warp::path("bar");
     let foo_bar = foo.and(bar);
@@ -33,6 +36,8 @@ fn exact() {
 
 #[test]
 fn extract() {
+    let _ = pretty_env_logger::try_init();
+
     let num = warp::path::param::<u32>();
 
     let req = warp::test::request()
@@ -97,6 +102,7 @@ fn or() {
 
 #[test]
 fn path_macro() {
+    let _ = pretty_env_logger::try_init();
     /* TODO
     let req = warp::test::request()
         .path("/foo/bar");
