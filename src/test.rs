@@ -1,5 +1,7 @@
 //! Test utilities to test your filters.
 
+use futures::Future;
+
 use ::filter::{Filter, HList};
 use ::route::{self, Route};
 use ::Request;
@@ -37,7 +39,7 @@ impl RequestBuilder {
     }
 
     /// Tries to apply the `Filter` on this request.
-    pub fn filter<F>(self, f: F) -> Option<<<F::Extract as HList>::Tuple as OneOrTuple>::Output>
+    pub fn filter<F>(self, f: F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
     where
         F: Filter,
         F::Extract: HList,
@@ -47,6 +49,7 @@ impl RequestBuilder {
         let r = Route::new(self.req);
         route::set(&r, || {
             f.filter()
+                .wait()
                 .map(|ex| ex.flatten().one_or_tuple())
         })
     }
@@ -55,12 +58,10 @@ impl RequestBuilder {
     pub fn matches<F>(self, f: F) -> bool
     where
         F: Filter,
+        F::Extract: HList,
+        <F::Extract as HList>::Tuple: OneOrTuple,
     {
-        assert!(!route::is_set(), "nested filter calls");
-        let r = Route::new(self.req);
-        route::set(&r, || {
-            f.filter().is_some()
-        })
+        self.filter(f).is_ok()
     }
 }
 

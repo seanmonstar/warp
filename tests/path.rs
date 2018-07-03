@@ -36,7 +36,7 @@ fn extract() {
 
     let req = warp::test::request()
         .path("/321");
-    assert_eq!(req.filter(num), Some(321));
+    assert_eq!(req.filter(num).unwrap(), 321);
 
     let s = warp::path::<String>();
 
@@ -47,13 +47,13 @@ fn extract() {
     // u32 doesn't extract a non-int
     let req = warp::test::request()
         .path("/warp");
-    assert_eq!(req.filter(num), None);
+    assert!(!req.matches(num));
 
     let combo = num.map(|n| n + 5).and(s);
 
     let req = warp::test::request()
         .path("/42/vroom");
-    assert_eq!(req.filter(combo), Some((47, "vroom".to_string())));
+    assert_eq!(req.filter(combo).unwrap(), (47, "vroom".to_string()));
 }
 
 #[test]

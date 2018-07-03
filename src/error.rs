@@ -11,7 +11,7 @@ impl From<Never> for Error {
 }
 
 pub trait CombineError<E>: Send + Sized {
-    type Error: From<Self> + From<E> + Send;
+    type Error: ::std::fmt::Debug + From<Self> + From<E> + Send;
 }
 
 impl CombineError<Error> for Error {

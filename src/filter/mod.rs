@@ -18,7 +18,7 @@ pub(crate) use self::tuple::{Combine, Cons, Func, HCons, HList, Tuple};
 // signatures without it being a breaking change.
 pub trait FilterBase {
     type Extract;
-    type Error: Send;
+    type Error: ::std::fmt::Debug + Send;
     type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
     fn filter(&self) -> Self::Future;
@@ -185,7 +185,7 @@ where
     U: IntoFuture,
     U::Future: Send,
     U::Item: HList,
-    U::Error: Send,
+    U::Error: ::std::fmt::Debug + Send,
 {
     type Extract = U::Item;
     type Error = U::Error;

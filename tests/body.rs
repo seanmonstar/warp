@@ -9,11 +9,11 @@ fn body_must_be_route_end() {
     let req = warp::test::request()
         .path("/not-matched");
 
-    assert!(req.filter(&a).is_none());
+    assert!(!req.matches(&a));
 
     let p = warp::path::exact("body");
     let req = warp::test::request()
         .path("/body");
 
-    assert!(req.filter(&p.and(a)).is_some());
+    assert!(req.matches(&p.and(a)));
 }
