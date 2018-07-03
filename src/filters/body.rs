@@ -2,9 +2,7 @@
 //!
 //! Filters that extract a body for a route.
 
-use std::marker::PhantomData;
-
-use futures::{Async, Future, Poll, Stream};
+use futures::{Future, Poll, Stream};
 use futures::stream::Concat2;
 use hyper::{Body, Chunk};
 use serde::de::DeserializeOwned;
@@ -17,43 +15,60 @@ use ::Error;
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
-pub fn concat() -> impl Filter<Extract=Cons<ConcatFut>> + Copy {
+pub fn concat() -> impl Filter<Extract=Cons<Chunk>, Error=::Error> + Copy {
     filter_fn_cons(move || {
         route::with(|route| {
-            route.take_body()
-                .map(|body| ConcatFut {
-                    fut: body.concat2(),
-                })
+            let body = route.take_body()
+                .expect("unimplemented: missing body error");
+            Concat {
+                fut: body.concat2(),
+            }
         })
     })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a JSON-decoded body.
-pub fn json<T: DeserializeOwned>() -> impl Filter<Extract=Cons<JsonFut<T>>> + Copy {
+pub fn json<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>, Error=::Error> + Copy {
     concat()
-        .map(|concat| JsonFut {
-            concat,
-            _marker: PhantomData,
+        .map(|buf: Chunk| {
+            serde_json::from_slice(&buf).expect("unimplemented json error")
+            /*
+            match serde_json::from_slice(&buf) {
+                Ok(val) => Ok(val)
+                Err(err) => {
+                    debug!("request json body error: {}", err);
+                    Err(Error(()))
+                }
+            }
+            */
         })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a form encoded body.
-pub fn form<T: DeserializeOwned>() -> impl Filter<Extract=Cons<FormFut<T>>> + Copy {
+pub fn form<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>, Error=::Error> + Copy {
     concat()
-        .map(|concat| FormFut {
-            concat,
-            _marker: PhantomData,
+        .map(|buf: Chunk| {
+            serde_urlencoded::from_bytes(&buf).expect("unimplemented form error")
+            /*
+            match serde_urlencoded::from_bytes(&buf) {
+                Ok(val) => Ok(Async::Ready(val)),
+                Err(err) => {
+                    debug!("request form body error: {}", err);
+                    Err(Error(()))
+                }
+            }
+            */
         })
 }
 
 /// dox?
-pub struct ConcatFut {
+pub struct Concat {
     fut: Concat2<Body>,
 }
 
-impl Future for ConcatFut {
+impl Future for Concat {
     type Item = Chunk;
     type Error = Error;
 
@@ -66,52 +81,3 @@ impl Future for ConcatFut {
     }
 }
 
-/// dox?
-pub struct JsonFut<T> {
-    concat: ConcatFut,
-    _marker: PhantomData<fn() -> T>,
-}
-
-impl<T> Future for JsonFut<T>
-where
-    T: DeserializeOwned,
-{
-    type Item = T;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let buf = try_ready!(self.concat.poll());
-        match serde_json::from_slice(&buf) {
-            Ok(val) => Ok(Async::Ready(val)),
-            Err(err) => {
-                debug!("request json body error: {}", err);
-                Err(Error(()))
-            }
-        }
-    }
-}
-
-/// dox?
-pub struct FormFut<T> {
-    concat: ConcatFut,
-    _marker: PhantomData<fn() -> T>,
-}
-
-impl<T> Future for FormFut<T>
-where
-    T: DeserializeOwned,
-{
-    type Item = T;
-    type Error = Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let buf = try_ready!(self.concat.poll());
-        match serde_urlencoded::from_bytes(&buf) {
-            Ok(val) => Ok(Async::Ready(val)),
-            Err(err) => {
-                debug!("request form body error: {}", err);
-                Err(Error(()))
-            }
-        }
-    }
-}

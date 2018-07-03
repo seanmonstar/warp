@@ -1,6 +1,6 @@
 //! dox?
 
-use futures::{future, Future, IntoFuture};
+use futures::{future, Future, IntoFuture, Poll};
 use http;
 use http::header::{CONTENT_TYPE, HeaderValue};
 use hyper::Body;
@@ -9,15 +9,24 @@ use serde_json;
 
 use ::filter::{Cons, Either};
 use ::never::Never;
-pub(crate) use self::not_found::{NotFound, NOT_FOUND};
 
 /// Easily convert a type into a `Response`.
 #[inline]
-pub fn reply<T>(val: T) -> future::FutureResult<Response, Never>
+pub fn reply<T>(val: T) -> Reply_
 where
     Body: From<T>,
 {
-    future::ok(Response::new(Body::from(val)))
+    Reply_(Response::new(Body::from(val)))
+}
+
+pub struct Reply_(Response);
+
+impl Reply for Reply_ {
+    type Future = future::FutureResult<Response, Never>;
+
+    fn into_response(self) -> Self::Future {
+        future::ok(self.0)
+    }
 }
 
 /// Easily constructor a 400 Bad Request response.
@@ -29,11 +38,11 @@ pub fn client_error() -> Response {
 }
 
 /// Convert the value into a `Response` with the value encoded as JSON.
-pub fn json<T>(val: T) -> Response
+pub fn json<T>(val: T) -> Reply_
 where
     T: Serialize,
 {
-    match serde_json::to_string(&val) {
+    Reply_(match serde_json::to_string(&val) {
         Ok(s) => {
             let mut res = Response::new(s.into()); //reply(s);
             res.headers_mut().insert(
@@ -50,7 +59,7 @@ where
                 .body(Body::empty())
                 .unwrap()
         }
-    }
+    })
 }
 
 pub type Response = http::Response<Body>;
@@ -144,23 +153,22 @@ where
     }
 }
 
-impl<T> Reply for T
+impl<T, R, E> Reply for T
 where
-    T: Future<Item=Response, Error=Never> + Send + 'static,
+    T: Future<Item=R, Error=E> + Send + 'static,
+    R: Reply + 'static,
+    E: Reply + 'static,
 {
-    type Future = T;
+    type Future = future::Then<T, future::Either<R::Future, E::Future>, fn(Result<R, E>) -> future::Either<R::Future, E::Future>>;
     fn into_response(self) -> Self::Future {
-        self
+        self.then(|result| match result {
+            Ok(reply) => future::Either::A(reply.into_response()),
+            Err(err) => future::Either::B(err.into_response()),
+        })
     }
 }
 
-mod not_found {
-    #[derive(Clone, Copy, Debug)]
-    pub struct NotFound(());
-    pub(crate) const NOT_FOUND: NotFound = NotFound(());
-}
-
-impl Reply for NotFound {
+impl Reply for ::Error {
     type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {
         trace!("NOT_FOUND");
@@ -168,6 +176,13 @@ impl Reply for NotFound {
             .status(404)
             .body(Body::empty())
             .unwrap())
+    }
+}
+
+impl Reply for ::never::Never {
+    type Future = future::FutureResult<Response, Never>;
+    fn into_response(self) -> Self::Future {
+        match self {}
     }
 }
 

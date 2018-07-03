@@ -1,24 +1,10 @@
-use ::filter::{FilterBase};
+use futures::future;
+
+use ::never::Never;
+use ::filter::{Filter, filter_fn};
 
 /// A filter that matches any route.
-pub fn any() -> Any {
-    Any {
-        _inner: (),
-    }
+pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
+    filter_fn(|| future::poll_fn(|| Ok(().into())))
 }
-
-#[derive(Copy, Clone, Debug)]
-pub struct Any {
-    _inner: (),
-}
-
-impl FilterBase for Any {
-    type Extract = ();
-
-    #[inline]
-    fn filter(&self) -> Option<Self::Extract> {
-        Some(())
-    }
-}
-
 

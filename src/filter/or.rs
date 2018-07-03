@@ -18,14 +18,21 @@ where
     T: Filter,
     U: Filter,
 {
+    /*
     type Extract = Cons<
         Either<
             T::Extract,
             U::Extract,
         >
     >;
+    */
+    type Extract = U::Extract;
+    type Error = U::Error;
+    type Future = U::Future;
 
-    fn filter(&self) -> Option<Self::Extract> {
+    fn filter(&self) -> Self::Future {
+        unimplemented!("Or::filter");
+        /*
         route::with(|route| {
             route
                 .transaction(|| {
@@ -42,6 +49,7 @@ where
                 })
                 .map(|e| HCons(e, ()))
         })
+        */
     }
 }
 

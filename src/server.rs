@@ -6,7 +6,7 @@ use http;
 use hyper::{rt, Body, Server as HyperServer};
 use hyper::service::{service_fn};
 
-use ::reply::{NotFound, Reply};
+use ::reply::{Reply};
 use ::Request;
 
 /// Create a `Server` with the provided service.
@@ -73,10 +73,3 @@ where
 }
 */
 
-impl WarpService for NotFound {
-    type Reply = NotFound;
-
-    fn call(&self, _: Request) -> Self::Reply {
-        *self
-    }
-}

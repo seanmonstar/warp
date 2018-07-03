@@ -10,27 +10,28 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
-use ::filter::{Cons, HCons, Filter, filter_fn};
+use ::filter::{Cons, HCons, FilterClone, filter_fn};
 use ::never::Never;
 use ::reply::{Reply, Response};
 use ::route;
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn file(path: impl Into<PathBuf>) -> impl Filter<Extract=Cons<File>> {
+pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Never> {
     let path = Arc::new(path.into());
     filter_fn(move || {
         trace!("file: {:?}", path);
-        Some(HCons(File {
+        Ok::<_, Never>(HCons(File {
             path: ArcPath(path.clone()),
         }, ()))
     })
 }
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn dir(path: impl AsRef<Path> + Send + 'static) -> impl Filter<Extract=Cons<File>> {
+pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=::Error> {
+    let base = Arc::new(path.into());
     filter_fn(move || {
-        let mut buf = PathBuf::from(path.as_ref());
-        route::with(|route| {
+        let mut buf = PathBuf::from(base.as_ref());
+        let opt = route::with(|route| {
             //TODO: this could probably be factored out into a `path::tail()`
             //or similar Filter...
             while route.has_more_segments() {
@@ -51,11 +52,16 @@ pub fn dir(path: impl AsRef<Path> + Send + 'static) -> impl Filter<Extract=Cons<
             }
 
             Some(())
-        })?;
+        });
+
+        match opt {
+            Some(()) => (),
+            None => return Err(::Error(())),
+        }
 
         trace!("dir: {:?}", buf);
         let path = Arc::new(buf);
-        Some(HCons(File {
+        Ok(HCons(File {
             path: ArcPath(path),
         }, ()))
     })

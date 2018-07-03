@@ -4,24 +4,32 @@ mod or;
 mod service;
 mod tuple;
 
+use futures::future;
+use futures::{Future, IntoFuture};
+
+use ::error::CombineError;
+use ::never::Never;
 use self::and::And;
-use self::map::{Map, MapTuple};
+use self::map::{Map/*, MapTuple*/};
 pub(crate) use self::or::{Either, Or};
-use self::service::FilteredService;
 pub(crate) use self::tuple::{Combine, Cons, Func, HCons, HList, Tuple};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
 pub trait FilterBase {
     type Extract;
+    type Error: Send;
+    type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
-    fn filter(&self) -> Option<Self::Extract>;
+    fn filter(&self) -> Self::Future;
 }
 
 impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
     type Extract = T::Extract;
+    type Error = T::Error;
+    type Future = T::Future;
 
-    fn filter(&self) -> Option<Self::Extract> {
+    fn filter(&self) -> Self::Future {
         (**self).filter()
     }
 }
@@ -58,8 +66,9 @@ pub trait Filter: FilterBase {
     where
         Self: Sized,
         Self::Extract: HList + Combine<F::Extract>,
-        F: Filter,
+        F: Filter + Clone,
         F::Extract: HList,
+        F::Error: CombineError<Self::Error>,
     {
         And {
             first: self,
@@ -106,7 +115,7 @@ pub trait Filter: FilterBase {
     where
         Self: Sized,
         Self::Extract: HList,
-        F: Func<<Self::Extract as HList>::Tuple>,
+        F: Func<<Self::Extract as HList>::Tuple> + Clone,
     {
         Map {
             filter: self,
@@ -114,6 +123,7 @@ pub trait Filter: FilterBase {
         }
     }
 
+    /*
     /// Like `map`, but recevies a single tuple, and must return a single tuple.
     fn tmap<F, U>(self, fun: F) -> MapTuple<Self, F>
     where
@@ -127,33 +137,41 @@ pub trait Filter: FilterBase {
             callback: fun,
         }
     }
+    */
 }
 
 impl<T: FilterBase> Filter for T {}
 
+pub trait FilterClone: Filter + Clone {}
+
+impl<T: Filter + Clone> FilterClone for T {}
+
 fn _assert_object_safe() {
-    fn _assert(_f: &Filter<Extract=()>) {}
+    fn _assert(_f: &Filter<Extract=(), Error=(), Future=future::FutureResult<(), ()>>) {}
 }
 
 pub fn filter_fn<F, U>(func: F) -> FilterFn<F>
 where
-    F: Fn() -> Option<U>,
-    U: HList,
+    F: Fn() -> U,
+    U: IntoFuture,
+    U::Item: HList,
 {
     FilterFn {
         func,
     }
 }
 
-pub fn filter_fn_cons<F, U>(func: F) -> FilterFn<impl Fn() -> Option<Cons<U>> + Copy>
+pub fn filter_fn_cons<F, U>(func: F)
+    -> FilterFn<impl Fn() -> future::Map<U::Future, fn(U::Item) -> Cons<U::Item>> + Copy>
 where
-    F: Fn() -> Option<U> + Copy,
+    F: Fn() -> U + Copy,
+    U: IntoFuture,
 {
-    FilterFn {
-        func: move || {
-            func().map(|u| HCons(u, ()))
-        },
-    }
+    filter_fn(move || {
+        func()
+            .into_future()
+            .map((|u| HCons(u, ())) as _)
+    })
 }
 
 #[derive(Copy, Clone)]
@@ -163,13 +181,19 @@ pub struct FilterFn<F> {
 
 impl<F, U> FilterBase for FilterFn<F>
 where
-    F: Fn() -> Option<U>,
-    U: HList,
+    F: Fn() -> U,
+    U: IntoFuture,
+    U::Future: Send,
+    U::Item: HList,
+    U::Error: Send,
 {
-    type Extract = U;
+    type Extract = U::Item;
+    type Error = U::Error;
+    type Future = U::Future;
 
-    fn filter(&self) -> Option<Self::Extract> {
-        (self.func)()
+    fn filter(&self) -> Self::Future {
+        (self.func)().into_future()
     }
 }
 
+pub type Always<T> = future::FutureResult<Cons<T>, Never>;

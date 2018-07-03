@@ -1,7 +1,5 @@
-use futures::future::Either;
-
 use ::{Filter, Request};
-use ::reply::{NOT_FOUND, NotFound, Reply};
+use ::reply::{Reply};
 use ::route::{self, Route};
 use ::server::{IntoWarpService, WarpService};
 
@@ -10,32 +8,28 @@ pub struct FilteredService<F> {
     filter: F,
 }
 
-impl<F, R> WarpService for FilteredService<F>
+impl<F> WarpService for FilteredService<F>
 where
-    F: Filter<Extract=R>,
-    R: Reply,
+    F: Filter,
+    F::Future: Reply,
 {
-    type Reply = Either<R::Future, <NotFound as Reply>::Future>;
+    type Reply = F::Future;
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested FilteredService::calls");
 
-        let r = Route::new(req);
-        route::set(&r, || {
+        //let r = Route::new(req);
+        //route::set(&r, || {
             self.filter.filter()
-        })
-            .map(|reply| {
-                Either::A(reply.into_response())
-            })
-            .unwrap_or_else(|| Either::B(NOT_FOUND.into_response()))
+        //})
     }
 }
 
-impl<F, R> IntoWarpService for FilteredService<F>
+impl<F> IntoWarpService for FilteredService<F>
 where
-    F: Filter<Extract=R> + Send + Sync + 'static,
-    R: Reply,
+    F: Filter + Send + Sync + 'static,
+    F::Future: Reply,
 {
     type Service = FilteredService<F>;
 
@@ -45,12 +39,12 @@ where
     }
 }
 
-impl<T, R> IntoWarpService for T
+impl<F> IntoWarpService for F
 where
-    T: Filter<Extract=R> + Send + Sync + 'static,
-    R: Reply,
+    F: Filter + Send + Sync + 'static,
+    F::Future: Reply,
 {
-    type Service = FilteredService<T>;
+    type Service = FilteredService<F>;
 
     #[inline]
     fn into_warp_service(self) -> Self::Service {

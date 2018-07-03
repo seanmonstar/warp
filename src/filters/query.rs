@@ -9,7 +9,7 @@ use ::route;
 /// Creates a `Filter` that decodes query parameters to the type `T`.
 ///
 /// If cannot decode into a `T`, the request is rejected.
-pub fn query<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>> + Copy {
+pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>> + Copy {
     filter_fn_cons(|| {
         route::with(|route| {
             route
@@ -18,6 +18,8 @@ pub fn query<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>> + Copy {
                     serde_urlencoded::from_str(q)
                         .ok()
                 })
+                .map(Ok)
+                .unwrap_or_else(|| Err(::Error(())))
         })
     })
 }

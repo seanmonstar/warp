@@ -7,7 +7,7 @@ use futures::sync::oneshot;
 use ::never::Never;
 
 /// dox?
-pub fn blocking<F, A, R>(threads: usize, blocker: F) -> impl Fn(A) -> Blocking<R>
+pub fn blocking<F, A, R>(threads: usize, blocker: F) -> impl FnClone<A, Blocking<R>>
 where
     F: Fn(A) -> R + Clone + Send + 'static,
     A: Send + 'static,
@@ -17,7 +17,7 @@ where
 }
 
 /// dox
-pub fn blocking_new<F1, F2, A, R>(threads: usize, factory: F1) -> impl Fn(A) -> Blocking<R>
+pub fn blocking_new<F1, F2, A, R>(threads: usize, factory: F1) -> impl FnClone<A, Blocking<R>>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(A) -> R,
@@ -61,3 +61,8 @@ impl<T> Future for Blocking<T> {
         self.i.poll().map_err(|_| panic!("pool is gone"))
     }
 }
+
+pub trait FnClone<A, R>: Fn(A) -> R + Clone {}
+
+impl<F: Fn(A) -> R + Clone, A, R> FnClone<A, R> for F {}
+

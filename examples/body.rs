@@ -3,7 +3,7 @@ extern crate serde;
 extern crate pretty_env_logger;
 extern crate warp;
 
-use warp::{Filter, Future};
+use warp::Filter;
 
 #[derive(Deserialize, Serialize)]
 struct Employee {
@@ -17,15 +17,9 @@ fn main() {
     let promote = warp::path::exact("employees")
         .and(warp::path::<u32>())
         .and(warp::body::json::<Employee>())
-        .map(|rate, json| {
-            // json is a future
-            // but seems type inference is failing... ;_;
-            //json.map(move |mut employee| {
-            Future::map(json, move |mut employee: Employee| {
-                employee.rate = rate;
-                warp::reply::json(employee)
-            })
-            .or_else(|_| warp::reply::client_error())
+        .map(|rate, mut employee: Employee| {
+            employee.rate = rate;
+            warp::reply::json(employee)
         });
 
     // POST /employees/:rate  {"name":"Sean","rate":2}
