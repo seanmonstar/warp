@@ -196,4 +196,3 @@ where
     }
 }
 
-pub type Always<T> = future::FutureResult<Cons<T>, Never>;

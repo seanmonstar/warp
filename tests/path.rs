@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate warp;
 
 use warp::Filter;
@@ -93,3 +94,29 @@ fn or() {
         .path("/foo/bar/bar");
     assert!(req.matches(&p));
 }
+
+#[test]
+fn path_macro() {
+    /* TODO
+    let req = warp::test::request()
+        .path("/foo/bar");
+    let p = path!("foo/bar");
+    assert!(req.matches(p));
+    */
+
+    let req = warp::test::request()
+        .path("/foo/bar");
+    let p = path!("foo" / "bar");
+    assert!(req.matches(p));
+
+    let req = warp::test::request()
+        .path("/foo/bar");
+    let p = path!(String / "bar");
+    assert_eq!(req.filter(p).unwrap(), "foo");
+
+    let req = warp::test::request()
+        .path("/foo/bar");
+    let p = path!("foo" / String);
+    assert_eq!(req.filter(p).unwrap(), "bar");
+}
+

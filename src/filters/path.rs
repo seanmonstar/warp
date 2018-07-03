@@ -66,3 +66,23 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=Cons<T>, Error=::Error>
     })
 }
 
+#[macro_export]
+macro_rules! path {
+    (@p $first:tt / $($tail:tt)*) => ({
+        let __p = path!(@p $first);
+        $(
+        let __p = $crate::Filter::and(__p, path!(@p $tail));
+        )*
+        __p
+    });
+    (@p $param:ty) => (
+        $crate::path::param::<$param>()
+    );
+    (@p $s:expr) => (
+        $crate::path($s)
+    );
+    ($($pieces:tt)*) => (
+        path!(@p $($pieces)*)
+    );
+}
+
