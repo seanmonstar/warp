@@ -42,12 +42,12 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
 /// ```compile_fail
 /// use warp::Filter;
 ///
-/// let any = warp::any();
-/// let closure = |route| {
-///     any.filter(route)
-/// };
+/// let _ = warp::any().filter();
 /// ```
-pub fn __warp_filter_compilefail_doctest() {}
+pub fn __warp_filter_compilefail_doctest() {
+    // Duplicate code to make sure the code is otherwise valid.
+    let _ = ::any().filter();
+}
 
 /// Composable request filters.
 pub trait Filter: FilterBase {
