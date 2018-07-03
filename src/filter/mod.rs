@@ -59,8 +59,8 @@ pub trait Filter: FilterBase {
     /// use warp::Filter;
     ///
     /// // Match `/hello/:name`...
-    /// warp::path::exact("hello")
-    ///     .and(warp::path::<String>());
+    /// warp::path("hello")
+    ///     .and(warp::path::param::<String>());
     /// ```
     fn and<F>(self, other: F) -> And<Self, F>
     where
@@ -85,8 +85,8 @@ pub trait Filter: FilterBase {
     /// use warp::Filter;
     ///
     /// // Match either `/:u32` or `/:socketaddr`
-    /// warp::path::<u32>()
-    ///     .or(warp::path::<SocketAddr>());
+    /// warp::path::param::<u32>()
+    ///     .or(warp::path::param::<SocketAddr>());
     /// ```
     fn or<F>(self, other: F) -> Or<Self, F>
     where
@@ -107,7 +107,7 @@ pub trait Filter: FilterBase {
     /// use warp::Filter;
     ///
     /// // Map `/:id`
-    /// warp::path().map(|id: u64| {
+    /// warp::path::param().map(|id: u64| {
     ///   format!("Hello #{}", id)
     /// });
     /// ```
