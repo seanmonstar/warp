@@ -1,4 +1,5 @@
 extern crate pretty_env_logger;
+#[macro_use]
 extern crate warp;
 
 use warp::Filter;
@@ -23,12 +24,14 @@ fn main() {
     // - /hello/:name
     let hello = prefix.and(num.or(name));
 
-    let bye = warp::path("good")
-        .and(warp::path("bye"))
-        .and(warp::path::param::<String>())
+    // Alternatively, using the `path!` macro, several steps can
+    // be combined to 1 expression:
+    //
+    // - /good/bye/:name
+    let bye = path!("good" / "bye" / String)
         .map(|name| warp::reply(format!("Good bye, {}!", name)));
 
-    // GET (hello)
+    // GET (hello OR bye)
     let routes = warp::get(
         hello
             .or(bye)
