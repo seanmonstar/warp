@@ -4,8 +4,8 @@ use warp::Filter;
 
 #[test]
 fn exact() {
-    let foo = warp::path::exact("foo");
-    let bar = warp::path::exact("bar");
+    let foo = warp::path("foo");
+    let bar = warp::path("bar");
     let foo_bar = foo.and(bar);
 
     // /foo
@@ -32,13 +32,13 @@ fn exact() {
 
 #[test]
 fn extract() {
-    let num = warp::path::<u32>();
+    let num = warp::path::param::<u32>();
 
     let req = warp::test::request()
         .path("/321");
     assert_eq!(req.filter(num).unwrap(), 321);
 
-    let s = warp::path::<String>();
+    let s = warp::path::param::<String>();
 
     let req = warp::test::request()
         .path("/warp");
@@ -59,9 +59,9 @@ fn extract() {
 #[test]
 fn or() {
     // /foo/bar OR /foo/baz
-    let foo = warp::path::exact("foo");
-    let bar = warp::path::exact("bar");
-    let baz = warp::path::exact("baz");
+    let foo = warp::path("foo");
+    let bar = warp::path("bar");
+    let baz = warp::path("baz");
     let p = foo.and(bar.or(baz));
 
     // /foo/bar

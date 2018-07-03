@@ -14,8 +14,8 @@ struct Employee {
 fn main() {
     pretty_env_logger::init();
 
-    let promote = warp::path::exact("employees")
-        .and(warp::path::<u32>())
+    let promote = warp::path("employees")
+        .and(warp::path::param::<u32>())
         .and(warp::body::json::<Employee>())
         .map(|rate, mut employee: Employee| {
             employee.rate = rate;

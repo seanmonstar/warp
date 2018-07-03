@@ -110,14 +110,8 @@ impl Route {
         }
     }
 
-    pub(crate) fn take_body(&self) -> Option<Body> {
-        if self.segments_index.get() == self.segments_total {
-            let body = mem::replace(&mut *self.body.borrow_mut(), Body::empty());
-            Some(body)
-        } else {
-            trace!("route segments not fully matched, cannot take body");
-            None
-        }
+    pub(crate) fn take_body(&self) -> Body {
+        mem::replace(&mut *self.body.borrow_mut(), Body::empty())
     }
 }
 

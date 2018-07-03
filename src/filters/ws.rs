@@ -48,7 +48,6 @@ where
         .map(move |accept| {
             let body = route::with(|route| {
                 route.take_body()
-                    .expect("ws filter needs request body")
             });
             let fun = factory();
             let fut = body.on_upgrade()

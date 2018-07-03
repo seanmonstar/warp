@@ -18,7 +18,7 @@ fn main() {
             })
     });
 
-    let path = warp::path::exact("chat");
+    let path = warp::path("chat");
     let routes = path.and(ws);
 
     warp::serve(routes)

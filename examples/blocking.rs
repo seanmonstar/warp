@@ -16,9 +16,8 @@ fn main() {
     });
 
     let routes = warp::get(
-        warp::path::<u8>()
+        warp::path::param()
             .map(sleep)
-            //.map_async(warp::reply)
     );
 
     warp::serve(routes)

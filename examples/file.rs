@@ -11,7 +11,7 @@ fn main() {
 
     let routes = warp::get(
         warp::index().and(readme)
-            .or(warp::path::exact("ex").and(examples))
+            .or(warp::path("ex").and(examples))
     );
 
     warp::serve(routes)

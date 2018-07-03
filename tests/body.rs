@@ -3,15 +3,14 @@ extern crate warp;
 use warp::Filter;
 
 #[test]
-fn body_must_be_route_end() {
+fn matches() {
     let a = warp::body::concat();
 
-    let req = warp::test::request()
-        .path("/not-matched");
+    let req = warp::test::request();
 
-    assert!(!req.matches(&a));
+    assert!(req.matches(&a));
 
-    let p = warp::path::exact("body");
+    let p = warp::path("body");
     let req = warp::test::request()
         .path("/body");
 

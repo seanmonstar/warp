@@ -18,8 +18,7 @@ use ::Error;
 pub fn concat() -> impl Filter<Extract=Cons<Chunk>, Error=::Error> + Copy {
     filter_fn_cons(move || {
         route::with(|route| {
-            let body = route.take_body()
-                .expect("unimplemented: missing body error");
+            let body = route.take_body();
             Concat {
                 fut: body.concat2(),
             }
