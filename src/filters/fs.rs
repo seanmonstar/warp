@@ -31,36 +31,28 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
     let base = Arc::new(path.into());
     filter_fn(move || {
         let mut buf = PathBuf::from(base.as_ref());
-        let opt = route::with(|route| {
+        route::with(|route| {
             //TODO: this could probably be factored out into a `path::tail()`
             //or similar Filter...
 
-            /* FIXME
-            while route.has_more_segments() {
-                route.filter_segment(|seg| {
-                    // For starters, be really strict. This can
-                    // be relaxed as test cases come up...
-                    if seg.starts_with(".") {
-                        trace!("dir: rejecting segment starting with '.'");
-                        None
-                    } else if seg.starts_with("*") {
-                        trace!("dir: rejecting segment starting with '*'");
-                        None
-                    }else {
+            let end = {
+                let p = route.path();
+                for seg in p.split('/') {
+                    if seg.starts_with("..") {
+                        trace!("dir: rejecting segment starting with '..'");
+                        //TODO: bad request error kind
+                        return Err(::Error(()));
+                    } else {
                         buf.push(seg);
-                        Some(())
                     }
-                })?;
-            }
-            */
 
-            Some(())
-        });
+                }
+                p.len()
+            };
+            route.set_unmatched_path(end);
 
-        match opt {
-            Some(()) => (),
-            None => return Err(::Error(())),
-        }
+            Ok(())
+        })?;
 
         trace!("dir: {:?}", buf);
         let path = Arc::new(buf);

@@ -1,6 +1,6 @@
 //! dox?
 
-use futures::{future, Future, IntoFuture, Poll};
+use futures::{future, Future};
 use http;
 use http::header::{CONTENT_TYPE, HeaderValue};
 use hyper::Body;
@@ -19,6 +19,7 @@ where
     Reply_(Response::new(Body::from(val)))
 }
 
+/// dox?
 pub struct Reply_(Response);
 
 impl Reply for Reply_ {
@@ -62,6 +63,7 @@ where
     })
 }
 
+/// dox?
 pub type Response = http::Response<Body>;
 /*
 /// An HTTP response used by Warp servers.
@@ -80,6 +82,7 @@ impl From<String> for Response {
         Response(http::Response::new(Body::from(s)))
     }
 }
+*/
 
 impl<T, U> From<Either<T, U>> for Response
 where
@@ -101,7 +104,6 @@ where
         Response::from(cons.0)
     }
 }
-*/
 
 /// A trait describing the various things that a Warp server can turn into a `Response`.
 pub trait Reply {

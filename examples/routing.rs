@@ -11,11 +11,11 @@ fn main() {
 
     // extract /:name
     let name = warp::path::param::<String>()
-        .map(|name| format!("Hello, {}", name));
+        .map(|name| warp::reply(format!("Hello, {}", name)));
 
     // or extract /:num
     let num = warp::path::param::<u32>()
-        .map(|num| format!("Hello x {}!", num));
+        .map(|num| warp::reply(format!("Hello x {}!", num)));
 
     // /hello AND (/:num OR /:name)
     //
@@ -26,15 +26,12 @@ fn main() {
     let bye = warp::path("good")
         .and(warp::path("bye"))
         .and(warp::path::param::<String>())
-        .map(|name| format!("Good bye, {}!", name));
+        .map(|name| warp::reply(format!("Good bye, {}!", name)));
 
     // GET (hello)
     let routes = warp::get(
         hello
             .or(bye)
-            // Map the strings into replies
-            // With trait specialization, this won't be needed.
-            .map(warp::reply)
     );
 
     warp::serve(routes)

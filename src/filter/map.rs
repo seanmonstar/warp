@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{Cons, FilterBase, Filter, Func, HCons, HList, Tuple};
+use super::{Cons, FilterBase, Filter, Func, HCons, HList};
 
 #[derive(Clone, Copy)]
 pub struct Map<T, F> {

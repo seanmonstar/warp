@@ -3,7 +3,7 @@ use std::mem;
 use futures::{Async, Future, Poll};
 
 use ::error::CombineError;
-use super::{Combine, FilterBase, Filter, HList};
+use super::{Combine, FilterBase, Filter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {

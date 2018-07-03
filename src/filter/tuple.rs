@@ -5,6 +5,10 @@ pub struct HCons<H, T>(pub H, pub T);
 #[allow(unused)]
 pub type Cons<T> = HCons<T, ()>;
 
+pub(crate) fn cons<T>(val: T) -> Cons<T> {
+    HCons(val, ())
+}
+
 // Converts HCons (and ()) into tuples.
 pub trait HList {
     type Tuple;

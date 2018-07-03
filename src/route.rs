@@ -8,11 +8,11 @@ use ::Request;
 
 scoped_thread_local!(static ROUTE: Route);
 
-pub(crate) fn set<F, R>(route: &Route, f: F) -> R
+pub(crate) fn set<F, R>(req: Request, f: F) -> R
 where
     F: FnOnce() -> R
 {
-    ROUTE.set(route, f)
+    ROUTE.set(&Route::new(req), f)
 }
 
 pub(crate) fn with<F, R>(f: F) -> R
@@ -82,22 +82,12 @@ impl Route {
         self.req.uri().query()
     }
 
-    pub(crate) fn has_more_segments(&self) -> bool {
-        self.segments_index.get() < self.req.uri().path().len()
+    pub(crate) fn matched_path_index(&self) -> usize {
+        self.segments_index.get()
     }
 
-    pub(crate) fn transaction<F, R>(&self, op: F) -> Option<R>
-    where
-        F: FnOnce() -> Option<R>
-    {
-        let idx = self.segments_index.get();
-        match op() {
-            None => {
-                self.segments_index.set(idx);
-                None
-            },
-            some => some,
-        }
+    pub(crate) fn reset_matched_path_index(&self, index: usize) {
+        self.segments_index.set(index);
     }
 
     pub(crate) fn take_body(&self) -> Body {

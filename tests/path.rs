@@ -64,6 +64,8 @@ fn extract() {
 
 #[test]
 fn or() {
+    let _ = pretty_env_logger::try_init();
+
     // /foo/bar OR /foo/baz
     let foo = warp::path("foo");
     let bar = warp::path("bar");

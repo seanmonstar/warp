@@ -8,11 +8,10 @@ use futures::future;
 use futures::{Future, IntoFuture};
 
 use ::error::CombineError;
-use ::never::Never;
 use self::and::And;
 use self::map::{Map/*, MapTuple*/};
 pub(crate) use self::or::{Either, Or};
-pub(crate) use self::tuple::{Combine, Cons, Func, HCons, HList, Tuple};
+pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
