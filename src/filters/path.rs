@@ -1,6 +1,7 @@
 //! dox?
 use std::str::FromStr;
 
+use ::error::Kind;
 use ::filter::{Cons, Filter, filter_fn, HCons, HList};
 use ::route;
 
@@ -21,7 +22,7 @@ pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
         if seg == p {
             Ok(())
         } else {
-            Err(::Error(()))
+            Err(Kind::NotFound.into())
         }
     })
 }
@@ -33,7 +34,7 @@ pub fn index() -> impl Filter<Extract=(), Error=::Error> + Copy {
             if route.path().is_empty() {
                 Ok(())
             } else {
-                Err(::Error(()))
+                Err(Kind::NotFound.into())
             }
         })
     })
@@ -49,7 +50,7 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=Cons<T>, Error=::Error>
         trace!("param?: {:?}", seg);
         T::from_str(seg)
             .map(|t| HCons(t, ()))
-            .map_err(|_| ::Error(()))
+            .map_err(|_| Kind::NotFound.into())
     })
 }
 

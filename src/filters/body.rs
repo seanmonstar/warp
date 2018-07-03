@@ -9,9 +9,9 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
+use ::error::Kind;
 use ::filter::{Cons, Filter, filter_fn_cons};
 use ::route;
-use ::Error;
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
@@ -69,13 +69,13 @@ pub struct Concat {
 
 impl Future for Concat {
     type Item = Chunk;
-    type Error = Error;
+    type Error = ::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.fut.poll()
             .map_err(|e| {
                 debug!("concat error: {}", e);
-                Error(())
+                Kind::BadRequest.into()
             })
     }
 }

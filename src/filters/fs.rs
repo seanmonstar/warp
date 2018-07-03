@@ -10,6 +10,7 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
+use ::error::Kind;
 use ::filter::{Cons, HCons, FilterClone, filter_fn};
 use ::never::Never;
 use ::reply::{Reply, Response};
@@ -37,11 +38,11 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
 
             let end = {
                 let p = route.path();
+                trace!("dir? base={:?}, route={:?}", base, p);
                 for seg in p.split('/') {
                     if seg.starts_with("..") {
-                        trace!("dir: rejecting segment starting with '..'");
-                        //TODO: bad request error kind
-                        return Err(::Error(()));
+                        debug!("dir: rejecting segment starting with '..'");
+                        return Err(Kind::BadRequest);
                     } else {
                         buf.push(seg);
                     }

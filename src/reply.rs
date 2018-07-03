@@ -170,17 +170,6 @@ where
     }
 }
 
-impl Reply for ::Error {
-    type Future = future::FutureResult<Response, Never>;
-    fn into_response(self) -> Self::Future {
-        trace!("NOT_FOUND");
-        future::ok(http::Response::builder()
-            .status(404)
-            .body(Body::empty())
-            .unwrap())
-    }
-}
-
 impl Reply for ::never::Never {
     type Future = future::FutureResult<Response, Never>;
     fn into_response(self) -> Self::Future {

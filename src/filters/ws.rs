@@ -8,6 +8,7 @@ use sha1::{Digest, Sha1};
 use tungstenite::protocol;
 use tokio_tungstenite::WebSocketStream;
 
+use ::error::Kind;
 use ::filter::{Cons, Filter, FilterClone};
 use ::never::Never;
 use ::route;
@@ -107,7 +108,7 @@ impl Stream for WebSocket {
         loop {
             let item = try_ready!(self.inner.poll().map_err(|e| {
                 debug!("websocket poll error: {}", e);
-                ::Error(())
+                Kind::Ws
             }));
 
             let msg = if let Some(msg) = item {
@@ -150,7 +151,7 @@ impl Sink for WebSocket {
             })),
             Err(e) => {
                 debug!("websocket start_send error: {}", e);
-                Err(::Error(()))
+                Err(Kind::Ws.into())
             }
         }
     }
@@ -159,7 +160,7 @@ impl Sink for WebSocket {
         self.inner.poll_complete()
             .map_err(|e| {
                 debug!("websocket poll_complete error: {}", e);
-                ::Error(())
+                Kind::Ws.into()
             })
     }
 
@@ -167,7 +168,7 @@ impl Sink for WebSocket {
         self.inner.close()
             .map_err(|e| {
                 debug!("websocket close error: {}", e);
-                ::Error(())
+                Kind::Ws.into()
             })
     }
 }
