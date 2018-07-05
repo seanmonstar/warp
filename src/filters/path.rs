@@ -76,21 +76,21 @@ where
 
 #[macro_export]
 macro_rules! path {
-    (@p $first:tt / $($tail:tt)*) => ({
-        let __p = path!(@p $first);
+    (@start $first:tt $(/ $tail:tt)*) => ({
+        let __p = path!(@segment $first);
         $(
-        let __p = $crate::Filter::and(__p, path!(@p $tail));
+        let __p = $crate::Filter::and(__p, path!(@segment $tail));
         )*
         __p
     });
-    (@p $param:ty) => (
+    (@segment $param:ty) => (
         $crate::path::param::<$param>()
     );
-    (@p $s:expr) => (
+    (@segment $s:expr) => (
         $crate::path($s)
     );
     ($($pieces:tt)*) => (
-        path!(@p $($pieces)*)
+        path!(@start $($pieces)*)
     );
 }
 
