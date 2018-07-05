@@ -10,11 +10,11 @@ pub(crate) use self::sealed::{Reply, Reply_, Response};
 
 /// Easily convert a type into a `Response`.
 #[inline]
-pub fn reply<T>(val: T) -> Reply_
+pub fn reply<T>(val: T) -> impl Reply
 where
-    Body: From<T>,
+    Reply_: From<T>,
 {
-    Reply_(Response::new(Body::from(val)))
+    Reply_::from(val)
 }
 
 
@@ -59,8 +59,25 @@ mod sealed {
         fn into_response(self) -> Self::Future;
     }
 
-    /// dox?
     pub struct Reply_(pub(super) Response);
+
+    impl From<Response> for Reply_ {
+        fn from(r: Response) -> Reply_ {
+            Reply_(r)
+        }
+    }
+
+    impl From<String> for Reply_ {
+        fn from(s: String) -> Reply_ {
+            Reply_(Response::new(Body::from(s)))
+        }
+    }
+
+    impl From<&'static str> for Reply_ {
+        fn from(s: &'static str) -> Reply_ {
+            Reply_(Response::new(Body::from(s)))
+        }
+    }
 
     impl Reply for Reply_ {
         type Future = future::FutureResult<Response, Never>;
@@ -72,47 +89,26 @@ mod sealed {
 
     pub type Response = ::http::Response<Body>;
 
-    impl<T, U> From<Either<T, U>> for Response
+    impl<T, U> From<Either<T, U>> for Reply_
     where
-        Response: From<T> + From<U>,
+        Reply_: From<T> + From<U>,
     {
-        fn from(either: Either<T, U>) -> Response {
+        fn from(either: Either<T, U>) -> Reply_ {
             match either {
-                Either::A(a) => Response::from(a),
-                Either::B(b) => Response::from(b),
+                Either::A(a) => Reply_::from(a),
+                Either::B(b) => Reply_::from(b),
             }
         }
     }
 
-    impl<T> From<Cons<T>> for Response
+    impl<T> From<Cons<T>> for Reply_
     where
-        Response: From<T>,
+        Reply_: From<T>,
     {
-        fn from(cons: Cons<T>) -> Response {
-            Response::from(cons.0)
+        fn from(cons: Cons<T>) -> Reply_ {
+            Reply_::from(cons.0)
         }
     }
-
-
-    /*
-    impl Reply for Response {
-        type Future = future::FutureResult<Response, Never>;
-        #[inline]
-        fn into_response(self) -> Self::Future {
-            future::ok(self)
-        }
-    }
-
-    impl IntoFuture for Response {
-        type Item = Response;
-        type Error = Never;
-        type Future = future::FutureResult<Response, Never>;
-        #[inline]
-        fn into_future(self) -> Self::Future {
-            future::ok(self)
-        }
-    }
-    */
 
     impl<T: Reply, U: Reply> Reply for Either<T, U> {
         type Future = future::Either<T::Future, U::Future>;
