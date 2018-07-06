@@ -45,45 +45,42 @@ where
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
-    use futures::{future, Future, Poll};
     use hyper::Body;
 
     use ::filter::{Cons, Either};
-    use ::never::Never;
 
     // A trait describing the various things that a Warp server can turn into a `Response`.
     pub trait Reply {
-        /// The future of the Response.
-        type Future: Future<Item=Response, Error=Never> + Send + 'static;
-        /// Convert self into `Self::Future`.
-        fn into_response(self) -> Self::Future;
+        fn into_response(self) -> Response;
     }
 
     pub struct Reply_(pub(super) Response);
 
     impl From<Response> for Reply_ {
+        #[inline]
         fn from(r: Response) -> Reply_ {
             Reply_(r)
         }
     }
 
     impl From<String> for Reply_ {
+        #[inline]
         fn from(s: String) -> Reply_ {
             Reply_(Response::new(Body::from(s)))
         }
     }
 
     impl From<&'static str> for Reply_ {
+        #[inline]
         fn from(s: &'static str) -> Reply_ {
             Reply_(Response::new(Body::from(s)))
         }
     }
 
     impl Reply for Reply_ {
-        type Future = future::FutureResult<Response, Never>;
-
-        fn into_response(self) -> Self::Future {
-            future::ok(self.0)
+        #[inline]
+        fn into_response(self) -> Response {
+            self.0
         }
     }
 
@@ -93,6 +90,7 @@ mod sealed {
     where
         Reply_: From<T> + From<U>,
     {
+        #[inline]
         fn from(either: Either<T, U>) -> Reply_ {
             match either {
                 Either::A(a) => Reply_::from(a),
@@ -105,18 +103,18 @@ mod sealed {
     where
         Reply_: From<T>,
     {
+        #[inline]
         fn from(cons: Cons<T>) -> Reply_ {
             Reply_::from(cons.0)
         }
     }
 
     impl<T: Reply, U: Reply> Reply for Either<T, U> {
-        type Future = future::Either<T::Future, U::Future>;
         #[inline]
-        fn into_response(self) -> Self::Future {
+        fn into_response(self) -> Response {
             match self {
-                Either::A(a) => future::Either::A(a.into_response()),
-                Either::B(b) => future::Either::B(b.into_response()),
+                Either::A(a) => a.into_response(),
+                Either::B(b) => b.into_response(),
             }
         }
     }
@@ -125,9 +123,8 @@ mod sealed {
     where
         T: Reply
     {
-        type Future = T::Future;
         #[inline]
-        fn into_response(self) -> Self::Future {
+        fn into_response(self) -> Response {
             self.0.into_response()
         }
     }
@@ -136,9 +133,8 @@ mod sealed {
     where
         T: Reply
     {
-        type Future = T::Future;
         #[inline]
-        fn into_response(self) -> Self::Future {
+        fn into_response(self) -> Response {
             self.item().into_response()
         }
     }
@@ -147,42 +143,16 @@ mod sealed {
     where
         T: Reply
     {
-        type Future = T::Future;
         #[inline]
-        fn into_response(self) -> Self::Future {
+        fn into_response(self) -> Response {
             self.error().into_response()
         }
     }
 
-    impl<T, R, E> Reply for T
-    where
-        T: Future<Item=R, Error=E> + Send + 'static,
-        R: Reply + 'static,
-        E: Reply + 'static,
-    {
-        type Future = future::Then<T, future::Either<R::Future, E::Future>, fn(Result<R, E>) -> future::Either<R::Future, E::Future>>;
-        fn into_response(self) -> Self::Future {
-            self.then(|result| match result {
-                Ok(reply) => future::Either::A(reply.into_response()),
-                Err(err) => future::Either::B(err.into_response()),
-            })
-        }
-    }
-
     impl Reply for ::never::Never {
-        type Future = NeverFut;
-        fn into_response(self) -> Self::Future {
+        #[inline]
+        fn into_response(self) -> Response {
             match self {}
-        }
-    }
-
-    pub enum NeverFut {}
-
-    impl Future for NeverFut {
-        type Item = Response;
-        type Error = Never;
-        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-            match *self {}
         }
     }
 }

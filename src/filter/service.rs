@@ -1,3 +1,5 @@
+use futures::Future;
+
 use ::{Filter, Request};
 use ::reply::{Reply};
 use ::route::Route;
@@ -11,7 +13,9 @@ pub struct FilteredService<F> {
 impl<F> WarpService for FilteredService<F>
 where
     F: Filter,
-    F::Future: Reply,
+    //F::Future: Reply,
+    <F::Future as Future>::Item: Reply,
+    <F::Future as Future>::Error: Reply,
 {
     type Reply = F::Future;
 
@@ -24,7 +28,9 @@ where
 impl<F> IntoWarpService for FilteredService<F>
 where
     F: Filter + Send + Sync + 'static,
-    F::Future: Reply,
+    //F::Future: Reply,
+    <F::Future as Future>::Item: Reply,
+    <F::Future as Future>::Error: Reply,
 {
     type Service = FilteredService<F>;
 
@@ -37,7 +43,9 @@ where
 impl<F> IntoWarpService for F
 where
     F: Filter + Send + Sync + 'static,
-    F::Future: Reply,
+    //F::Future: Reply,
+    <F::Future as Future>::Item: Reply,
+    <F::Future as Future>::Error: Reply,
 {
     type Service = FilteredService<F>;
 

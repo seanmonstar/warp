@@ -73,9 +73,8 @@ pub struct Ws {
 }
 
 impl Reply for Ws {
-    type Future = future::FutureResult<Response, Never>;
-    fn into_response(self) -> Self::Future {
-        future::ok(self.into())
+    fn into_response(self) -> Response {
+        self.into()
     }
 }
 

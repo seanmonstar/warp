@@ -1,12 +1,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use futures::Future;
-use http;
-use hyper::{rt, Body, Server as HyperServer};
+use futures::{Async, Future, Poll};
+use hyper::{rt, Server as HyperServer};
 use hyper::service::{service_fn};
 
-use ::reply::{Reply};
+use ::never::Never;
+use ::reply::Reply;
 use ::Request;
 
 /// Create a `Server` with the provided service.
@@ -27,6 +27,8 @@ pub struct Server<S> {
 impl<S> Server<S>
 where
     S: IntoWarpService + 'static,
+    <<S::Service as WarpService>::Reply as Future>::Item: Reply + Send,
+    <<S::Service as WarpService>::Reply as Future>::Error: Reply + Send,
 {
     /// Run this `Server` forever on the current thread.
     pub fn run<A>(self, addr: A)
@@ -36,9 +38,10 @@ where
         let inner = Arc::new(self.service.into_warp_service());
         let service = move || {
             let inner = inner.clone();
-            service_fn(move |req: http::Request<Body>| {
-                inner.call(req)
-                    .into_response()
+            service_fn(move |req| {
+                ReplyFuture {
+                    inner: inner.call(req)
+                }
             })
         };
         let srv = HyperServer::bind(&addr.into())
@@ -56,20 +59,33 @@ pub trait IntoWarpService {
 }
 
 pub trait WarpService {
-    type Reply: Reply;
+    type Reply: Future + Send;
     fn call(&self, req: Request) -> Self::Reply;
 }
 
-/*
-impl<T> IntoWarpService for T
-where
-    T: WarpService + Send + Sync + 'static,
-{
-    type Service = T;
 
-    fn into_warp_service(self) -> Self::Service {
-        self
+// Optimizes better than using Future::then, since it doesn't
+// have to return an IntoFuture.
+struct ReplyFuture<F> {
+    inner: F,
+}
+
+impl<F> Future for ReplyFuture<F>
+where
+    F: Future,
+    F::Item: Reply,
+    F::Error: Reply,
+{
+    type Item = ::reply::Response;
+    type Error = Never;
+
+    #[inline]
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.inner.poll() {
+            Ok(Async::Ready(ok)) => Ok(Async::Ready(ok.into_response())),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(err) => Ok(Async::Ready(err.into_response())),
+        }
     }
 }
-*/
 

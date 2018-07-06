@@ -28,8 +28,7 @@ impl From<Never> for Error {
 }
 
 impl Reply for Error {
-    type Future = future::FutureResult<::reply::Response, Never>;
-    fn into_response(self) -> Self::Future {
+    fn into_response(self) -> ::reply::Response {
         let code = match self.0 {
             Kind::NotFound => http::StatusCode::NOT_FOUND,
             Kind::BadRequest => http::StatusCode::BAD_REQUEST,
@@ -38,7 +37,7 @@ impl Reply for Error {
 
         let mut res = http::Response::default();
         *res.status_mut() = code;
-        future::ok(res)
+        res
     }
 }
 

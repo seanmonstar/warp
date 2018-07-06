@@ -37,7 +37,7 @@ pub use self::filters::{
     cookie,
     // cookie() function
     cookie::cookie,
-    fs,
+    //fs,
     header,
     // header() function
     header::header,
