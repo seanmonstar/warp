@@ -1,6 +1,6 @@
 use ::{Filter, Request};
 use ::reply::{Reply};
-use ::route;
+use ::route::Route;
 use ::server::{IntoWarpService, WarpService};
 
 #[derive(Copy, Clone, Debug)]
@@ -17,11 +17,7 @@ where
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
-        debug_assert!(!route::is_set(), "nested FilteredService::calls");
-
-        route::set(req, || {
-            self.filter.filter()
-        })
+        self.filter.filter(Route::new(req))
     }
 }
 

@@ -45,7 +45,7 @@ where
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
-    use futures::{future, Future};
+    use futures::{future, Future, Poll};
     use hyper::Body;
 
     use ::filter::{Cons, Either};
@@ -132,6 +132,28 @@ mod sealed {
         }
     }
 
+    impl<T> Reply for ::filter::Extracted<T>
+    where
+        T: Reply
+    {
+        type Future = T::Future;
+        #[inline]
+        fn into_response(self) -> Self::Future {
+            self.item().into_response()
+        }
+    }
+
+    impl<T> Reply for ::filter::Errored<T>
+    where
+        T: Reply
+    {
+        type Future = T::Future;
+        #[inline]
+        fn into_response(self) -> Self::Future {
+            self.error().into_response()
+        }
+    }
+
     impl<T, R, E> Reply for T
     where
         T: Future<Item=R, Error=E> + Send + 'static,
@@ -148,9 +170,19 @@ mod sealed {
     }
 
     impl Reply for ::never::Never {
-        type Future = future::FutureResult<Response, Never>;
+        type Future = NeverFut;
         fn into_response(self) -> Self::Future {
             match self {}
+        }
+    }
+
+    pub enum NeverFut {}
+
+    impl Future for NeverFut {
+        type Item = Response;
+        type Error = Never;
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            match *self {}
         }
     }
 }

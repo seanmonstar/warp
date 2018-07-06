@@ -3,7 +3,7 @@
 use futures::Future;
 
 use ::filter::{Filter, HList};
-use ::route;
+use ::route::Route;
 use ::Request;
 
 use self::inner::OneOrTuple;
@@ -45,13 +45,10 @@ impl RequestBuilder {
         F::Extract: HList,
         <F::Extract as HList>::Tuple: OneOrTuple,
     {
-        assert!(!route::is_set(), "nested filter calls");
-
-        route::set(self.req, || {
-            f.filter()
-                .wait()
-                .map(|ex| ex.flatten().one_or_tuple())
-        })
+        f.filter(Route::new(self.req))
+            .wait()
+            .map(|ex| ex.item().flatten().one_or_tuple())
+            .map_err(|err| err.error())
     }
 
     /// Returns whether the `Filter` matches this request.

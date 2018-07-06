@@ -10,19 +10,26 @@ use serde_json;
 use serde_urlencoded;
 
 use ::error::Kind;
+use ::never::Never;
 use ::filter::{Cons, Filter, filter_fn_cons};
-use ::route;
+
+/// Extracts the `Body` Stream from the route.
+///
+/// Does not consume any of it.
+pub(crate) fn body() -> impl Filter<Extract=Cons<Body>, Error=Never> + Copy {
+    filter_fn_cons(|route| {
+        Ok::<_, Never>(route.take_body())
+    })
+}
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
 pub fn concat() -> impl Filter<Extract=Cons<Chunk>, Error=::Error> + Copy {
-    filter_fn_cons(move || {
-        route::with(|route| {
-            let body = route.take_body();
-            Concat {
-                fut: body.concat2(),
-            }
-        })
+    filter_fn_cons(move |route| {
+        let body = route.take_body();
+        Concat {
+            fut: body.concat2(),
+        }
     })
 }
 

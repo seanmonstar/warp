@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use ::error::Kind;
 use ::filter::{Cons, Filter, filter_fn, HCons, HList};
-use ::route;
 
 
 /// Create an exact match path `Filter`.
@@ -29,14 +28,12 @@ pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
 
 /// Matches the end of a route.
 pub fn index() -> impl Filter<Extract=(), Error=::Error> + Copy {
-    filter_fn(move || {
-        route::with(|route| {
-            if route.path().is_empty() {
-                Ok(())
-            } else {
-                Err(Kind::NotFound.into())
-            }
-        })
+    filter_fn(move |route| {
+        if route.path().is_empty() {
+            Ok(())
+        } else {
+            Err(Kind::NotFound.into())
+        }
     })
 }
 
@@ -59,18 +56,16 @@ where
     F: Fn(&str) -> Result<U, ::Error> + Copy,
     U: HList + Send,
 {
-    filter_fn(move || {
-        route::with(|route| {
-            let (u, idx) = {
-                let seg = route.path()
-                    .splitn(2, '/')
-                    .next()
-                    .expect("split always has at least 1");
-                (func(seg)?, seg.len())
-            };
-            route.set_unmatched_path(idx);
-            Ok(u)
-        })
+    filter_fn(move |route| {
+        let (u, idx) = {
+            let seg = route.path()
+                .splitn(2, '/')
+                .next()
+                .expect("split always has at least 1");
+            (func(seg)?, seg.len())
+        };
+        route.set_unmatched_path(idx);
+        Ok(u)
     })
 }
 

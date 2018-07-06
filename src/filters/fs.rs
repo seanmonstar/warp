@@ -11,55 +11,52 @@ use tokio::fs;
 use tokio::io::AsyncRead;
 
 use ::error::Kind;
-use ::filter::{Cons, HCons, FilterClone, filter_fn};
+use ::filter::{cons, Cons, FilterClone, filter_fn};
 use ::never::Never;
 use ::reply::{Reply, Response};
-use ::route;
 
 /// Creates a `Filter` that serves a File at the `path`.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Never> {
     let path = Arc::new(path.into());
-    filter_fn(move || {
+    filter_fn(move |_| {
         trace!("file: {:?}", path);
-        Ok::<_, Never>(HCons(File {
+        Ok::<_, Never>(cons(File {
             path: ArcPath(path.clone()),
-        }, ()))
+        }))
     })
 }
 
 /// Creates a `Filter` that serves a File at the `path`.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=::Error> {
     let base = Arc::new(path.into());
-    filter_fn(move || {
+    filter_fn(move |route| {
         let mut buf = PathBuf::from(base.as_ref());
-        route::with(|route| {
-            //TODO: this could probably be factored out into a `path::tail()`
-            //or similar Filter...
 
-            let end = {
-                let p = route.path();
-                trace!("dir? base={:?}, route={:?}", base, p);
-                for seg in p.split('/') {
-                    if seg.starts_with("..") {
-                        debug!("dir: rejecting segment starting with '..'");
-                        return Err(Kind::BadRequest);
-                    } else {
-                        buf.push(seg);
-                    }
+        //TODO: this could probably be factored out into a `path::tail()`
+        //or similar Filter...
 
+        let end = {
+            let p = route.path();
+            trace!("dir? base={:?}, route={:?}", base, p);
+            for seg in p.split('/') {
+                if seg.starts_with("..") {
+                    debug!("dir: rejecting segment starting with '..'");
+                    return Err(Kind::BadRequest.into());
+                } else {
+                    buf.push(seg);
                 }
-                p.len()
-            };
-            route.set_unmatched_path(end);
 
-            Ok(())
-        })?;
+            }
+            p.len()
+        };
+        route.set_unmatched_path(end);
+
 
         trace!("dir: {:?}", buf);
         let path = Arc::new(buf);
-        Ok(HCons(File {
+        Ok(cons(File {
             path: ArcPath(path),
-        }, ()))
+        }))
     })
 }
 

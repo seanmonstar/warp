@@ -6,7 +6,6 @@ use http::header::HeaderValue;
 use ::error::Kind;
 use ::never::Never;
 use ::filter::{Cons, Filter, filter_fn, filter_fn_cons};
-use ::route;
 
 pub(crate) fn value<F, U>(name: &'static str, func: F)
     -> impl Filter<Extract=Cons<U>, Error=::Error> + Copy
@@ -14,14 +13,12 @@ where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
 {
-    filter_fn_cons(move || {
-        route::with(|route| {
-            route.headers()
-                .get(name)
-                .and_then(func)
-                .map(Ok)
-                .unwrap_or_else(|| Err(Kind::BadRequest.into()))
-        })
+    filter_fn_cons(move |route| {
+        route.headers()
+            .get(name)
+            .and_then(func)
+            .map(Ok)
+            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
     })
 }
 
@@ -31,12 +28,10 @@ where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
 {
-    filter_fn_cons(move || {
-        route::with(|route| {
-            Ok::<_, Never>(route.headers()
-                .get(name)
-                .and_then(func))
-        })
+    filter_fn_cons(move |route| {
+        Ok::<_, Never>(route.headers()
+            .get(name)
+            .and_then(func))
     })
 }
 
@@ -45,21 +40,19 @@ where
 /// This `Filter` will look for a header with supplied name,
 /// and try to parse to a `T`, otherwise rejects the request.
 pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons<T>, Error=::Error> + Copy {
-    filter_fn_cons(move || {
+    filter_fn_cons(move |route| {
         trace!("header::Extract({:?})", name);
-        route::with(|route| {
-            route.headers()
-                .get(name)
-                .and_then(|val| {
-                    val.to_str().ok()
-                })
-                .and_then(|s| {
-                    T::from_str(s)
-                        .ok()
-                })
-                .map(Ok)
-                .unwrap_or_else(|| Err(Kind::BadRequest.into()))
-        })
+        route.headers()
+            .get(name)
+            .and_then(|val| {
+                val.to_str().ok()
+            })
+            .and_then(|s| {
+                T::from_str(s)
+                    .ok()
+            })
+            .map(Ok)
+            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
     })
 }
 
@@ -68,21 +61,19 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, otherwise rejects the request.
 pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
-    filter_fn(move || {
+    filter_fn(move |route| {
         trace!("exact({:?}, {:?})", name, value);
-        route::with(|route| {
-            route.headers()
-                .get(name)
-                .map(|val| {
-                    if val == value {
-                        Ok(())
-                    } else {
-                        // TODO: exact header error kind?
-                        Err(Kind::BadRequest.into())
-                    }
-                })
-                .unwrap_or_else(|| Err(Kind::BadRequest.into()))
-        })
+        route.headers()
+            .get(name)
+            .map(|val| {
+                if val == value {
+                    Ok(())
+                } else {
+                    // TODO: exact header error kind?
+                    Err(Kind::BadRequest.into())
+                }
+            })
+            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
     })
 }
 
@@ -91,21 +82,19 @@ pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(),
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, ignoring ASCII case, otherwise rejects the request.
 pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
-    filter_fn(move || {
+    filter_fn(move |route| {
         trace!("exact_ignore_case({:?}, {:?})", name, value);
-        route::with(|route| {
-            route.headers()
-                .get(name)
-                .map(|val| {
-                    if val.as_bytes().eq_ignore_ascii_case(value.as_bytes()) {
-                        Ok(())
-                    } else {
-                        // TODO: exact header error kind
-                        Err(Kind::BadRequest.into())
-                    }
-                })
-                .unwrap_or_else(|| Err(Kind::BadRequest.into()))
-        })
+        route.headers()
+            .get(name)
+            .map(|val| {
+                if val.as_bytes().eq_ignore_ascii_case(value.as_bytes()) {
+                    Ok(())
+                } else {
+                    // TODO: exact header error kind
+                    Err(Kind::BadRequest.into())
+                }
+            })
+            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
     })
 }
 

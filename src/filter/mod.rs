@@ -4,12 +4,12 @@ mod or;
 mod service;
 mod tuple;
 
-use futures::future;
-use futures::{Future, IntoFuture};
+use futures::{future, Async, Future, IntoFuture, Poll};
 
 use ::error::CombineError;
+use ::route::Route;
 use self::and::And;
-use self::map::{Map/*, MapTuple*/};
+use self::map::Map;
 pub(crate) use self::or::{Either, Or};
 pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
 
@@ -18,9 +18,10 @@ pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
 pub trait FilterBase {
     type Extract;
     type Error: ::std::fmt::Debug + Send;
-    type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
+    type Future: Future<Item=Extracted<Self::Extract>, Error=Errored<Self::Error>> + Send;
+    //type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
-    fn filter(&self) -> Self::Future;
+    fn filter(&self, route: Route) -> Self::Future;
 }
 
 impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
@@ -28,10 +29,45 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
     type Error = T::Error;
     type Future = T::Future;
 
-    fn filter(&self) -> Self::Future {
-        (**self).filter()
+    fn filter(&self, route: Route) -> Self::Future {
+        (**self).filter(route)
     }
 }
+
+pub struct Extracted<T>(Route, T);
+
+pub struct Errored<E>(Route, E);
+
+impl<T> Extracted<T> {
+    #[inline]
+    pub(crate) fn item(self) -> T {
+        self.1
+    }
+
+    #[inline]
+    pub(crate) fn map<F, U>(self, func: F) -> Extracted<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        let u = func(self.1);
+        Extracted(self.0, u)
+    }
+}
+
+impl<E> Errored<E> {
+    #[inline]
+    pub(crate) fn error(self) -> E {
+        self.1
+    }
+
+    pub(crate) fn combined<U>(self) -> Errored<U::Error>
+    where
+        U: ::error::CombineError<E>,
+    {
+        Errored(self.0, self.1.into())
+    }
+}
+
 
 /// This just makes use of rustdoc's ability to make compile_fail tests.
 /// This is specifically testing to make sure `Filter::filter` isn't
@@ -41,11 +77,15 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
 /// ```compile_fail
 /// use warp::Filter;
 ///
-/// let _ = warp::any().filter();
+/// let _ = |route| {
+///     warp::any().filter(route)
+/// };
 /// ```
 pub fn __warp_filter_compilefail_doctest() {
     // Duplicate code to make sure the code is otherwise valid.
-    let _ = ::any().filter();
+    let _ = |route| {
+        ::any().filter(route)
+    };
 }
 
 /// Composable request filters.
@@ -151,7 +191,7 @@ fn _assert_object_safe() {
 
 pub fn filter_fn<F, U>(func: F) -> FilterFn<F>
 where
-    F: Fn() -> U,
+    F: Fn(&mut Route) -> U,
     U: IntoFuture,
     U::Item: HList,
 {
@@ -161,15 +201,15 @@ where
 }
 
 pub fn filter_fn_cons<F, U>(func: F)
-    -> FilterFn<impl Fn() -> future::Map<U::Future, fn(U::Item) -> Cons<U::Item>> + Copy>
+    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> Cons<U::Item>> + Copy>
 where
-    F: Fn() -> U + Copy,
+    F: Fn(&mut Route) -> U + Copy,
     U: IntoFuture,
 {
-    filter_fn(move || {
-        func()
+    filter_fn(move |route| {
+        func(route)
             .into_future()
-            .map((|u| HCons(u, ())) as _)
+            .map(cons as _)
     })
 }
 
@@ -180,7 +220,7 @@ pub struct FilterFn<F> {
 
 impl<F, U> FilterBase for FilterFn<F>
 where
-    F: Fn() -> U,
+    F: Fn(&mut Route) -> U,
     U: IntoFuture,
     U::Future: Send,
     U::Item: HList,
@@ -188,10 +228,41 @@ where
 {
     type Extract = U::Item;
     type Error = U::Error;
-    type Future = U::Future;
+    type Future = FilterFnFuture<U::Future>;
 
-    fn filter(&self) -> Self::Future {
-        (self.func)().into_future()
+    #[inline]
+    fn filter(&self, mut route: Route) -> Self::Future {
+        let inner = (self.func)(&mut route).into_future();
+        FilterFnFuture {
+            inner,
+            route: Some(route),
+        }
+    }
+}
+
+pub struct FilterFnFuture<F> {
+    inner: F,
+    route: Option<Route>,
+}
+
+impl<F> Future for FilterFnFuture<F>
+where
+    F: Future + Send,
+{
+    type Item = Extracted<F::Item>;
+    type Error = Errored<F::Error>;
+
+    #[inline]
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.inner.poll() {
+            Ok(Async::Ready(item)) => {
+                Ok(Async::Ready(Extracted(self.route.take().expect("polled after complete"), item)))
+            },
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(err) => {
+                Err(Errored(self.route.take().expect("polled after complete"), err))
+            }
+        }
     }
 }
 

@@ -5,6 +5,6 @@ use ::filter::{Filter, filter_fn};
 
 /// A filter that matches any route.
 pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
-    filter_fn(|| future::poll_fn(|| Ok(().into())))
+    filter_fn(|_| future::poll_fn(|| Ok(().into())))
 }
 

@@ -11,9 +11,8 @@ use tokio_tungstenite::WebSocketStream;
 use ::error::Kind;
 use ::filter::{Cons, Filter, FilterClone};
 use ::never::Never;
-use ::route;
 use ::reply::{Reply, Response};
-use super::header;
+use super::{body, header};
 
 /// Creates a Websocket Filter.
 ///
@@ -46,10 +45,8 @@ where
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
         .and(header::header::<Accept>("sec-websocket-key"))
-        .map(move |accept| {
-            let body = route::with(|route| {
-                route.take_body()
-            });
+        .and(body::body())
+        .map(move |accept: Accept, body: ::hyper::Body| {
             let fun = factory();
             let fut = body.on_upgrade()
                 .map(move |upgraded| {

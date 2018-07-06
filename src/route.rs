@@ -1,4 +1,3 @@
-use std::cell::{Cell, RefCell};
 use std::mem;
 
 use http;
@@ -6,32 +5,15 @@ use hyper::Body;
 
 use ::Request;
 
-scoped_thread_local!(static ROUTE: Route);
 
-pub(crate) fn set<F, R>(req: Request, f: F) -> R
-where
-    F: FnOnce() -> R
-{
-    ROUTE.set(&Route::new(req), f)
-}
-
-pub(crate) fn with<F, R>(f: F) -> R
-where
-    F: FnMut(&Route) -> R,
-{
-    ROUTE.with(f)
-}
-
-pub(crate) fn is_set() -> bool {
-    ROUTE.is_set()
-}
-
+// Must be public because used in FilterBase::filter(route).
+//
+// But both FilterBase and Route aren't exposed outside of the crate.
+// Ideally the missing_docs lint helps prove this.
 #[derive(Debug)]
-pub(crate) struct Route {
-    req: http::Request<()>,
-    body: RefCell<Body>,
-
-    segments_index: Cell<usize>,
+pub struct Route {
+    req: Request,
+    segments_index: usize,
 }
 
 
@@ -39,13 +21,10 @@ impl Route {
     pub(crate) fn new(req: Request) -> Route {
         debug_assert_eq!(req.uri().path().as_bytes()[0], b'/');
 
-        let (parts, body) = req.into_parts();
-        let req = http::Request::from_parts(parts, ());
         Route {
             req,
-            body: RefCell::new(body),
             // always start at 1, since paths are `/...`.
-            segments_index: Cell::new(1),
+            segments_index: 1,
         }
     }
 
@@ -58,23 +37,23 @@ impl Route {
     }
 
     pub(crate) fn path(&self) -> &str {
-        &self.req.uri().path()[self.segments_index.get()..]
+        &self.req.uri().path()[self.segments_index..]
     }
 
-    pub(crate) fn set_unmatched_path(&self, index: usize) {
-        let index = self.segments_index.get() + index;
+    pub(crate) fn set_unmatched_path(&mut self, index: usize) {
+        let index = self.segments_index + index;
 
         let path = self.req.uri().path();
 
         if path.len() == index {
-            self.segments_index.set(index);
+            self.segments_index = index;
         } else {
             debug_assert_eq!(
                 path.as_bytes()[index],
                 b'/',
             );
 
-            self.segments_index.set(index + 1);
+            self.segments_index = index + 1;
         }
     }
 
@@ -83,15 +62,21 @@ impl Route {
     }
 
     pub(crate) fn matched_path_index(&self) -> usize {
-        self.segments_index.get()
+        self.segments_index
     }
 
-    pub(crate) fn reset_matched_path_index(&self, index: usize) {
-        self.segments_index.set(index);
+    pub(crate) fn reset_matched_path_index(&mut self, index: usize) {
+        debug_assert!(
+            index <= self.segments_index,
+            "reset_match_path_index should not be bigger: current={}, arg={}",
+            self.segments_index,
+            index,
+        );
+        self.segments_index = index;
     }
 
-    pub(crate) fn take_body(&self) -> Body {
-        mem::replace(&mut *self.body.borrow_mut(), Body::empty())
+    pub(crate) fn take_body(&mut self) -> Body {
+        mem::replace(self.req.body_mut(), Body::empty())
     }
 }
 

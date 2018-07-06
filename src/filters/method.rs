@@ -3,7 +3,7 @@ use http::Method;
 use ::error::CombineError;
 use ::filter::{Cons, FilterBase, Filter, filter_fn_cons};
 use ::never::Never;
-use ::route;
+use ::route::Route;
 
 /// Wrap a `Filter` in a new one that requires the request method to be `GET`.
 pub fn get<F>(filter: F) -> MethodIs<F>
@@ -43,10 +43,8 @@ where
 
 /// Extract the `Method` from the request.
 pub fn method() -> impl Filter<Extract=Cons<Method>> + Copy {
-    filter_fn_cons(|| {
-        route::with(|route| {
-            Ok::<_, Never>(route.method().clone())
-        })
+    filter_fn_cons(|route| {
+        Ok::<_, Never>(route.method().clone())
     })
 }
 
@@ -61,17 +59,15 @@ impl<F: Filter> FilterBase for MethodIs<F> {
     type Error = F::Error;
     type Future = F::Future;
 
-    fn filter(&self) -> Self::Future {
-        route::with(|route| {
-            trace!("method::{:?}?: {:?}", self.method, route.method());
-            if &self.method == route.method() {
-                self.filter.filter()
-            } else {
-                unimplemented!()
-                //TODO: return method-specific error
-                //Err(Error(()))
-            }
-        })
+    fn filter(&self, route: Route) -> Self::Future {
+        trace!("method::{:?}?: {:?}", self.method, route.method());
+        if &self.method == route.method() {
+            self.filter.filter(route)
+        } else {
+            unimplemented!()
+            //TODO: return method-specific error
+            //Err(Error(()))
+        }
     }
 }
 
