@@ -45,7 +45,6 @@ where
             })
         };
         let srv = HyperServer::bind(&addr.into())
-            .pipeline()
             .serve(service);
         info!("warp drive engaged: listening on {}", srv.local_addr());
 
