@@ -8,7 +8,7 @@ use futures::{future, Async, Future, IntoFuture, Poll};
 
 use ::error::CombineError;
 use ::route::Route;
-use self::and::And;
+pub(crate) use self::and::And;
 use self::map::Map;
 pub(crate) use self::or::{Either, Or};
 pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};

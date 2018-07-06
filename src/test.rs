@@ -22,6 +22,12 @@ pub struct RequestBuilder {
 }
 
 impl RequestBuilder {
+    /// Sets the method of this builder.
+    pub fn method(mut self, method: &str) -> Self {
+        *self.req.method_mut() = method.parse().expect("valid method");
+        self
+    }
+
     /// Sets the request path of this builder.
     pub fn path(mut self, p: &str) -> Self {
         let uri = p.parse()
