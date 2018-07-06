@@ -12,6 +12,7 @@ pub struct Error(Kind);
 pub(crate) enum Kind {
     NotFound,
     BadRequest,
+    ServerError,
     Ws,
 }
 
@@ -32,6 +33,7 @@ impl Reply for Error {
         let code = match self.0 {
             Kind::NotFound => http::StatusCode::NOT_FOUND,
             Kind::BadRequest => http::StatusCode::BAD_REQUEST,
+            Kind::ServerError => http::StatusCode::INTERNAL_SERVER_ERROR,
             Kind::Ws => http::StatusCode::BAD_REQUEST,
         };
 
