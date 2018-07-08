@@ -18,7 +18,7 @@ fn main() {
     // GET /:num => waits `num` seconds before responding.
     let routes = warp::get(
         warp::path::param()
-            .map(sleep)
+            .and_then(sleep)
     );
 
     warp::serve(routes)

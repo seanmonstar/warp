@@ -1,4 +1,5 @@
 mod and;
+mod and_then;
 mod map;
 mod or;
 mod service;
@@ -9,6 +10,7 @@ use futures::{future, Async, Future, IntoFuture, Poll};
 use ::reject::CombineRejection;
 use ::route::Route;
 pub(crate) use self::and::And;
+use self::and_then::AndThen;
 use self::map::Map;
 pub(crate) use self::or::{Either, Or};
 pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
@@ -161,21 +163,36 @@ pub trait Filter: FilterBase {
         }
     }
 
-    /*
-    /// Like `map`, but recevies a single tuple, and must return a single tuple.
-    fn tmap<F, U>(self, fun: F) -> MapTuple<Self, F>
+    /// Composes this `Filter` with a closure receiving the extracted value from this.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// // Validate after `/:id`
+    /// warp::path::param().and_then(|id: u64| {
+    ///     if id != 0 {
+    ///         Ok(format!("Hello #{}", id))
+    ///     } else {
+    ///         Err(warp::reject())
+    ///     }
+    /// });
+    /// ```
+    fn and_then<F>(self, fun: F) -> AndThen<Self, F>
     where
         Self: Sized,
         Self::Extract: HList,
-        F: Fn(<Self::Extract as HList>::Tuple) -> U,
-        U: Tuple,
+        F: Func<<Self::Extract as HList>::Tuple> + Clone,
+        F::Output: IntoFuture + Send,
+        <F::Output as IntoFuture>::Error: CombineRejection<Self::Error>,
+        <F::Output as IntoFuture>::Future: Send,
     {
-        MapTuple {
+        AndThen {
             filter: self,
             callback: fun,
         }
     }
-    */
 }
 
 impl<T: FilterBase> Filter for T {}
