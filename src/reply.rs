@@ -1,29 +1,24 @@
 //! Create responses to reply to requests.
 
-use http;
 use http::header::{CONTENT_TYPE, HeaderValue};
-use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-pub(crate) use self::sealed::{Reply, Reply_, Response};
+pub(crate) use self::sealed::{ReplySealed, Response};
 
 /// Easily convert a type into a `Response`.
 #[inline]
-pub fn reply<T>(val: T) -> impl Reply
-where
-    Reply_: From<T>,
+pub fn reply(val: impl Reply) -> impl Reply
 {
-    Reply_::from(val)
+    val
 }
 
-
 /// Convert the value into a `Response` with the value encoded as JSON.
-pub fn json<T>(val: T) -> Reply_
+pub fn json<T>(val: T) -> impl Reply
 where
     T: Serialize,
 {
-    Reply_(match serde_json::to_string(&val) {
+    match serde_json::to_string(&val) {
         Ok(s) => {
             let mut res = Response::new(s.into()); //reply(s);
             res.headers_mut().insert(
@@ -34,14 +29,17 @@ where
         },
         Err(e) => {
             debug!("reply::json error: {}", e);
-            http::Response::builder()
-                .status(500)
-                .header("content-length", "0")
-                .body(Body::empty())
-                .unwrap()
+            ::reject::server_error()
+                .into_response()
         }
-    })
+    }
 }
+
+/// A trait describing the various things that a Warp server can turn into a `Response`.
+pub trait Reply: ReplySealed {
+}
+
+impl<T: ReplySealed> Reply for T {}
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
@@ -49,67 +47,52 @@ mod sealed {
 
     use ::filter::{Cons, Either};
 
+    use super::Reply;
+
+    pub type Response = ::http::Response<Body>;
+
     // A trait describing the various things that a Warp server can turn into a `Response`.
-    pub trait Reply {
+    pub trait ReplySealed {
         fn into_response(self) -> Response;
     }
 
+    /*
     pub struct Reply_(pub(super) Response);
 
-    impl From<Response> for Reply_ {
-        #[inline]
-        fn from(r: Response) -> Reply_ {
-            Reply_(r)
-        }
-    }
-
-    impl From<String> for Reply_ {
-        #[inline]
-        fn from(s: String) -> Reply_ {
-            Reply_(Response::new(Body::from(s)))
-        }
-    }
-
-    impl From<&'static str> for Reply_ {
-        #[inline]
-        fn from(s: &'static str) -> Reply_ {
-            Reply_(Response::new(Body::from(s)))
-        }
-    }
-
-    impl Reply for Reply_ {
+    impl ReplySealed for Reply_ {
         #[inline]
         fn into_response(self) -> Response {
             self.0
         }
     }
+    */
 
-    pub type Response = ::http::Response<Body>;
-
-    impl<T, U> From<Either<T, U>> for Reply_
-    where
-        Reply_: From<T> + From<U>,
-    {
+    impl ReplySealed for Response {
         #[inline]
-        fn from(either: Either<T, U>) -> Reply_ {
-            match either {
-                Either::A(a) => Reply_::from(a),
-                Either::B(b) => Reply_::from(b),
-            }
+        fn into_response(self) -> Response {
+            self
         }
     }
 
-    impl<T> From<Cons<T>> for Reply_
-    where
-        Reply_: From<T>,
-    {
+    impl ReplySealed for String {
         #[inline]
-        fn from(cons: Cons<T>) -> Reply_ {
-            Reply_::from(cons.0)
+        fn into_response(self) -> Response {
+            Response::new(Body::from(self))
         }
     }
 
-    impl<T: Reply, U: Reply> Reply for Either<T, U> {
+    impl ReplySealed for &'static str {
+        #[inline]
+        fn into_response(self) -> Response {
+            Response::new(Body::from(self))
+        }
+    }
+
+    impl<T, U> ReplySealed for Either<T, U>
+    where
+        T: Reply,
+        U: Reply,
+    {
         #[inline]
         fn into_response(self) -> Response {
             match self {
@@ -119,9 +102,9 @@ mod sealed {
         }
     }
 
-    impl<T> Reply for Cons<T>
+    impl<T> ReplySealed for Cons<T>
     where
-        T: Reply
+        T: Reply,
     {
         #[inline]
         fn into_response(self) -> Response {
@@ -129,7 +112,7 @@ mod sealed {
         }
     }
 
-    impl<T> Reply for ::filter::Extracted<T>
+    impl<T> ReplySealed for ::filter::Extracted<T>
     where
         T: Reply
     {
@@ -139,7 +122,7 @@ mod sealed {
         }
     }
 
-    impl<T> Reply for ::filter::Errored<T>
+    impl<T> ReplySealed for ::filter::Errored<T>
     where
         T: Reply
     {
@@ -149,7 +132,7 @@ mod sealed {
         }
     }
 
-    impl Reply for ::never::Never {
+    impl ReplySealed for ::never::Never {
         #[inline]
         fn into_response(self) -> Response {
             match self {}

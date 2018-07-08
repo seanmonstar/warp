@@ -28,9 +28,6 @@ fn main() {
     // Only allow GETs in this example
     let routes = warp::get(
         index
-            // Map the String to a Response...
-            // With trait specialization, it should no longer be needed.
-            .map(warp::reply)
     );
 
     warp::serve(routes)

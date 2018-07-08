@@ -12,11 +12,11 @@ fn main() {
 
     // extract /:name
     let name = warp::path::param::<String>()
-        .map(|name| warp::reply(format!("Hello, {}", name)));
+        .map(|name| format!("Hello, {}", name));
 
     // or extract /:num
     let num = warp::path::param::<u32>()
-        .map(|num| warp::reply(format!("Hello x {}!", num)));
+        .map(|num| format!("Hello x {}!", num));
 
     // /hello AND (/:num OR /:name)
     //
@@ -29,7 +29,7 @@ fn main() {
     //
     // - /good/bye/:name
     let bye = path!("good" / "bye" / String)
-        .map(|name| warp::reply(format!("Good bye, {}!", name)));
+        .map(|name| format!("Good bye, {}!", name));
 
     // GET (hello OR bye)
     let routes = warp::get(

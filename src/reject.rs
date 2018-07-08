@@ -1,7 +1,7 @@
 use http;
 
 use ::never::Never;
-use ::reply::Reply;
+use ::reply::ReplySealed;
 
 /// Rejects a request with a default `400 Bad Request`.
 #[inline]
@@ -54,7 +54,7 @@ impl From<Never> for Rejection {
     }
 }
 
-impl Reply for Rejection {
+impl ReplySealed for Rejection {
     fn into_response(self) -> ::reply::Response {
         let code = match self.reason {
             Reason::NotFound => http::StatusCode::NOT_FOUND,

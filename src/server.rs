@@ -6,7 +6,7 @@ use hyper::{rt, Server as HyperServer};
 use hyper::service::{service_fn};
 
 use ::never::Never;
-use ::reply::Reply;
+use ::reply::{ReplySealed, Reply};
 use ::Request;
 
 /// Create a `Server` with the provided service.

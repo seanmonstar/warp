@@ -11,7 +11,7 @@ use tokio_tungstenite::WebSocketStream;
 use ::error::Kind;
 use ::filter::{Cons, Filter, FilterClone};
 use ::reject::{Rejection};
-use ::reply::{Reply, Response};
+use ::reply::{ReplySealed, Response};
 use super::{body, header};
 
 /// Creates a Websocket Filter.
@@ -72,22 +72,16 @@ pub struct Ws {
     accept: Accept,
 }
 
-impl Reply for Ws {
+impl ReplySealed for Ws {
     fn into_response(self) -> Response {
-        self.into()
-    }
-}
-
-impl From<Ws> for Response {
-    fn from(ws: Ws) -> Response {
         http::Response::builder()
-                .status(101)
-                .header("content-length", "0")
-                .header("connection", "upgrade")
-                .header("upgrade", "websocket")
-                .header("sec-websocket-accept", ws.accept.0.as_str())
-                .body(Default::default())
-                .unwrap()
+            .status(101)
+            .header("content-length", "0")
+            .header("connection", "upgrade")
+            .header("upgrade", "websocket")
+            .header("sec-websocket-accept", self.accept.0.as_str())
+            .body(Default::default())
+            .unwrap()
     }
 }
 

@@ -12,7 +12,7 @@ use tokio::io::AsyncRead;
 
 use ::filter::{cons, Cons, FilterClone, filter_fn};
 use ::reject::{self, Rejection};
-use ::reply::{Reply, Response};
+use ::reply::{ReplySealed, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
@@ -77,7 +77,7 @@ impl AsRef<Path> for ArcPath {
     }
 }
 
-impl Reply for File {
+impl ReplySealed for File {
     fn into_response(self) -> Response {
         self.resp
     }

@@ -12,7 +12,7 @@ fn main() {
     // blocking pool of 4 threads
     let sleep = warp::blocking(4, |x: u8| {
         thread::sleep(Duration::from_secs(x.into()));
-        warp::reply(x.to_string())
+        x.to_string()
     });
 
     // GET /:num => waits `num` seconds before responding.
