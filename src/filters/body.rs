@@ -35,42 +35,29 @@ pub fn concat() -> impl Filter<Extract=Cons<Chunk>, Error=Rejection> + Copy {
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a JSON-decoded body.
-pub fn json<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
-    concat()
-        .map(|buf: Chunk| {
-            serde_json::from_slice(&buf).expect("unimplemented json error")
-            /*
-            match serde_json::from_slice(&buf) {
-                Ok(val) => Ok(val)
-                Err(err) => {
-                    debug!("request json body error: {}", err);
-                    Err(Error(()))
-                }
-            }
-            */
-        })
+pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
+    concat().and_then(|buf: Chunk| {
+        serde_json::from_slice(&buf)
+            .map_err(|err| {
+                debug!("request json body error: {}", err);
+                reject::bad_request()
+            })
+    })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a form encoded body.
-pub fn form<T: DeserializeOwned>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
-    concat()
-        .map(|buf: Chunk| {
-            serde_urlencoded::from_bytes(&buf).expect("unimplemented form error")
-            /*
-            match serde_urlencoded::from_bytes(&buf) {
-                Ok(val) => Ok(Async::Ready(val)),
-                Err(err) => {
-                    debug!("request form body error: {}", err);
-                    Err(Error(()))
-                }
-            }
-            */
-        })
+pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
+    concat().and_then(|buf: Chunk| {
+        serde_urlencoded::from_bytes(&buf)
+            .map_err(|err| {
+                debug!("request form body error: {}", err);
+                reject::bad_request()
+            })
+    })
 }
 
-/// dox?
-pub struct Concat {
+struct Concat {
     fut: Concat2<Body>,
 }
 
