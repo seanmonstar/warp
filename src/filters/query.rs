@@ -3,13 +3,13 @@
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
 
-use ::error::Kind;
 use ::filter::{Cons, Filter, filter_fn_cons};
+use ::reject::{self, Rejection};
 
 /// Creates a `Filter` that decodes query parameters to the type `T`.
 ///
 /// If cannot decode into a `T`, the request is rejected.
-pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=::Error> + Copy {
+pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
     filter_fn_cons(|route| {
         route
             .query()
@@ -18,6 +18,6 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error
                     .ok()
             })
             .map(Ok)
-            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
+            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }

@@ -22,6 +22,7 @@ mod error;
 mod filter;
 mod filters;
 mod never;
+mod reject;
 pub mod reply;
 mod route;
 mod server;
@@ -54,6 +55,7 @@ pub use self::filters::{
     // ws() function
     ws::ws,
 };
+pub use self::reject::{reject, Rejection};
 pub use self::reply::reply;
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;

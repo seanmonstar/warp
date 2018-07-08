@@ -2,7 +2,7 @@ use std::mem;
 
 use futures::{Async, Future, Poll};
 
-use ::error::CombineError;
+use ::reject::CombineRejection;
 use ::route::Route;
 use super::{Cons, cons, Extracted, Errored, FilterBase, Filter};
 
@@ -22,7 +22,7 @@ impl<T, U> FilterBase for Or<T, U>
 where
     T: Filter,
     U: Filter + Clone + Send,
-    U::Error: CombineError<T::Error>,
+    U::Error: CombineRejection<T::Error>,
 {
     type Extract = Cons<
         Either<
@@ -30,7 +30,7 @@ where
             U::Extract,
         >
     >;
-    type Error = <U::Error as CombineError<T::Error>>::Error;
+    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
     type Future = EitherFuture<T, U>;
 
     fn filter(&self, route: Route) -> Self::Future {
@@ -70,10 +70,10 @@ impl<T, U> Future for EitherFuture<T, U>
 where
     T: Filter,
     U: Filter,
-    U::Error: CombineError<T::Error>,
+    U::Error: CombineRejection<T::Error>,
 {
     type Item = Extracted<Cons<Either<T::Extract, U::Extract>>>;
-    type Error = Errored<<U::Error as CombineError<T::Error>>::Error>;
+    type Error = Errored<<U::Error as CombineRejection<T::Error>>::Rejection>;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let Errored(mut route, _e) = match self.state {

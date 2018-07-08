@@ -6,7 +6,7 @@ mod tuple;
 
 use futures::{future, Async, Future, IntoFuture, Poll};
 
-use ::error::CombineError;
+use ::reject::CombineRejection;
 use ::route::Route;
 pub(crate) use self::and::And;
 use self::map::Map;
@@ -19,7 +19,6 @@ pub trait FilterBase {
     type Extract;
     type Error: ::std::fmt::Debug + Send;
     type Future: Future<Item=Extracted<Self::Extract>, Error=Errored<Self::Error>> + Send;
-    //type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
     fn filter(&self, route: Route) -> Self::Future;
 }
@@ -60,9 +59,9 @@ impl<E> Errored<E> {
         self.1
     }
 
-    pub(crate) fn combined<U>(self) -> Errored<U::Error>
+    pub(crate) fn combined<U>(self) -> Errored<U::Rejection>
     where
-        U: ::error::CombineError<E>,
+        U: CombineRejection<E>,
     {
         Errored(self.0, self.1.into())
     }
@@ -107,7 +106,7 @@ pub trait Filter: FilterBase {
         Self::Extract: HList + Combine<F::Extract>,
         F: Filter + Clone,
         F::Extract: HList,
-        F::Error: CombineError<Self::Error>,
+        F::Error: CombineRejection<Self::Error>,
     {
         And {
             first: self,

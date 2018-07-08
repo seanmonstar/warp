@@ -10,12 +10,12 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
-use ::error::Kind;
 use ::filter::{cons, Cons, FilterClone, filter_fn};
+use ::reject::{self, Rejection};
 use ::reply::{Reply, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=::Error> {
+pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
     let path = Arc::new(path.into());
     filter_fn(move |_| {
         trace!("file: {:?}", path);
@@ -28,7 +28,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Er
 }
 
 /// Creates a `Filter` that serves a File at the `path`.
-pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=::Error> {
+pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
     let base = Arc::new(path.into());
     filter_fn(move |route| {
         let mut buf = PathBuf::from(base.as_ref());
@@ -42,7 +42,7 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
             for seg in p.split('/') {
                 if seg.starts_with("..") {
                     debug!("dir: rejecting segment starting with '..'");
-                    return Either::A(future::err(Kind::BadRequest.into()));
+                    return Either::A(future::err(reject::bad_request()));
                 } else {
                     buf.push(seg);
                 }
@@ -83,28 +83,28 @@ impl Reply for File {
     }
 }
 
-fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=::Error> + Send {
+fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
     fs::File::open(path)
         .then(|res| match res {
             Ok(f) => Either::A(file_metadata(f)),
             Err(err) => {
                 debug!("file open error: {} ", err);
-                let code = match err.kind() {
-                    io::ErrorKind::NotFound => Kind::NotFound,
+                let rej = match err.kind() {
+                    io::ErrorKind::NotFound => reject::not_found(),
                     // There are actually other errors that could
                     // occur that really mean a 404, but the kind
                     // return is Other, making it hard to tell.
                     //
                     // A fix would be to check `Path::is_file` first,
                     // using `tokio_threadpool::blocking` around it...
-                    _ => Kind::ServerError,
+                    _ => reject::server_error(),
                 };
-                Either::B(future::err(code.into()))
+                Either::B(future::err(rej))
             }
         })
 }
 
-fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=::Error> + Send {
+fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=Rejection> + Send {
     let mut f = Some(f);
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
@@ -122,7 +122,7 @@ fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=::Error> + Sen
     })
         .map_err(|err: ::std::io::Error| {
             trace!("file metadata error: {}", err);
-            Kind::ServerError.into()
+            reject::server_error()
         })
 }
 

@@ -3,12 +3,12 @@ use std::str::FromStr;
 
 use http::header::HeaderValue;
 
-use ::error::Kind;
 use ::never::Never;
 use ::filter::{Cons, Filter, filter_fn, filter_fn_cons};
+use ::reject::{self, Rejection};
 
 pub(crate) fn value<F, U>(name: &'static str, func: F)
-    -> impl Filter<Extract=Cons<U>, Error=::Error> + Copy
+    -> impl Filter<Extract=Cons<U>, Error=Rejection> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
@@ -18,12 +18,12 @@ where
             .get(name)
             .and_then(func)
             .map(Ok)
-            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
+            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
 pub(crate) fn optional_value<F, U>(name: &'static str, func: F)
-    -> impl Filter<Extract=Cons<Option<U>>> + Copy
+    -> impl Filter<Extract=Cons<Option<U>>, Error=Never> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
@@ -39,7 +39,7 @@ where
 ///
 /// This `Filter` will look for a header with supplied name,
 /// and try to parse to a `T`, otherwise rejects the request.
-pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons<T>, Error=::Error> + Copy {
+pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
     filter_fn_cons(move |route| {
         trace!("header::Extract({:?})", name);
         route.headers()
@@ -52,7 +52,7 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons
                     .ok()
             })
             .map(Ok)
-            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
+            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
@@ -60,7 +60,7 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons
 ///
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, otherwise rejects the request.
-pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
+pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact({:?}, {:?})", name, value);
         route.headers()
@@ -70,10 +70,10 @@ pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(),
                     Ok(())
                 } else {
                     // TODO: exact header error kind?
-                    Err(Kind::BadRequest.into())
+                    Err(reject::bad_request())
                 }
             })
-            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
+            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
@@ -81,7 +81,7 @@ pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(),
 ///
 /// This `Filter` will look for a header with supplied name and
 /// the exact value, ignoring ASCII case, otherwise rejects the request.
-pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=::Error> + Copy {
+pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact_ignore_case({:?}, {:?})", name, value);
         route.headers()
@@ -91,10 +91,10 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
                     Ok(())
                 } else {
                     // TODO: exact header error kind
-                    Err(Kind::BadRequest.into())
+                    Err(reject::bad_request())
                 }
             })
-            .unwrap_or_else(|| Err(Kind::BadRequest.into()))
+            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 

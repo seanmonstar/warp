@@ -2,7 +2,7 @@
 use std::str::FromStr;
 
 use base64;
-use futures::{future, Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
+use futures::{ Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 use http;
 use sha1::{Digest, Sha1};
 use tungstenite::protocol;
@@ -10,14 +10,14 @@ use tokio_tungstenite::WebSocketStream;
 
 use ::error::Kind;
 use ::filter::{Cons, Filter, FilterClone};
-use ::never::Never;
+use ::reject::{Rejection};
 use ::reply::{Reply, Response};
 use super::{body, header};
 
 /// Creates a Websocket Filter.
 ///
 /// The passed function is called with each successful Websocket accepted.
-pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=Cons<Ws>, Error=::Error>
+pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
 where
     F: Fn(WebSocket) -> U + Clone + Send + 'static,
     U: Future<Item=(), Error=()> + Send + 'static,
@@ -36,7 +36,7 @@ where
 /// The factory function is called once for each accepted `WebSocket`. The
 /// factory should return a new function that is ready to handle the
 /// `WebSocket`.
-pub fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=Cons<Ws>, Error=::Error>
+pub fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,

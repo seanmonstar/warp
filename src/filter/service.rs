@@ -13,7 +13,6 @@ pub struct FilteredService<F> {
 impl<F> WarpService for FilteredService<F>
 where
     F: Filter,
-    //F::Future: Reply,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reply,
 {
@@ -28,7 +27,6 @@ where
 impl<F> IntoWarpService for FilteredService<F>
 where
     F: Filter + Send + Sync + 'static,
-    //F::Future: Reply,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reply,
 {
@@ -43,7 +41,6 @@ where
 impl<F> IntoWarpService for F
 where
     F: Filter + Send + Sync + 'static,
-    //F::Future: Reply,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reply,
 {
