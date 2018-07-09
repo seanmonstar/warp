@@ -129,7 +129,7 @@ mod sealed {
     {
         #[inline]
         fn into_response(self) -> Response {
-            self.item().into_response()
+            self.1.into_response()
         }
     }
 
@@ -139,12 +139,12 @@ mod sealed {
     {
         #[inline]
         fn into_response(self) -> Response {
-            self.error().into_response()
+            self.1.into_response()
         }
     }
 
     impl ReplySealed for ::never::Never {
-        #[inline]
+        #[inline(always)]
         fn into_response(self) -> Response {
             match self {}
         }

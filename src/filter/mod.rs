@@ -35,9 +35,9 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
     }
 }
 
-pub struct Extracted<T>(Route, T);
+pub struct Extracted<T>(Route, pub(crate) T);
 
-pub struct Errored<E>(Route, E);
+pub struct Errored<E>(Route, pub(crate) E);
 
 impl<T> Extracted<T> {
     #[inline]

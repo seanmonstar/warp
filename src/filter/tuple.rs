@@ -1,10 +1,9 @@
 #[derive(Debug)]
 pub struct HCons<H, T>(pub H, pub T);
 
-// The compiler wrongly says this isn't used...
-#[allow(unused)]
 pub type Cons<T> = HCons<T, ()>;
 
+#[inline]
 pub(crate) fn cons<T>(val: T) -> Cons<T> {
     HCons(val, ())
 }
