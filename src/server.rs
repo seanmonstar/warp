@@ -15,12 +15,14 @@ where
     S: IntoWarpService + 'static,
 {
     Server {
+        pipeline: false,
         service,
     }
 }
 
 /// A Warp Server ready to filter requests.
 pub struct Server<S> {
+    pipeline: bool,
     service: S,
 }
 
@@ -45,10 +47,20 @@ where
             })
         };
         let srv = HyperServer::bind(&addr.into())
+            .http1_pipeline_flush(self.pipeline)
             .serve(service);
         info!("warp drive engaged: listening on {}", srv.local_addr());
 
         rt::run(srv.map_err(|e| error!("server error: {}", e)));
+    }
+
+    // Generally shouldn't be used, as it can slow down non-pipelined responses.
+    //
+    // It's only real use is to make silly pipeline benchmarks look better.
+    #[doc(hidden)]
+    pub fn unstable_pipeline(mut self) -> Self {
+        self.pipeline = true;
+        self
     }
 }
 
