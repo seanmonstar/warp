@@ -1,7 +1,11 @@
+//! Rejections
+
 use http;
 
 use ::never::Never;
 use ::reply::ReplySealed;
+
+pub(crate) use self::sealed::CombineRejection;
 
 /// Rejects a request with a default `400 Bad Request`.
 #[inline]
@@ -9,16 +13,19 @@ pub fn reject() -> Rejection {
     bad_request()
 }
 
+/// Rejects a request with `400 Bad Request`.
 #[inline]
 pub fn bad_request() -> Rejection {
     Reason::BadRequest.into()
 }
 
+/// Rejects a request with `404 Not Found`.
 #[inline]
 pub fn not_found() -> Rejection {
     Reason::NotFound.into()
 }
 
+/// Rejects a request with `500 Internal Server Error`.
 #[inline]
 pub fn server_error() -> Rejection {
     Reason::ServerError.into()
@@ -68,23 +75,27 @@ impl ReplySealed for Rejection {
     }
 }
 
-pub trait CombineRejection<E>: Send + Sized {
-    type Rejection: ::std::fmt::Debug + From<Self> + From<E> + Send;
-}
+mod sealed {
+    use ::never::Never;
+    use super::Rejection;
 
-impl CombineRejection<Rejection> for Rejection {
-    type Rejection = Rejection;
-}
+    pub trait CombineRejection<E>: Send + Sized {
+        type Rejection: ::std::fmt::Debug + From<Self> + From<E> + Send;
+    }
 
-impl CombineRejection<Never> for Rejection {
-    type Rejection = Rejection;
-}
+    impl CombineRejection<Rejection> for Rejection {
+        type Rejection = Rejection;
+    }
 
-impl CombineRejection<Rejection> for Never {
-    type Rejection = Rejection;
-}
+    impl CombineRejection<Never> for Rejection {
+        type Rejection = Rejection;
+    }
 
-impl CombineRejection<Never> for Never {
-    type Rejection = Never;
-}
+    impl CombineRejection<Rejection> for Never {
+        type Rejection = Rejection;
+    }
 
+    impl CombineRejection<Never> for Never {
+        type Rejection = Never;
+    }
+}

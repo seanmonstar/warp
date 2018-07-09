@@ -22,7 +22,7 @@ mod error;
 mod filter;
 mod filters;
 mod never;
-mod reject;
+pub mod reject;
 pub mod reply;
 mod route;
 mod server;

@@ -19,7 +19,7 @@ fn main() {
         .and(warp::body::json::<Employee>())
         .map(|rate, mut employee: Employee| {
             employee.rate = rate;
-            warp::reply::json(employee)
+            warp::reply::json(&employee)
         });
 
     // POST /employees/:rate  {"name":"Sean","rate":2}

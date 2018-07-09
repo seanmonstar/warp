@@ -4,6 +4,8 @@ use http::header::{CONTENT_TYPE, HeaderValue};
 use serde::Serialize;
 use serde_json;
 
+pub use http::StatusCode;
+
 pub(crate) use self::sealed::{ReplySealed, Response};
 
 /// Easily convert a type into a `Response`.
@@ -14,13 +16,13 @@ pub fn reply(val: impl Reply) -> impl Reply
 }
 
 /// Convert the value into a `Response` with the value encoded as JSON.
-pub fn json<T>(val: T) -> impl Reply
+pub fn json<T>(val: &T) -> impl Reply
 where
     T: Serialize,
 {
-    match serde_json::to_string(&val) {
+    match serde_json::to_string(val) {
         Ok(s) => {
-            let mut res = Response::new(s.into()); //reply(s);
+            let mut res = Response::new(s.into());
             res.headers_mut().insert(
                 CONTENT_TYPE,
                 HeaderValue::from_static("application/json")
@@ -71,6 +73,15 @@ mod sealed {
         #[inline]
         fn into_response(self) -> Response {
             self
+        }
+    }
+
+    impl ReplySealed for ::http::StatusCode {
+        #[inline]
+        fn into_response(self) -> Response {
+            let mut res = Response::default();
+            *res.status_mut() = self;
+            res
         }
     }
 
