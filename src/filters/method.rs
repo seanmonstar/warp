@@ -61,8 +61,7 @@ where
         if route.method() == method {
             Ok(())
         } else {
-            //TODO: return method-specific error
-            Err(::reject::bad_request())
+            Err(::reject::method_not_allowed())
         }
     })
 }

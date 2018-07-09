@@ -18,6 +18,11 @@ pub fn bad_request() -> Rejection {
     Reason::BadRequest.into()
 }
 
+#[inline]
+pub(crate) fn method_not_allowed() -> Rejection {
+    Reason::MethodNotAllowed.into()
+}
+
 /// Rejects a request with `404 Not Found`.
 #[inline]
 pub fn not_found() -> Rejection {
@@ -38,8 +43,9 @@ pub struct Rejection {
 
 #[derive(Debug)]
 pub(crate) enum Reason {
-    NotFound,
     BadRequest,
+    NotFound,
+    MethodNotAllowed,
     ServerError,
 }
 
@@ -73,8 +79,9 @@ impl Reject for Never {
 impl Reject for Rejection {
     fn status(&self) -> http::StatusCode {
         match self.reason {
-            Reason::NotFound => http::StatusCode::NOT_FOUND,
             Reason::BadRequest => http::StatusCode::BAD_REQUEST,
+            Reason::NotFound => http::StatusCode::NOT_FOUND,
+            Reason::MethodNotAllowed => http::StatusCode::METHOD_NOT_ALLOWED,
             Reason::ServerError => http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
