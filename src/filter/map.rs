@@ -1,7 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use ::route::Route;
-use super::{Cons, Extracted, Errored, FilterBase, Filter, Func, cons, HList};
+use super::{Cons, FilterBase, Filter, Func, cons, HList};
 
 #[derive(Clone, Copy)]
 pub struct Map<T, F> {
@@ -19,9 +18,9 @@ where
     type Error = T::Error;
     type Future = MapFuture<T, F>;
     #[inline]
-    fn filter(&self, route: Route) -> Self::Future {
+    fn filter(&self) -> Self::Future {
         MapFuture {
-            extract: self.filter.filter(route),
+            extract: self.filter.filter(),
             callback: self.callback.clone(),
         }
     }
@@ -38,14 +37,14 @@ where
     T::Extract: HList,
     F: Func<<T::Extract as HList>::Tuple>,
 {
-    type Item = Extracted<Cons<F::Output>>;
-    type Error = Errored<T::Error>;
+    type Item = Cons<F::Output>;
+    type Error = T::Error;
 
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let Extracted(r, ex) = try_ready!(self.extract.poll());
+        let ex = try_ready!(self.extract.poll());
         let ex = cons(self.callback.call(ex.flatten()));
-        Ok(Async::Ready(Extracted(r, ex)))
+        Ok(Async::Ready(ex))
     }
 }
 

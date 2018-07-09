@@ -2,7 +2,7 @@ use futures::Future;
 
 use ::{Filter, Request};
 use ::reply::{Reply};
-use ::route::Route;
+use ::route;
 use ::server::{IntoWarpService, WarpService};
 
 #[derive(Copy, Clone, Debug)]
@@ -20,7 +20,8 @@ where
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
-        self.filter.filter(Route::new(req))
+        route::set(req);
+        self.filter.filter()
     }
 }
 

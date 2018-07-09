@@ -123,26 +123,6 @@ mod sealed {
         }
     }
 
-    impl<T> ReplySealed for ::filter::Extracted<T>
-    where
-        T: Reply
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            self.1.into_response()
-        }
-    }
-
-    impl<T> ReplySealed for ::filter::Errored<T>
-    where
-        T: Reply
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            self.1.into_response()
-        }
-    }
-
     impl ReplySealed for ::never::Never {
         #[inline(always)]
         fn into_response(self) -> Response {

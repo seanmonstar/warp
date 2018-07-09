@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::mem;
 
 use http;
@@ -5,6 +6,25 @@ use hyper::Body;
 
 use ::Request;
 
+task_local! {
+    static ROUTE: RefCell<Route> = RefCell::new(Route::new(Request::default()))
+}
+
+pub(crate) fn set(req: Request) {
+    ROUTE.with(move |route| {
+        *route.borrow_mut() = Route::new(req);
+    });
+}
+
+pub(crate) fn with<F, R>(func: F) -> R
+where
+    F: Fn(&mut Route) -> R,
+{
+    ROUTE.with(move |route| {
+        func(&mut *route
+            .borrow_mut())
+    })
+}
 
 // Must be public because used in FilterBase::filter(route).
 //
@@ -37,7 +57,8 @@ impl Route {
     }
 
     pub(crate) fn path(&self) -> &str {
-        &self.req.uri().path()[self.segments_index..]
+        &self.req.uri().path()
+        //&self.req.uri().path()[self.segments_index..]
     }
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {

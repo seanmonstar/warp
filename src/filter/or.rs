@@ -3,8 +3,8 @@ use std::mem;
 use futures::{Async, Future, Poll};
 
 use ::reject::CombineRejection;
-use ::route::Route;
-use super::{Cons, cons, Extracted, Errored, FilterBase, Filter};
+use ::route;
+use super::{Cons, cons, FilterBase, Filter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -33,18 +33,18 @@ where
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
     type Future = EitherFuture<T, U>;
 
-    fn filter(&self, route: Route) -> Self::Future {
-        let idx = route.matched_path_index();
+    fn filter(&self) -> Self::Future {
+        let idx = route::with(|route| route.matched_path_index());
         EitherFuture {
-            state: State::First(self.first.filter(route), self.second.clone()),
-            original_path_index: idx,
+            state: State::First(self.first.filter(), self.second.clone()),
+            original_path_index: PathIndex(idx),
         }
     }
 }
 
 pub struct EitherFuture<T: Filter, U: Filter> {
     state: State<T, U>,
-    original_path_index: usize,
+    original_path_index: PathIndex,
 }
 
 enum State<T: Filter, U: Filter> {
@@ -53,18 +53,15 @@ enum State<T: Filter, U: Filter> {
     Done,
 }
 
-/*
-impl<T, U> EitherFuture<T, U>
-where
-    U: Filter,
-{
+struct PathIndex(usize);
+
+impl PathIndex {
     fn reset_path(&self) {
         route::with(|route| {
-            route.reset_matched_path_index(self.original_path_index)
+            route.reset_matched_path_index(self.0)
         });
     }
 }
-*/
 
 impl<T, U> Future for EitherFuture<T, U>
 where
@@ -72,51 +69,50 @@ where
     U: Filter,
     U::Error: CombineRejection<T::Error>,
 {
-    type Item = Extracted<Cons<Either<T::Extract, U::Extract>>>;
-    type Error = Errored<<U::Error as CombineRejection<T::Error>>::Rejection>;
+    type Item = Cons<Either<T::Extract, U::Extract>>;
+    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let Errored(mut route, _e) = match self.state {
+        let _e = match self.state {
             State::First(ref mut first, _) => match first.poll() {
                 Ok(Async::Ready(ex1)) => {
-                    return Ok(Async::Ready(Extracted(ex1.0, cons(Either::A(ex1.1)))));
+                    return Ok(Async::Ready(cons(Either::A(ex1))));
                 },
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(e) => e,
             },
             State::Second(ref mut second) => return match second.poll() {
-                Ok(Async::Ready(ex2)) => Ok(Async::Ready(ex2.map(|ex| {
-                    cons(Either::B(ex))
-                }))),
+                Ok(Async::Ready(ex2)) => Ok(Async::Ready(cons(Either::B(ex2)))),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
 
-                Err(Errored(mut route, e)) => {
-                    route.reset_matched_path_index(self.original_path_index);
-                    Err(Errored(route, e.into()))
+                Err(e) => {
+                    self.original_path_index.reset_path();
+                    Err(e.into())
                 }
             },
             State::Done => panic!("polled after complete"),
         };
 
-        route.reset_matched_path_index(self.original_path_index);
+        self.original_path_index.reset_path();
 
         let mut second = match mem::replace(&mut self.state, State::Done) {
-            State::First(_, second) => second.filter(route),
+            State::First(_, second) => second.filter(),
             _ => unreachable!(),
         };
 
         match second.poll() {
             Ok(Async::Ready(ex2)) => {
-                Ok(Async::Ready(ex2.map(|ex2| cons(Either::B(ex2)))))
+                Ok(Async::Ready(cons(Either::B(ex2))))
             },
             Ok(Async::NotReady) => {
                 self.state = State::Second(second);
                 Ok(Async::NotReady)
             }
-            Err(Errored(mut route, e)) => {
-                route.reset_matched_path_index(self.original_path_index);
-                return Err(Errored(route, e.into()));
+            Err(e) => {
+                self.original_path_index.reset_path();
+                return Err(e.into());
             }
         }
     }
 }
+
