@@ -1,6 +1,7 @@
 use futures::Future;
 
 use ::{Filter, Request};
+use ::reject::Reject;
 use ::reply::{Reply};
 use ::route;
 use ::server::{IntoWarpService, WarpService};
@@ -14,7 +15,7 @@ impl<F> WarpService for FilteredService<F>
 where
     F: Filter,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reply,
+    <F::Future as Future>::Error: Reject,
 {
     type Reply = F::Future;
 
@@ -29,7 +30,7 @@ impl<F> IntoWarpService for FilteredService<F>
 where
     F: Filter + Send + Sync + 'static,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reply,
+    <F::Future as Future>::Error: Reject,
 {
     type Service = FilteredService<F>;
 
@@ -43,7 +44,7 @@ impl<F> IntoWarpService for F
 where
     F: Filter + Send + Sync + 'static,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reply,
+    <F::Future as Future>::Error: Reject,
 {
     type Service = FilteredService<F>;
 
