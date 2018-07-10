@@ -57,8 +57,7 @@ impl Route {
     }
 
     pub(crate) fn path(&self) -> &str {
-        &self.req.uri().path()
-        //&self.req.uri().path()[self.segments_index..]
+        &self.req.uri().path()[self.segments_index..]
     }
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
