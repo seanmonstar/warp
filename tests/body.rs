@@ -1,18 +1,22 @@
+extern crate pretty_env_logger;
 extern crate warp;
 
 use warp::Filter;
 
 #[test]
-fn matches() {
-    let a = warp::body::concat();
+fn concat() {
+    let _ = pretty_env_logger::try_init();
 
-    let req = warp::test::request();
+    let concat = warp::body::concat();
 
-    assert!(req.matches(&a));
+    let req = warp::test::request()
+        .path("/nothing-matches-me");
+
+    assert!(req.matches(&concat));
 
     let p = warp::path("body");
     let req = warp::test::request()
         .path("/body");
 
-    assert!(req.matches(&p.and(a)));
+    assert!(req.matches(&p.and(concat)));
 }
