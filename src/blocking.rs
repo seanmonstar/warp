@@ -7,7 +7,18 @@ use futures::sync::oneshot;
 
 use ::never::Never;
 
-/// dox?
+/// Creates a thread pool to run a blocking function.
+///
+/// Returns an `impl Fn(A) -> impl Future<Item = R>`.
+///
+/// This can be useful for interacting with otherwise blocking resources,
+/// such as databases that don't have async interfaces.
+///
+/// # Note
+///
+/// The `FnClone` return type is simply a trait alias for `Fn + Clone`, since it's
+/// not possible to return exactly `impl Fn + Clone`, since `Clone` isn't a marker
+/// trait.
 pub fn blocking<F, A, R>(threads: usize, blocker: F) -> impl FnClone<A, Blocking<R>>
 where
     F: Fn(A) -> R + Clone + Send + 'static,
@@ -17,8 +28,7 @@ where
     blocking_new(threads, move || blocker.clone())
 }
 
-/// dox
-pub fn blocking_new<F1, F2, A, R>(threads: usize, factory: F1) -> impl FnClone<A, Blocking<R>>
+fn blocking_new<F1, F2, A, R>(threads: usize, factory: F1) -> impl FnClone<A, Blocking<R>>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(A) -> R,

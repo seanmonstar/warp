@@ -1,4 +1,4 @@
-//! dox?
+//! Header Filters
 use std::str::FromStr;
 
 use http::header::HeaderValue;

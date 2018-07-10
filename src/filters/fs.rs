@@ -1,4 +1,5 @@
-//! dox?
+//! File System Filters
+
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -15,6 +16,16 @@ use ::reject::{self, Rejection};
 use ::reply::{ReplySealed, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
+///
+/// Does not filter out based on any information of the request. Always serves
+/// the file at the exact `path` provided.
+///
+/// # Example
+///
+/// ```
+/// // Always serves this file from the file system.
+/// let route = warp::fs::file("/www/static/app.js");
+/// ```
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
     let path = Arc::new(path.into());
     filter_fn(move |_| {
@@ -27,7 +38,26 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Er
     })
 }
 
-/// Creates a `Filter` that serves a File at the `path`.
+/// Creates a `Filter` that serves a directory at the base `path` joined
+/// by the request path.
+///
+/// This can be used to serve "static files" from a directory.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Matches requests that start with `/static`,
+/// // and then uses the rest of that path to lookup
+/// // and serve a file from `/www/static`.
+/// let route = warp::path("static")
+///     .and(warp::fs::dir("/www/static")));
+///
+/// // For example:
+/// // - `GET /static/app.js` would serve the file `/www/static/app.js`
+/// // - `GET /static/css/app.css` would serve the file `/www/static/css/app.css`
+/// ```
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
     let base = Arc::new(path.into());
     filter_fn(move |route| {
@@ -63,7 +93,7 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
     })
 }
 
-/// dox?
+/// A file response.
 #[derive(Debug)]
 pub struct File {
     resp: Response,

@@ -1,4 +1,5 @@
-//! dox?
+//! Path Filters
+
 use std::str::FromStr;
 
 use ::filter::{Cons, Filter, filter_fn, HCons, HList};

@@ -1,4 +1,4 @@
-//! dox?
+//! Cookie Filters
 
 use http::header::HeaderValue;
 

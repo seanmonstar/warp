@@ -1,4 +1,4 @@
-//! dox?
+//! Query Filters
 
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
@@ -8,7 +8,7 @@ use ::reject::{self, Rejection};
 
 /// Creates a `Filter` that decodes query parameters to the type `T`.
 ///
-/// If cannot decode into a `T`, the request is rejected.
+/// If cannot decode into a `T`, the request is rejected with a `400 Bad Request`.
 pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
     filter_fn_cons(|route| {
         route
