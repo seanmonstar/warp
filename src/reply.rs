@@ -44,6 +44,10 @@ pub trait Reply: ReplySealed {
 
 impl<T: ReplySealed> Reply for T {}
 
+fn _assert_object_safe() {
+    fn _assert(_: &Reply) {}
+}
+
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
     use hyper::Body;

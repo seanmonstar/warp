@@ -90,6 +90,10 @@ mod sealed {
         fn into_response(self) -> ::reply::Response;
     }
 
+    fn _assert_object_safe() {
+        fn _assert(_: &Reject) {}
+    }
+
     pub trait CombineRejection<E>: Send + Sized {
         type Rejection: ::std::fmt::Debug + From<Self> + From<E> + Send;
     }
