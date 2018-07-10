@@ -29,6 +29,7 @@ where
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct AndFuture<T: Filter, U: Filter> {
     state: State<T, U>,
 }

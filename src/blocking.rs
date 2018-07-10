@@ -1,3 +1,4 @@
+use std::fmt;
 use std::thread;
 
 use crossbeam_channel as crossbeam;
@@ -61,6 +62,14 @@ impl<T> Future for Blocking<T> {
         self.i.poll().map_err(|_| panic!("pool is gone"))
     }
 }
+
+impl<T> fmt::Debug for Blocking<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("impl Future")
+            .finish()
+    }
+}
+
 
 pub trait FnClone<A, R>: Fn(A) -> R + Clone {}
 

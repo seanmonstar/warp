@@ -42,6 +42,7 @@ where
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct EitherFuture<T: Filter, U: Filter> {
     state: State<T, U>,
     original_path_index: PathIndex,

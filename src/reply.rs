@@ -119,6 +119,7 @@ mod sealed {
     }
 
     // An opaque type to return `impl Reply` from trait methods.
+    #[allow(missing_debug_implementations)]
     pub struct Reply_(pub(super) Response);
 
     impl ReplySealed for Reply_ {

@@ -2,7 +2,7 @@ use futures::{Async, Future, Poll};
 
 use super::{Cons, FilterBase, Filter, Func, cons, HList};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
     pub(super) filter: T,
     pub(super) callback: F,
@@ -26,6 +26,7 @@ where
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct MapFuture<T: Filter, F> {
     extract: T::Future,
     callback: F,

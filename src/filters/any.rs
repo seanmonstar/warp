@@ -9,6 +9,7 @@ pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
 }
 
 #[derive(Copy, Clone)]
+#[allow(missing_debug_implementations)]
 struct Any;
 
 impl FilterBase for Any {
@@ -22,6 +23,7 @@ impl FilterBase for Any {
     }
 }
 
+#[allow(missing_debug_implementations)]
 struct AnyFut;
 
 impl Future for AnyFut {

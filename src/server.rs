@@ -22,6 +22,7 @@ where
 }
 
 /// A Warp Server ready to filter requests.
+#[derive(Debug)]
 pub struct Server<S> {
     pipeline: bool,
     service: S,

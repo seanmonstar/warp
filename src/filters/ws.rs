@@ -1,4 +1,5 @@
-//! dox?
+//! Websockets Filters
+use std::fmt;
 use std::str::FromStr;
 
 use base64;
@@ -17,6 +18,23 @@ use super::{body, header};
 /// Creates a Websocket Filter.
 ///
 /// The passed function is called with each successful Websocket accepted.
+///
+/// # Note
+///
+/// This filter combines multiple filters internally, so you don't need them:
+///
+/// - Method must be `GET`
+/// - Header `connection` must be `upgrade`
+/// - Header `upgrade` must be `websocket`
+/// - Header `sec-websocket-version` must be `13`
+/// - Header `sec-websocket-key` must be set.
+///
+/// If the filters are met, yields a `Ws` which will reply with:
+///
+/// - Status of `101 Switching Protocols`
+/// - Header `connection: upgrade`
+/// - Header `upgrade: websocket`
+/// - Header `sec-websocket-accept` with the hash value of the received key.
 pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
 where
     F: Fn(WebSocket) -> U + Clone + Send + 'static,
@@ -36,7 +54,7 @@ where
 /// The factory function is called once for each accepted `WebSocket`. The
 /// factory should return a new function that is ready to handle the
 /// `WebSocket`.
-pub fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
+fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,
@@ -67,7 +85,7 @@ where
         }))
 }
 
-/// dox?
+/// A [`Reply`](::Reply) that returns the websocket handshake response.
 pub struct Ws {
     accept: Accept,
 }
@@ -76,12 +94,18 @@ impl ReplySealed for Ws {
     fn into_response(self) -> Response {
         http::Response::builder()
             .status(101)
-            .header("content-length", "0")
             .header("connection", "upgrade")
             .header("upgrade", "websocket")
             .header("sec-websocket-accept", self.accept.0.as_str())
             .body(Default::default())
             .unwrap()
+    }
+}
+
+impl fmt::Debug for Ws {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Ws")
+            .finish()
     }
 }
 
@@ -163,12 +187,20 @@ impl Sink for WebSocket {
     }
 }
 
+impl fmt::Debug for WebSocket {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WebSocket")
+            .finish()
+    }
+}
+
 /// A WebSocket message.
 ///
 /// Only repesents Text and Binary messages.
 ///
 /// This will likely become a `non-exhaustive` enum in the future, once that
 /// language feature has stabilized.
+#[derive(Debug)]
 pub struct Message {
     inner: protocol::Message,
 }
@@ -208,6 +240,7 @@ impl Message {
     }
 }
 
+#[derive(Debug)]
 struct Accept(String);
 
 impl FromStr for Accept {

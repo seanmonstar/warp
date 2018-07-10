@@ -64,11 +64,13 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
 }
 
 /// dox?
+#[derive(Debug)]
 pub struct File {
     resp: Response,
 }
 
-// Silly wrapper since Arc<AsRef<Path>> doesn't implement AsRef<Path> ;_;
+// Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
+#[derive(Debug)]
 struct ArcPath(Arc<PathBuf>);
 
 impl AsRef<Path> for ArcPath {

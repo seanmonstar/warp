@@ -57,6 +57,7 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=Cons<T>, Error=
     })
 }
 
+#[allow(missing_debug_implementations)]
 struct Concat {
     fut: Concat2<Body>,
 }

@@ -5,7 +5,7 @@ use futures::{Async, Future, IntoFuture, Poll};
 use ::reject::CombineRejection;
 use super::{Cons, FilterBase, Filter, Func, cons, HList};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct AndThen<T, F> {
     pub(super) filter: T,
     pub(super) callback: F,
@@ -31,6 +31,7 @@ where
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct AndThenFuture<T: Filter, F>
 where
     T: Filter,

@@ -166,6 +166,8 @@ fn _assert_object_safe() {
     fn _assert(_f: &Filter<Extract=(), Error=(), Future=future::FutureResult<(), ()>>) {}
 }
 
+// ===== FilterFn =====
+
 pub fn filter_fn<F, U>(func: F) -> FilterFn<F>
 where
     F: Fn(&mut Route) -> U,
@@ -191,7 +193,9 @@ where
 }
 
 #[derive(Copy, Clone)]
+#[allow(missing_debug_implementations)]
 pub struct FilterFn<F> {
+    // TODO: could include a `debug_str: &'static str` to be used in Debug impl
     func: F,
 }
 
