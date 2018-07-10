@@ -56,7 +56,7 @@ pub use self::filters::{
     ws::ws,
 };
 pub use self::reject::{reject, Rejection};
-pub use self::reply::reply;
+pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
 

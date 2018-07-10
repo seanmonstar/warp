@@ -66,8 +66,8 @@ pub trait Reply: ReplySealed {
     /// ```rust
     /// use warp::Reply;
     ///
-    /// warp::reply()
-    ///     .with_header("x-foo", "bar")
+    /// let reply = warp::reply()
+    ///     .with_header("x-foo", "bar");
     /// ```
     fn with_header<K, V>(self, name: K, value: V) -> Reply_
     where

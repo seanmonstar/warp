@@ -52,7 +52,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Er
 /// // and then uses the rest of that path to lookup
 /// // and serve a file from `/www/static`.
 /// let route = warp::path("static")
-///     .and(warp::fs::dir("/www/static")));
+///     .and(warp::fs::dir("/www/static"));
 ///
 /// // For example:
 /// // - `GET /static/app.js` would serve the file `/www/static/app.js`
