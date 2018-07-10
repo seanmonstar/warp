@@ -30,6 +30,7 @@ where
             res
         },
         Err(e) => {
+            use ::reject::Reject;
             debug!("reply::json error: {}", e);
             ::reject::server_error()
                 .into_response()

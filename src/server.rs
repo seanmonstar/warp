@@ -6,6 +6,7 @@ use hyper::{rt, Server as HyperServer};
 use hyper::service::{service_fn};
 
 use ::never::Never;
+use ::reject::Reject;
 use ::reply::{ReplySealed, Reply};
 use ::Request;
 
@@ -30,7 +31,7 @@ impl<S> Server<S>
 where
     S: IntoWarpService + 'static,
     <<S::Service as WarpService>::Reply as Future>::Item: Reply + Send,
-    <<S::Service as WarpService>::Reply as Future>::Error: Reply + Send,
+    <<S::Service as WarpService>::Reply as Future>::Error: Reject + Send,
 {
     /// Run this `Server` forever on the current thread.
     pub fn run<A>(self, addr: A)
@@ -85,7 +86,7 @@ impl<F> Future for ReplyFuture<F>
 where
     F: Future,
     F::Item: Reply,
-    F::Error: Reply,
+    F::Error: Reject,
 {
     type Item = ::reply::Response;
     type Error = Never;

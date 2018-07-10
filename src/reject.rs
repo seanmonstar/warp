@@ -3,9 +3,8 @@
 use http;
 
 use ::never::Never;
-use ::reply::ReplySealed;
 
-pub(crate) use self::sealed::CombineRejection;
+pub(crate) use self::sealed::{CombineRejection, Reject};
 
 /// Rejects a request with a default `400 Bad Request`.
 #[inline]
@@ -61,7 +60,13 @@ impl From<Never> for Rejection {
     }
 }
 
-impl ReplySealed for Rejection {
+impl Reject for Never {
+    fn into_response(self) -> ::reply::Response {
+        match self {}
+    }
+}
+
+impl Reject for Rejection {
     fn into_response(self) -> ::reply::Response {
         let code = match self.reason {
             Reason::NotFound => http::StatusCode::NOT_FOUND,
@@ -75,9 +80,15 @@ impl ReplySealed for Rejection {
     }
 }
 
+
+
 mod sealed {
     use ::never::Never;
     use super::Rejection;
+
+    pub trait Reject {
+        fn into_response(self) -> ::reply::Response;
+    }
 
     pub trait CombineRejection<E>: Send + Sized {
         type Rejection: ::std::fmt::Debug + From<Self> + From<E> + Send;
