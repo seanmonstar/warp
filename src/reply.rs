@@ -1,18 +1,20 @@
 //! Create responses to reply to requests.
 
-use http::header::{CONTENT_TYPE, HeaderValue};
+use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
+use http::HttpTryFrom;
 use serde::Serialize;
 use serde_json;
 
 pub use http::StatusCode;
 
-pub(crate) use self::sealed::{ReplySealed, Response};
+use ::reject::Reject;
+pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 
-/// Easily convert a type into a `Response`.
+/// Returns an empty `Reply` with status code `200 OK`.
 #[inline]
-pub fn reply(val: impl Reply) -> impl Reply
+pub fn reply() -> impl Reply
 {
-    val
+    StatusCode::OK
 }
 
 /// Convert the value into a `Response` with the value encoded as JSON.
@@ -30,7 +32,6 @@ where
             res
         },
         Err(e) => {
-            use ::reject::Reject;
             debug!("reply::json error: {}", e);
             ::reject::server_error()
                 .into_response()
@@ -38,8 +39,62 @@ where
     }
 }
 
-/// A trait describing the various things that a Warp server can turn into a `Response`.
+/// Types that can be converted into a `Response`.
+///
+/// This trait is sealed for now (implementations are only allowed inside
+/// warp), but it is implemented for the following:
+///
+/// - `http::StatusCode`
+/// - `http::Response<hyper::Body>`
+/// - `String`
+/// - `&'static str`
 pub trait Reply: ReplySealed {
+    /// Change the status code of this `Reply`.
+    fn with_status(self, status: StatusCode) -> Reply_
+    where
+        Self: Sized,
+    {
+        let mut res = self.into_response();
+        *res.status_mut() = status;
+        Reply_(res)
+    }
+
+    /// Add a header to this `Reply`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use warp::Reply;
+    ///
+    /// warp::reply()
+    ///     .with_header("x-foo", "bar")
+    /// ```
+    fn with_header<K, V>(self, name: K, value: V) -> Reply_
+    where
+        Self: Sized,
+        HeaderName: HttpTryFrom<K>,
+        HeaderValue: HttpTryFrom<V>,
+    {
+        match <HeaderName as HttpTryFrom<K>>::try_from(name) {
+            Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
+                Ok(value) => {
+                    let mut res = self.into_response();
+                    res.headers_mut().append(name, value);
+                    Reply_(res)
+                },
+                Err(err) => {
+                    warn!("with_header value error: {}", err.into());
+                    Reply_(::reject::server_error()
+                        .into_response())
+                }
+            },
+            Err(err) => {
+                warn!("with_header name error: {}", err.into());
+                Reply_(::reject::server_error()
+                    .into_response())
+            }
+        }
+    }
 }
 
 impl<T: ReplySealed> Reply for T {}
@@ -63,7 +118,7 @@ mod sealed {
         fn into_response(self) -> Response;
     }
 
-    /*
+    // An opaque type to return `impl Reply` from trait methods.
     pub struct Reply_(pub(super) Response);
 
     impl ReplySealed for Reply_ {
@@ -72,7 +127,6 @@ mod sealed {
             self.0
         }
     }
-    */
 
     impl ReplySealed for Response {
         #[inline]
