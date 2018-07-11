@@ -56,8 +56,16 @@ impl Route {
         self.req.headers()
     }
 
+    pub(crate) fn version(&self) -> http::Version {
+        self.req.version()
+    }
+
     pub(crate) fn path(&self) -> &str {
         &self.req.uri().path()[self.segments_index..]
+    }
+
+    pub(crate) fn full_path(&self) -> &str {
+        self.req.uri().path()
     }
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {

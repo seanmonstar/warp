@@ -8,7 +8,7 @@ extern crate crossbeam_channel;
 #[macro_use] extern crate futures;
 extern crate http;
 extern crate hyper;
-#[macro_use] extern crate log;
+#[macro_use] extern crate log as logcrate;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
@@ -42,6 +42,9 @@ pub use self::filters::{
     header,
     // header() function
     header::header,
+    log,
+    // log() function
+    log::log,
     method::{get, method, post, put, delete},
     path,
     // the index() function

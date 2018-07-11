@@ -155,7 +155,10 @@ fn main() {
 
 
     // Combine our endpoints, since we want requests to match any of them:
-    let routes = list.or(create).or(update).or(delete);
+    let api = list.or(create).or(update).or(delete);
+
+    // View access logs by setting `RUST_LOG=todos`.
+    let routes = warp::log("todos").decorate(api);
 
     // Start up the server...
     warp::serve(routes)
