@@ -1,6 +1,7 @@
 mod and;
 mod and_then;
 mod map;
+mod map_err;
 mod or;
 mod service;
 mod tuple;
@@ -12,6 +13,7 @@ use ::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub(crate) use self::map::Map;
+pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::{Either, Or};
 pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
 
@@ -23,6 +25,19 @@ pub trait FilterBase {
     type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
     fn filter(&self) -> Self::Future;
+
+    // crate-private for now
+    fn map_err<F, E>(self, fun: F) -> MapErr<Self, F>
+    where
+        Self: Sized,
+        F: Fn(Self::Error) -> E + Clone,
+        E: ::std::fmt::Debug + Send,
+    {
+        MapErr {
+            filter: self,
+            callback: fun,
+        }
+    }
 }
 
 impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
@@ -123,6 +138,7 @@ pub trait Filter: FilterBase {
             callback: fun,
         }
     }
+
 
     /// Composes this `Filter` with a closure receiving the extracted value from this.
     ///

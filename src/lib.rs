@@ -3,6 +3,7 @@
 //! warp
 
 extern crate base64;
+#[macro_use] extern crate bitflags;
 extern crate bytes;
 extern crate crossbeam_channel;
 #[macro_use] extern crate futures;

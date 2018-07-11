@@ -3,6 +3,7 @@
 use futures::Future;
 
 use ::filter::{Filter, HList};
+use ::reject::Reject;
 use ::reply::{Reply, ReplySealed};
 use ::route;
 use ::Request;
@@ -76,13 +77,15 @@ impl RequestBuilder {
     }
 
     /// Returns whether the `Filter` matches this request.
-    pub fn reply<F>(self, f: F) -> Result<::reply::Response, F::Error>
+    pub fn reply<F>(self, f: F) -> ::reply::Response
     where
         F: Filter,
         F::Extract: Reply,
+        F::Error: Reject,
     {
         self.apply_filter(f)
             .map(|r| r.into_response())
+            .unwrap_or_else(|err| err.into_response())
     }
 }
 

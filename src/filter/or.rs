@@ -50,7 +50,7 @@ pub struct EitherFuture<T: Filter, U: Filter> {
 
 enum State<T: Filter, U: Filter> {
     First(T::Future, U),
-    Second(U::Future),
+    Second(Option<T::Error>, U::Future),
     Done,
 }
 
@@ -74,7 +74,7 @@ where
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let _e = match self.state {
+        let err1 = match self.state {
             State::First(ref mut first, _) => match first.poll() {
                 Ok(Async::Ready(ex1)) => {
                     return Ok(Async::Ready(cons(Either::A(ex1))));
@@ -82,13 +82,16 @@ where
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(e) => e,
             },
-            State::Second(ref mut second) => return match second.poll() {
+            State::Second(ref mut err1, ref mut second) => return match second.poll() {
                 Ok(Async::Ready(ex2)) => Ok(Async::Ready(cons(Either::B(ex2)))),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
 
                 Err(e) => {
                     self.original_path_index.reset_path();
-                    Err(e.into())
+                    let err1 = err1
+                        .take()
+                        .expect("polled after complete");
+                    Err(e.combine(err1))
                 }
             },
             State::Done => panic!("polled after complete"),
@@ -106,12 +109,12 @@ where
                 Ok(Async::Ready(cons(Either::B(ex2))))
             },
             Ok(Async::NotReady) => {
-                self.state = State::Second(second);
+                self.state = State::Second(Some(err1), second);
                 Ok(Async::NotReady)
             }
             Err(e) => {
                 self.original_path_index.reset_path();
-                return Err(e.into());
+                return Err(e.combine(err1));
             }
         }
     }

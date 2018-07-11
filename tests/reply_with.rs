@@ -12,7 +12,7 @@ fn header() {
     );
 
     let req = warp::test::request();
-    let resp = req.reply(&no_header).expect("never fails");
+    let resp = req.reply(&no_header);
     assert_eq!(resp.headers()["foo"], "bar");
 
     let yes_header = header.decorate(
@@ -20,7 +20,7 @@ fn header() {
     );
 
     let req = warp::test::request();
-    let resp = req.reply(&yes_header).expect("never fails");
+    let resp = req.reply(&yes_header);
     assert_eq!(resp.headers()["foo"], "bar", "replaces header");
 }
 
@@ -33,7 +33,7 @@ fn default_header() {
     );
 
     let req = warp::test::request();
-    let resp = req.reply(&no_header).expect("never fails");
+    let resp = req.reply(&no_header);
 
     assert_eq!(resp.headers()["foo"], "bar");
 
@@ -42,7 +42,7 @@ fn default_header() {
     );
 
     let req = warp::test::request();
-    let resp = req.reply(&yes_header).expect("never fails");
+    let resp = req.reply(&yes_header);
 
     assert_eq!(resp.headers()["foo"], "sean", "doesn't replace header");
 }

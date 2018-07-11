@@ -1,47 +1,65 @@
 use http::Method;
 
-use ::filter::{And, Cons, Filter, filter_fn, filter_fn_cons, HList};
+use ::filter::{And, Cons, Filter, filter_fn, filter_fn_cons, HList, MapErr};
 use ::never::Never;
 use ::reject::{CombineRejection, Rejection};
 
 /// Wrap a `Filter` in a new one that requires the request method to be `GET`.
-pub fn get<F>(filter: F) -> And<impl Filter<Extract=(), Error=Rejection> + Copy, F>
+pub fn get<F>(filter: F) -> And<
+    impl Filter<Extract=(), Error=Rejection> + Copy,
+    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+>
 where
     F: Filter + Clone,
     F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
+    <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::GET).and(filter)
+    method_is(|| &Method::GET)
+        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
-
 /// Wrap a `Filter` in a new one that requires the request method to be `POST`.
-pub fn post<F>(filter: F) -> And<impl Filter<Extract=(), Error=Rejection> + Copy, F>
+pub fn post<F>(filter: F) -> And<
+    impl Filter<Extract=(), Error=Rejection> + Copy,
+    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+>
 where
     F: Filter + Clone,
     F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
+    <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::POST).and(filter)
+    method_is(|| &Method::POST)
+        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
-
 /// Wrap a `Filter` in a new one that requires the request method to be `PUT`.
-pub fn put<F>(filter: F) -> And<impl Filter<Extract=(), Error=Rejection> + Copy, F>
+pub fn put<F>(filter: F) -> And<
+    impl Filter<Extract=(), Error=Rejection> + Copy,
+    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+>
 where
     F: Filter + Clone,
     F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
+    <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::PUT).and(filter)
+    method_is(|| &Method::PUT)
+        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
 
 /// Wrap a `Filter` in a new one that requires the request method to be `DELETE`.
-pub fn delete<F>(filter: F) -> And<impl Filter<Extract=(), Error=Rejection> + Copy, F>
+pub fn delete<F>(filter: F) -> And<
+    impl Filter<Extract=(), Error=Rejection> + Copy,
+    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+>
 where
     F: Filter + Clone,
     F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
+    <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::DELETE).and(filter)
+    method_is(|| &Method::DELETE)
+        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
 
 /// Extract the `Method` from the request.
