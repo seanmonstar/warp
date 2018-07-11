@@ -11,7 +11,7 @@ use ::reject::CombineRejection;
 use ::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
-use self::map::Map;
+pub(crate) use self::map::Map;
 pub(crate) use self::or::{Either, Or};
 pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
 

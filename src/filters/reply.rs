@@ -1,12 +1,54 @@
 //! Reply Filters
+//!
+//! These "filters" behave a little differently than the rest. Instead of
+//! being used directly on requests, these filters "decorate" other filters.
+//! Consider these two equivalent examples:
+//!
+//! ## Just mapping a `Filter`
+//!
+//! ```
+//! use warp::{Filter, Reply};
+//!
+//! let ok = warp::any().map(warp::reply);
+//! let route = ok.map(|rep| {
+//!     rep.with_header("server", "warp")
+//! });
+//! ```
+//!
+//! ## Decorating a `Filter`
+//!
+//! ```
+//! use warp::Filter;
+//!
+//! let with_server = warp::reply::with::header("server", "warp");
+//!
+//! let ok = warp::any().map(warp::reply);
+//! let route = with_server.decorate(ok);
+//! ```
+//!
+//! Both of these examples end up in the same, but the "decorating" filter
+//! can be cleaner in intent. Additionally, decorating allows adding in
+//! conditional logic *before* the request enters the inner filter (though
+//! the `with::header` decorator does not).
 
 use http::header::{HeaderName, HeaderValue};
 use http::HttpTryFrom;
 
-use ::filter::{Filter, Cons};
+use ::blocking::FnClone;
+use ::filter::{Cons, Filter, Map};
 use ::reply::{Reply, Reply_};
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Always set `foo: bar` header.
+/// let route = warp::reply::with::header("foo", "bar")
+///     .decorate(warp:any().map(warp::reply));
+/// ```
 pub fn header<K, V>(name: K, value: V) -> WithHeader
 where
     HeaderName: HttpTryFrom<K>,
@@ -21,7 +63,18 @@ where
 
 // pub fn headers?
 
-/// dox
+/// Wrap a [`Filter`](::Filter) that adds a header to the reply, if they
+/// aren't already set.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Set `server: warp` if not already set.
+/// let route = warp::reply::with::default_header("server", "warp")
+///     .decorate(warp:any().map(warp::reply));
+/// ```
 pub fn default_header<K, V>(name: K, value: V) -> WithDefaultHeader
 where
     HeaderName: HttpTryFrom<K>,
@@ -34,8 +87,7 @@ where
     }
 }
 
-// TODO: could maybe implement Func, to allow `inner.map(with_header)`?
-/// dox
+/// Decorate a `Filter` to always set a header.
 #[derive(Clone, Debug)]
 pub struct WithHeader {
     name: HeaderName,
@@ -43,8 +95,10 @@ pub struct WithHeader {
 }
 
 impl WithHeader {
-    /// dox
-    pub fn decorate<F, R>(&self, inner: F) -> impl Filter<Extract=Cons<Reply_>, Error=F::Error>
+    /// Decorates the `Filter`, returning a new one, that always adds the header.
+    // Returns `Map` instea of `impl Filter` so that Clone from F can be
+    // inheritted, instead of required or lost.
+    pub fn decorate<F, R>(&self, inner: F) -> Map<F, impl FnClone<R, Reply_>>
     where
         F: Filter<Extract=Cons<R>>,
         R: Reply,
@@ -59,7 +113,7 @@ impl WithHeader {
     }
 }
 
-/// dox
+/// Decorate a `Filter` to set a header if it is not already set.
 #[derive(Clone, Debug)]
 pub struct WithDefaultHeader {
     name: HeaderName,
@@ -67,8 +121,10 @@ pub struct WithDefaultHeader {
 }
 
 impl WithDefaultHeader {
-    /// dox
-    pub fn decorate<F, R>(&self, inner: F) -> impl Filter<Extract=Cons<Reply_>, Error=F::Error>
+    /// Decorates the `Filter`, returning a new one, that sets the header if not already set.
+    // Returns `Map` instea of `impl Filter` so that Clone from F can be
+    // inheritted, instead of required or lost.
+    pub fn decorate<F, R>(&self, inner: F) -> Map<F, impl FnClone<R, Reply_>>
     where
         F: Filter<Extract=Cons<R>>,
         R: Reply,
