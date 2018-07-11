@@ -61,18 +61,26 @@ impl From<Never> for Rejection {
 }
 
 impl Reject for Never {
+    fn status(&self) -> http::StatusCode {
+        match *self {}
+    }
+
     fn into_response(self) -> ::reply::Response {
         match self {}
     }
 }
 
 impl Reject for Rejection {
-    fn into_response(self) -> ::reply::Response {
-        let code = match self.reason {
+    fn status(&self) -> http::StatusCode {
+        match self.reason {
             Reason::NotFound => http::StatusCode::NOT_FOUND,
             Reason::BadRequest => http::StatusCode::BAD_REQUEST,
             Reason::ServerError => http::StatusCode::INTERNAL_SERVER_ERROR,
-        };
+        }
+    }
+
+    fn into_response(self) -> ::reply::Response {
+        let code = self.status();
 
         let mut res = http::Response::default();
         *res.status_mut() = code;
@@ -87,6 +95,7 @@ mod sealed {
     use super::Rejection;
 
     pub trait Reject {
+        fn status(&self) -> ::http::StatusCode;
         fn into_response(self) -> ::reply::Response;
     }
 

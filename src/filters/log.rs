@@ -1,13 +1,15 @@
 //! Logger Filters
 
+use std::marker::PhantomData;
 use std::time::Instant;
 
 use futures::Future;
+use http::StatusCode;
 
 use ::filter::{Cons, Filter, FilterClone};
 use ::never::Never;
-use ::reject::CombineRejection;
-use ::reply::{Reply, ReplySealed, Reply_, Response};
+use ::reject::{CombineRejection, Reject};
+use ::reply::{Reply, ReplySealed, Reply_};
 use ::route;
 
 /// Create a decorating filter with the specified `name` as the `target`.
@@ -40,7 +42,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
                 route.method(),
                 route.full_path(),
                 route.version(),
-                info.res.status().as_u16(),
+                info.status.as_u16(),
                 info.start.elapsed(),
             );
         });
@@ -63,7 +65,10 @@ pub struct Log<F> {
 #[allow(missing_debug_implementations)]
 pub struct Info<'a> {
     start: Instant,
-    res: &'a Response,
+    status: StatusCode,
+    // This struct will eventually hold a `&'a Route` and `&'a Response`,
+    // so use a marker so there can be a lifetime in the struct definition.
+    _marker: PhantomData<&'a ()>,
 }
 
 impl<FN> Log<FN>
@@ -78,7 +83,7 @@ where
     where
         F: Filter + Clone + Send,
         F::Extract: Reply,
-        F::Error: CombineRejection<Never>,
+        F::Error: CombineRejection<Never> + Reject,
     {
         let func = self.func.clone();
         ::filters::any::any()
@@ -87,13 +92,24 @@ where
                 let func = func.clone();
                 inner
                     .filter()
-                    .map(move |rep| {
-                        let res = rep.into_response();
+                    .then(move |result| {
+                        let (result, status) = match result {
+                            Ok(rep) => {
+                                let resp = rep.into_response();
+                                let status = resp.status();
+                                (Ok(Reply_(resp)), status)
+                            },
+                            Err(reject) => {
+                                let status = reject.status();
+                                (Err(reject), status)
+                            }
+                        };
                         func(Info {
                             start,
-                            res: &res,
+                            status,
+                            _marker: PhantomData,
                         });
-                        Reply_(res)
+                        result
                     })
             })
     }
