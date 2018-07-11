@@ -8,6 +8,7 @@ use serde_json;
 pub use http::StatusCode;
 
 use ::reject::Reject;
+pub use ::filters::reply as with;
 pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 
 /// Returns an empty `Reply` with status code `200 OK`.
@@ -118,9 +119,19 @@ mod sealed {
         fn into_response(self) -> Response;
     }
 
+    /// ```compile_fail
+    /// use warp::Reply;
+    ///
+    /// let _ = warp::reply().into_response();
+    /// ```
+    pub fn __warp_replysealed_compilefail_doctest() {
+        // Duplicate code to make sure the code is otherwise valid.
+        let _ = ::reply().into_response();
+    }
+
     // An opaque type to return `impl Reply` from trait methods.
     #[allow(missing_debug_implementations)]
-    pub struct Reply_(pub(super) Response);
+    pub struct Reply_(pub(crate) Response);
 
     impl ReplySealed for Reply_ {
         #[inline]

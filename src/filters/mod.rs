@@ -6,4 +6,5 @@ pub mod header;
 pub mod method;
 pub mod path;
 pub mod query;
+pub mod reply;
 pub mod ws;

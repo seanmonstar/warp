@@ -3,6 +3,7 @@
 use futures::Future;
 
 use ::filter::{Filter, HList};
+use ::reply::{Reply, ReplySealed};
 use ::route;
 use ::Request;
 
@@ -51,22 +52,37 @@ impl RequestBuilder {
         F::Extract: HList,
         <F::Extract as HList>::Tuple: OneOrTuple,
     {
+        self.apply_filter(f)
+            .map(|ex| ex.flatten().one_or_tuple())
+    }
+
+    fn apply_filter<F>(self, f: F) -> Result<F::Extract, F::Error>
+    where
+        F: Filter,
+    {
         ::futures::future::lazy(move || {
             route::set(self.req);
             f.filter()
         })
             .wait()
-            .map(|ex| ex.flatten().one_or_tuple())
     }
 
     /// Returns whether the `Filter` matches this request.
     pub fn matches<F>(self, f: F) -> bool
     where
         F: Filter,
-        F::Extract: HList,
-        <F::Extract as HList>::Tuple: OneOrTuple,
     {
-        self.filter(f).is_ok()
+        self.apply_filter(f).is_ok()
+    }
+
+    /// Returns whether the `Filter` matches this request.
+    pub fn reply<F>(self, f: F) -> Result<::reply::Response, F::Error>
+    where
+        F: Filter,
+        F::Extract: Reply,
+    {
+        self.apply_filter(f)
+            .map(|r| r.into_response())
     }
 }
 
