@@ -23,19 +23,33 @@ pub fn json<T>(val: &T) -> impl Reply
 where
     T: Serialize,
 {
-    match serde_json::to_string(val) {
-        Ok(s) => {
-            let mut res = Response::new(s.into());
-            res.headers_mut().insert(
-                CONTENT_TYPE,
-                HeaderValue::from_static("application/json")
-            );
-            res
-        },
-        Err(e) => {
-            debug!("reply::json error: {}", e);
-            ::reject::server_error()
-                .into_response()
+    Json {
+        inner: serde_json::to_vec(val).map_err(|err| {
+            warn!("reply::json error: {}", err);
+        }),
+    }
+}
+
+struct Json {
+    inner: Result<Vec<u8>, ()>,
+}
+
+impl ReplySealed for Json {
+    #[inline]
+    fn into_response(self) -> Response {
+        match self.inner {
+            Ok(body) => {
+                let mut res = Response::new(body.into());
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/json")
+                );
+                res
+            },
+            Err(()) => {
+                ::reject::server_error()
+                    .into_response()
+            }
         }
     }
 }
