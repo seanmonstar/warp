@@ -9,10 +9,15 @@
 //! ```
 //! use warp::{Filter, Reply};
 //!
-//! let ok = warp::any().map(warp::reply);
-//! let route = ok.map(|rep| {
+//! // Note: free function since you can't use `rep: impl Reply`
+//! // in closures yet...
+//! fn with_header(rep: impl Reply) -> impl Reply {
 //!     rep.with_header("server", "warp")
-//! });
+//! }
+//!
+//! let route = warp::any()
+//!     .map(warp::reply)
+//!     .map(with_header);
 //! ```
 //!
 //! ## Decorating a `Filter`
@@ -47,7 +52,7 @@ use ::reply::{Reply, Reply_};
 ///
 /// // Always set `foo: bar` header.
 /// let route = warp::reply::with::header("foo", "bar")
-///     .decorate(warp:any().map(warp::reply));
+///     .decorate(warp::any().map(warp::reply));
 /// ```
 pub fn header<K, V>(name: K, value: V) -> WithHeader
 where
@@ -73,7 +78,7 @@ where
 ///
 /// // Set `server: warp` if not already set.
 /// let route = warp::reply::with::default_header("server", "warp")
-///     .decorate(warp:any().map(warp::reply));
+///     .decorate(warp::any().map(warp::reply));
 /// ```
 pub fn default_header<K, V>(name: K, value: V) -> WithDefaultHeader
 where
