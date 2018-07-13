@@ -30,6 +30,7 @@ where
     }
 }
 
+#[allow(missing_debug_implementations)]
 struct Json {
     inner: Result<Vec<u8>, ()>,
 }
