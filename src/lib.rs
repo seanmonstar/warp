@@ -90,6 +90,7 @@ mod blocking;
 mod error;
 mod filter;
 pub mod filters;
+mod generic;
 mod never;
 pub mod reject;
 pub mod reply;

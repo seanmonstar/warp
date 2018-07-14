@@ -3,7 +3,7 @@ use std::mem;
 use futures::{Async, Future, IntoFuture, Poll};
 
 use ::reject::CombineRejection;
-use super::{FilterBase, Filter, Func, HList, One, one};
+use super::{FilterBase, Filter, Func, One, one};
 
 #[derive(Clone, Copy, Debug)]
 pub struct AndThen<T, F> {
@@ -14,8 +14,7 @@ pub struct AndThen<T, F> {
 impl<T, F> FilterBase for AndThen<T, F>
 where
     T: Filter,
-    T::Extract: HList,
-    F: Func<<T::Extract as HList>::Tuple> + Clone + Send,
+    F: Func<T::Extract> + Clone + Send,
     F::Output: IntoFuture + Send,
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
@@ -35,8 +34,7 @@ where
 pub struct AndThenFuture<T: Filter, F>
 where
     T: Filter,
-    T::Extract: HList,
-    F: Func<<T::Extract as HList>::Tuple>,
+    F: Func<T::Extract>,
     F::Output: IntoFuture + Send,
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
@@ -47,8 +45,7 @@ where
 enum State<T, F>
 where
     T: Filter,
-    T::Extract: HList,
-    F: Func<<T::Extract as HList>::Tuple>,
+    F: Func<T::Extract>,
     F::Output: IntoFuture + Send,
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
@@ -61,8 +58,7 @@ where
 impl<T, F> Future for AndThenFuture<T, F>
 where
     T: Filter,
-    T::Extract: HList,
-    F: Func<<T::Extract as HList>::Tuple>,
+    F: Func<T::Extract>,
     F::Output: IntoFuture + Send,
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
@@ -83,7 +79,7 @@ where
         };
 
         let mut second = match mem::replace(&mut self.state, State::Done) {
-            State::First(_, second) => second.call(ex1.flatten()).into_future(),
+            State::First(_, second) => second.call(ex1).into_future(),
             _ => unreachable!(),
         };
 

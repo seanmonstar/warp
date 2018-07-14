@@ -4,10 +4,10 @@ mod map;
 mod map_err;
 mod or;
 mod service;
-mod tuple;
 
 use futures::{future, Future, IntoFuture};
 
+pub(crate) use ::generic::{Combine, One, one, Func, HList};
 use ::reject::CombineRejection;
 use ::route::{self, Route};
 pub(crate) use self::and::And;
@@ -15,7 +15,6 @@ use self::and_then::AndThen;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::{Either, Or};
-pub(crate) use self::tuple::{Combine, One, one, Func, HList};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -130,8 +129,7 @@ pub trait Filter: FilterBase {
     fn map<F>(self, fun: F) -> Map<Self, F>
     where
         Self: Sized,
-        Self::Extract: HList,
-        F: Func<<Self::Extract as HList>::Tuple> + Clone,
+        F: Func<Self::Extract> + Clone,
     {
         Map {
             filter: self,
@@ -159,8 +157,7 @@ pub trait Filter: FilterBase {
     fn and_then<F>(self, fun: F) -> AndThen<Self, F>
     where
         Self: Sized,
-        Self::Extract: HList,
-        F: Func<<Self::Extract as HList>::Tuple> + Clone,
+        F: Func<Self::Extract> + Clone,
         F::Output: IntoFuture + Send,
         <F::Output as IntoFuture>::Error: CombineRejection<Self::Error>,
         <F::Output as IntoFuture>::Future: Send,

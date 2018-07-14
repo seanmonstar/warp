@@ -2,7 +2,8 @@
 
 use futures::Future;
 
-use ::filter::{Filter, HList};
+use ::filter::Filter;
+use ::generic::HList;
 use ::reject::Reject;
 use ::reply::{Reply, ReplySealed};
 use ::route;

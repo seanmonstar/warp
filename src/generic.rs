@@ -1,28 +1,28 @@
 #[derive(Debug)]
-pub struct HCons<H, T>(pub H, pub T);
+pub struct Product<H, T>(pub H, pub T);
 
-pub type One<T> = HCons<T, ()>;
+pub type One<T> = Product<T, ()>;
 
 #[inline]
 pub(crate) fn one<T>(val: T) -> One<T> {
-    HCons(val, ())
+    Product(val, ())
 }
 
-// Converts HCons (and ()) into tuples.
+// Converts Product (and ()) into tuples.
 pub trait HList {
     type Tuple;
 
     fn flatten(self) -> Self::Tuple;
 }
 
-// The opposite of the HList trait, converts tuples into HCons...
+// The opposite of the HList trait, converts tuples into Product...
 pub trait Tuple {
     type HList;
 
     fn hlist(self) -> Self::HList;
 }
 
-// Combines HCons together.
+// Combines Product together.
 pub trait Combine<T> {
     type Output;
 
@@ -45,15 +45,15 @@ impl<T> Combine<T> for () {
     }
 }
 
-impl<H, T, U> Combine<U> for HCons<H, T>
+impl<H, T, U> Combine<U> for Product<H, T>
 where
     T: Combine<U>,
 {
-    type Output = HCons<H, <T as Combine<U>>::Output>;
+    type Output = Product<H, <T as Combine<U>>::Output>;
 
     #[inline]
     fn combine(self, other: U) -> Self::Output {
-        HCons(self.0, self.1.combine(other))
+        Product(self.0, self.1.combine(other))
     }
 }
 
@@ -76,7 +76,7 @@ impl<T1> HList for One<T1> {
     }
 }
 
-impl<T1, T2> HList for HCons<T1, One<T2>> {
+impl<T1, T2> HList for Product<T1, One<T2>> {
     type Tuple = (T1, T2);
 
     #[inline]
@@ -85,7 +85,7 @@ impl<T1, T2> HList for HCons<T1, One<T2>> {
     }
 }
 
-impl<T1, T2, T3> HList for HCons<T1, HCons<T2, One<T3>>> {
+impl<T1, T2, T3> HList for Product<T1, Product<T2, One<T3>>> {
     type Tuple = (T1, T2, T3);
 
     #[inline]
@@ -108,31 +108,31 @@ impl<T1> Tuple for (T1,) {
     type HList = One<T1>;
     #[inline]
     fn hlist(self) -> Self::HList {
-        HCons(self.0, ())
+        Product(self.0, ())
     }
 }
 
 impl<T1, T2> Tuple for (T1, T2,) {
-    type HList = HCons<T1, One<T2>>;
+    type HList = Product<T1, One<T2>>;
     #[inline]
     fn hlist(self) -> Self::HList {
-        HCons(self.0, HCons(self.1, ()))
+        Product(self.0, Product(self.1, ()))
     }
 }
 
 impl<T1, T2, T3> Tuple for (T1, T2, T3,) {
-    type HList = HCons<T1, HCons<T2, One<T3>>>;
+    type HList = Product<T1, Product<T2, One<T3>>>;
     #[inline]
     fn hlist(self) -> Self::HList {
-        HCons(self.0, HCons(self.1, HCons(self.2, ())))
+        Product(self.0, Product(self.1, Product(self.2, ())))
     }
 }
 
 impl<T1, T2, T3, T4> Tuple for (T1, T2, T3, T4,) {
-    type HList = HCons<T1, HCons<T2, HCons<T3, One<T4>>>>;
+    type HList = Product<T1, Product<T2, Product<T3, One<T4>>>>;
     #[inline]
     fn hlist(self) -> Self::HList {
-        HCons(self.0, HCons(self.1, HCons(self.2, HCons(self.3, ()))))
+        Product(self.0, Product(self.1, Product(self.2, Product(self.3, ()))))
     }
 }
 
@@ -150,38 +150,39 @@ where
     }
 }
 
-impl<F, A1, R> Func<(A1,)> for F
+impl<F, A1, R> Func<One<A1>> for F
 where
     F: Fn(A1) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, args: (A1,)) -> Self::Output {
+    fn call(&self, args: One<A1>) -> Self::Output {
         (*self)(args.0)
     }
 }
 
-impl<F, A1, A2, R> Func<(A1, A2,)> for F
+impl<F, A1, A2, R> Func<Product<A1, One<A2>>> for F
 where
     F: Fn(A1, A2) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, args: (A1, A2,)) -> Self::Output {
-        (*self)(args.0, args.1)
+    fn call(&self, args: Product<A1, One<A2>>) -> Self::Output {
+        (*self)(args.0, (args.1).0)
     }
 }
 
-impl<F, A1, A2, A3, R> Func<(A1, A2, A3,)> for F
+impl<F, A1, A2, A3, R> Func<Product<A1, Product<A2, One<A3>>>> for F
 where
     F: Fn(A1, A2, A3) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, args: (A1, A2, A3,)) -> Self::Output {
-        (*self)(args.0, args.1, args.2)
+    fn call(&self, args: Product<A1, Product<A2, One<A3>>>) -> Self::Output {
+        (*self)(args.0, (args.1).0, ((args.1).1).0)
     }
 }
+

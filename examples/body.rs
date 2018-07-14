@@ -16,7 +16,7 @@ fn main() {
 
     let promote = warp::path("employees")
         .and(warp::path::param::<u32>())
-        .and(warp::body::json::<Employee>())
+        .and(warp::body::json())
         .map(|rate, mut employee: Employee| {
             employee.rate = rate;
             warp::reply::json(&employee)
