@@ -1,3 +1,11 @@
+//! HTTP Method filters.
+//!
+//! The filters deal with the HTTP Method part of a request. Several here will
+//! match the request `Method`, and if not matched, will reject the request
+//! with a `405 Method Not Allowed`.
+//!
+//! There is also [`warp::method()`](method), which never rejects
+//! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
 
 use ::filter::{And, Cons, Filter, filter_fn, filter_fn_cons, HList, MapErr};
@@ -5,6 +13,15 @@ use ::never::Never;
 use ::reject::{CombineRejection, Rejection};
 
 /// Wrap a `Filter` in a new one that requires the request method to be `GET`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any().map(warp::reply);
+/// let get_only = warp::get(route);
+/// ```
 pub fn get<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
     MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
@@ -19,6 +36,15 @@ where
         .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
 /// Wrap a `Filter` in a new one that requires the request method to be `POST`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any().map(warp::reply);
+/// let post_only = warp::post(route);
+/// ```
 pub fn post<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
     MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
@@ -33,6 +59,15 @@ where
         .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
 }
 /// Wrap a `Filter` in a new one that requires the request method to be `PUT`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any().map(warp::reply);
+/// let put_only = warp::put(route);
+/// ```
 pub fn put<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
     MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
@@ -48,6 +83,15 @@ where
 }
 
 /// Wrap a `Filter` in a new one that requires the request method to be `DELETE`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any().map(warp::reply);
+/// let delete_only = warp::delete(route);
+/// ```
 pub fn delete<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
     MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
@@ -63,6 +107,19 @@ where
 }
 
 /// Extract the `Method` from the request.
+///
+/// This never rejects a request.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::method()
+///     .map(|method| {
+///         format!("You sent a {} request!", method)
+///     });
+/// ```
 pub fn method() -> impl Filter<Extract=Cons<Method>, Error=Never> + Copy {
     filter_fn_cons(|route| {
         Ok::<_, Never>(route.method().clone())

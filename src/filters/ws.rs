@@ -1,4 +1,5 @@
 //! Websockets Filters
+
 use std::fmt;
 use std::str::FromStr;
 

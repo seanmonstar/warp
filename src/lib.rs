@@ -1,6 +1,74 @@
 #![deny(warnings, missing_docs, missing_debug_implementations)]
 
-//! warp
+//! # warp
+//!
+//! warp is a super-easy, composable, web framework for warp speeds.
+//!
+//! Thanks to its [`Filter`](Filter) system, warp provides these out of the box:
+//!
+//! - Path routing and parameter extraction
+//! - Header requirements and extraction
+//! - Query string deserialization
+//! - JSON and Form bodies
+//! - Static Files and Directories
+//! - Websockets
+//! - Access logging
+//! - Etc
+//!
+//! ## Filters
+//!
+//! The main concept in warp is the [`Filter`](Filter), which allows composition
+//! to describe various endpoints in your web service. Besides this powerful
+//! trait, warp comes with several built in [filters](filters), which can be
+//! combined for your specific needs.
+//!
+//! As a small example, consider an endpoint that has path and header requirements:
+//!
+//! ```
+//! use warp::Filter;
+//!
+//! let route =
+//!     warp::path("hello")
+//!     .and(warp::path::param())
+//!     .and(warp::header("user-agent"))
+//!     .map(|param: String, agent: String| {
+//!         format!("Hello {}, whose agent is {}", param, agent)
+//!     });
+//! ```
+//!
+//! This example composes several [`Filter`s](Filter) together using `and`:
+//!
+//! - A path prefix of "hello"
+//! - A path parameter of a `String`
+//! - The `user-agent` header parsed as a `String`
+//!
+//! These specific filters will [`reject`](reject) requests that don't match
+//! their requirements.
+//!
+//! This ends up matching requests like:
+//!
+//! ```notrust
+//! GET /hello/sean HTTP/1.1
+//! Host: hyper.rs
+//! User-Agent: reqwest/v0.8.6
+//!
+//! ```
+//! And it returns a response similar to this:
+//!
+//! ```notrust
+//! HTTP/1.1 200 OK
+//! Content-Length: 41
+//! Date: ...
+//!
+//! Hello sean, whose agent is reqwest/v0.8.6
+//! ```
+//!
+//! Take a look at the full list of [`filters`](filters) to see what you can build.
+//!
+//! ## Testing
+//!
+//! Testing your web services easily is extremely important, and warp provides
+//! a [`test`](test) module to help send mocked requests through your service.
 
 extern crate base64;
 #[macro_use] extern crate bitflags;
@@ -21,7 +89,7 @@ extern crate tungstenite;
 mod blocking;
 mod error;
 mod filter;
-mod filters;
+pub mod filters;
 mod never;
 pub mod reject;
 pub mod reply;

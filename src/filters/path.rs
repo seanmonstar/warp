@@ -6,11 +6,11 @@ use ::filter::{Cons, Filter, filter_fn, HCons, HList};
 use ::reject::{self, Rejection};
 
 
-/// Create an exact match path `Filter`.
+/// Create an exact match path segment `Filter`.
 ///
 /// This will try to match exactly to the current request path segment.
 ///
-/// # Note
+/// # Panics
 ///
 /// Exact path filters cannot be empty, or contain slashes.
 pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
@@ -38,11 +38,24 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
     })
 }
 
-/// Create an `Extract` path filter.
+/// Extract a parameter from a path segment.
 ///
-/// An `Extract` will try to parse a value from the current request path
+/// This will try to parse a value from the current request path
 /// segment, and if successful, the value is returned as the `Filter`'s
 /// "extracted" value.
+///
+/// If the value could not be parsed, rejects with a `404 Not Found`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path::param()
+///     .map(|id: u32| {
+///         format!("You asked for /{}" id)
+///     });
+/// ```
 pub fn param<T: FromStr + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);
@@ -70,6 +83,35 @@ where
     })
 }
 
+/// Convenient way to chain multiple path filters together.
+///
+/// # Example
+///
+/// ```
+/// # #[macro_use] extern crate warp; fn main() {
+/// use warp::Filter;
+///
+/// let route = path!("sum" / u32 / u32)
+///     .map(|a, b| {
+///         format!("{} + {} = {}", a, b, a + b)
+///     });
+/// # }
+/// ```
+///
+/// The equivalent filter chain without using the `path!` macro looks this:
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path("sum")
+///     .and(warp::path::param::<u32>())
+///     .and(warp::path::param::<u32>())
+///     .map(|a, b| {
+///         format!("{} + {} = {}", a, b, a + b)
+///     })
+/// ```
+///
+/// In fact, this is exactly what the macro expands to.
 #[macro_export]
 macro_rules! path {
     (@start $first:tt $(/ $tail:tt)*) => ({
