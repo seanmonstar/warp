@@ -15,7 +15,7 @@ use self::and_then::AndThen;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::{Either, Or};
-pub(crate) use self::tuple::{Combine, Cons, cons, Func, HCons, HList};
+pub(crate) use self::tuple::{Combine, One, one, Func, HList};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -195,8 +195,8 @@ where
     }
 }
 
-pub fn filter_fn_cons<F, U>(func: F)
-    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> Cons<U::Item>> + Copy>
+pub fn filter_fn_one<F, U>(func: F)
+    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> One<U::Item>> + Copy>
 where
     F: Fn(&mut Route) -> U + Copy,
     U: IntoFuture,
@@ -204,7 +204,7 @@ where
     filter_fn(move |route| {
         func(route)
             .into_future()
-            .map(cons as _)
+            .map(one as _)
     })
 }
 

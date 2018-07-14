@@ -11,7 +11,7 @@ use tungstenite::protocol;
 use tokio_tungstenite::WebSocketStream;
 
 use ::error::Kind;
-use ::filter::{Cons, Filter, FilterClone};
+use ::filter::{Filter, FilterClone, One};
 use ::reject::{Rejection};
 use ::reply::{ReplySealed, Response};
 use super::{body, header};
@@ -36,7 +36,7 @@ use super::{body, header};
 /// - Header `connection: upgrade`
 /// - Header `upgrade: websocket`
 /// - Header `sec-websocket-accept` with the hash value of the received key.
-pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
+pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=One<Ws>, Error=Rejection>
 where
     F: Fn(WebSocket) -> U + Clone + Send + 'static,
     U: Future<Item=(), Error=()> + Send + 'static,
@@ -55,7 +55,7 @@ where
 /// The factory function is called once for each accepted `WebSocket`. The
 /// factory should return a new function that is ready to handle the
 /// `WebSocket`.
-fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=Cons<Ws>, Error=Rejection>
+fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=One<Ws>, Error=Rejection>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,

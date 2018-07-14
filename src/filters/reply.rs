@@ -40,7 +40,7 @@ use http::header::{HeaderName, HeaderValue};
 use http::HttpTryFrom;
 
 use ::blocking::FnClone;
-use ::filter::{Cons, Filter, Map};
+use ::filter::{Filter, Map, One};
 use ::reply::{Reply, Reply_};
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply.
@@ -105,7 +105,7 @@ impl WithHeader {
     // inheritted, instead of required or lost.
     pub fn decorate<F, R>(&self, inner: F) -> Map<F, impl FnClone<R, Reply_>>
     where
-        F: Filter<Extract=Cons<R>>,
+        F: Filter<Extract=One<R>>,
         R: Reply,
     {
         let with = self.clone();
@@ -131,7 +131,7 @@ impl WithDefaultHeader {
     // inheritted, instead of required or lost.
     pub fn decorate<F, R>(&self, inner: F) -> Map<F, impl FnClone<R, Reply_>>
     where
-        F: Filter<Extract=Cons<R>>,
+        F: Filter<Extract=One<R>>,
         R: Reply,
     {
         let with = self.clone();

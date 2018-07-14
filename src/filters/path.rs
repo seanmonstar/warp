@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use ::filter::{Cons, Filter, filter_fn, HCons, HList};
+use ::filter::{Filter, filter_fn, HList, One, one};
 use ::reject::{self, Rejection};
 
 
@@ -53,14 +53,14 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 ///
 /// let route = warp::path::param()
 ///     .map(|id: u32| {
-///         format!("You asked for /{}" id)
+///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param<T: FromStr + Send>() -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
+pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);
         T::from_str(seg)
-            .map(|t| HCons(t, ()))
+            .map(one)
             .map_err(|_| reject::not_found())
     })
 }
@@ -108,7 +108,7 @@ where
 ///     .and(warp::path::param::<u32>())
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
-///     })
+///     });
 /// ```
 ///
 /// In fact, this is exactly what the macro expands to.

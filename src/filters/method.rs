@@ -8,7 +8,7 @@
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
 
-use ::filter::{And, Cons, Filter, filter_fn, filter_fn_cons, HList, MapErr};
+use ::filter::{And, Filter, filter_fn, filter_fn_one, HList, MapErr, One};
 use ::never::Never;
 use ::reject::{CombineRejection, Rejection};
 
@@ -120,8 +120,8 @@ where
 ///         format!("You sent a {} request!", method)
 ///     });
 /// ```
-pub fn method() -> impl Filter<Extract=Cons<Method>, Error=Never> + Copy {
-    filter_fn_cons(|route| {
+pub fn method() -> impl Filter<Extract=One<Method>, Error=Never> + Copy {
+    filter_fn_one(|route| {
         Ok::<_, Never>(route.method().clone())
     })
 }

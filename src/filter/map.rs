@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{Cons, FilterBase, Filter, Func, cons, HList};
+use super::{FilterBase, Filter, Func, HList, One, one};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
@@ -14,7 +14,7 @@ where
     T::Extract: HList,
     F: Func<<T::Extract as HList>::Tuple> + Clone + Send,
 {
-    type Extract = Cons<F::Output>;
+    type Extract = One<F::Output>;
     type Error = T::Error;
     type Future = MapFuture<T, F>;
     #[inline]
@@ -38,13 +38,13 @@ where
     T::Extract: HList,
     F: Func<<T::Extract as HList>::Tuple>,
 {
-    type Item = Cons<F::Output>;
+    type Item = One<F::Output>;
     type Error = T::Error;
 
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex = try_ready!(self.extract.poll());
-        let ex = cons(self.callback.call(ex.flatten()));
+        let ex = one(self.callback.call(ex.flatten()));
         Ok(Async::Ready(ex))
     }
 }

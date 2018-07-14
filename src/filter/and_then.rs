@@ -3,7 +3,7 @@ use std::mem;
 use futures::{Async, Future, IntoFuture, Poll};
 
 use ::reject::CombineRejection;
-use super::{Cons, FilterBase, Filter, Func, cons, HList};
+use super::{FilterBase, Filter, Func, HList, One, one};
 
 #[derive(Clone, Copy, Debug)]
 pub struct AndThen<T, F> {
@@ -20,7 +20,7 @@ where
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
 {
-    type Extract = Cons<<F::Output as IntoFuture>::Item>;
+    type Extract = One<<F::Output as IntoFuture>::Item>;
     type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
     type Future = AndThenFuture<T, F>;
     #[inline]
@@ -67,7 +67,7 @@ where
     <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
     <F::Output as IntoFuture>::Future: Send,
 {
-    type Item = Cons<<F::Output as IntoFuture>::Item>;
+    type Item = One<<F::Output as IntoFuture>::Item>;
     type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -77,7 +77,7 @@ where
             },
             State::Second(ref mut second) => {
                 let item = try_ready!(second.poll());
-                return Ok(Async::Ready(cons(item)));
+                return Ok(Async::Ready(one(item)));
             },
             State::Done => panic!("polled after complete"),
         };
@@ -89,7 +89,7 @@ where
 
         match second.poll()? {
             Async::Ready(item) => {
-                Ok(Async::Ready(cons(item)))
+                Ok(Async::Ready(one(item)))
             },
             Async::NotReady => {
                 self.state = State::Second(second);

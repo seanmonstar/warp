@@ -11,7 +11,7 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
-use ::filter::{cons, Cons, FilterClone, filter_fn};
+use ::filter::{FilterClone, filter_fn, One, one};
 use ::reject::{self, Rejection};
 use ::reply::{ReplySealed, Response};
 
@@ -26,13 +26,13 @@ use ::reply::{ReplySealed, Response};
 /// // Always serves this file from the file system.
 /// let route = warp::fs::file("/www/static/app.js");
 /// ```
-pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
+pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let path = Arc::new(path.into());
     filter_fn(move |_| {
         trace!("file: {:?}", path);
 
         file_reply(ArcPath(path.clone()))
-            .map(|resp| cons(File {
+            .map(|resp| one(File {
                 resp,
             }))
     })
@@ -58,7 +58,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Er
 /// // - `GET /static/app.js` would serve the file `/www/static/app.js`
 /// // - `GET /static/css/app.css` would serve the file `/www/static/css/app.css`
 /// ```
-pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Error=Rejection> {
+pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
     filter_fn(move |route| {
         let mut buf = PathBuf::from(base.as_ref());
@@ -87,7 +87,7 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=Cons<File>, Err
         let path = Arc::new(buf);
 
         Either::B(file_reply(ArcPath(path.clone()))
-            .map(|resp| cons(File {
+            .map(|resp| one(File {
                 resp,
             })))
     })

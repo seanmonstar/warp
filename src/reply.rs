@@ -123,7 +123,7 @@ fn _assert_object_safe() {
 mod sealed {
     use hyper::Body;
 
-    use ::filter::{Cons, Either};
+    use ::filter::{Either, One};
 
     use super::Reply;
 
@@ -199,7 +199,7 @@ mod sealed {
         }
     }
 
-    impl<T> ReplySealed for Cons<T>
+    impl<T> ReplySealed for One<T>
     where
         T: Reply,
     {

@@ -6,7 +6,7 @@ use std::time::Instant;
 use futures::Future;
 use http::StatusCode;
 
-use ::filter::{Cons, Filter, FilterClone};
+use ::filter::{Filter, FilterClone, One};
 use ::never::Never;
 use ::reject::{CombineRejection, Reject};
 use ::reply::{Reply, ReplySealed, Reply_};
@@ -77,7 +77,7 @@ where
 {
     /// Decorates a [`Filter`](::Filter) to log requests and responses handled by inner.
     pub fn decorate<F>(&self, inner: F) -> impl FilterClone<
-        Extract=Cons<Reply_>,
+        Extract=One<Reply_>,
         Error=<F::Error as CombineRejection<Never>>::Rejection
     >
     where

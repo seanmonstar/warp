@@ -4,16 +4,16 @@ use std::str::FromStr;
 use http::header::HeaderValue;
 
 use ::never::Never;
-use ::filter::{Cons, Filter, filter_fn, filter_fn_cons};
+use ::filter::{Filter, filter_fn, filter_fn_one, One};
 use ::reject::{self, Rejection};
 
 pub(crate) fn value<F, U>(name: &'static str, func: F)
-    -> impl Filter<Extract=Cons<U>, Error=Rejection> + Copy
+    -> impl Filter<Extract=One<U>, Error=Rejection> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
 {
-    filter_fn_cons(move |route| {
+    filter_fn_one(move |route| {
         route.headers()
             .get(name)
             .and_then(func)
@@ -23,12 +23,12 @@ where
 }
 
 pub(crate) fn optional_value<F, U>(name: &'static str, func: F)
-    -> impl Filter<Extract=Cons<Option<U>>, Error=Never> + Copy
+    -> impl Filter<Extract=One<Option<U>>, Error=Never> + Copy
 where
     F: Fn(&HeaderValue) -> Option<U> + Copy,
     U: Send,
 {
-    filter_fn_cons(move |route| {
+    filter_fn_one(move |route| {
         Ok::<_, Never>(route.headers()
             .get(name)
             .and_then(func))
@@ -39,8 +39,8 @@ where
 ///
 /// This `Filter` will look for a header with supplied name,
 /// and try to parse to a `T`, otherwise rejects the request.
-pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=Cons<T>, Error=Rejection> + Copy {
-    filter_fn_cons(move |route| {
+pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+    filter_fn_one(move |route| {
         trace!("header::Extract({:?})", name);
         route.headers()
             .get(name)
