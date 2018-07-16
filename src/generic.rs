@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub struct Product<H, T>(pub H, pub T);
+pub struct Product<H, T>(pub(crate) H, pub(crate) T);
 
 pub type One<T> = Product<T, ()>;
 
@@ -19,13 +19,6 @@ pub trait HList {
     type Tuple;
 
     fn flatten(self) -> Self::Tuple;
-}
-
-// The opposite of the HList trait, converts tuples into Product...
-pub trait Tuple {
-    type HList;
-
-    fn hlist(self) -> Self::HList;
 }
 
 // Combines Product together.
@@ -63,8 +56,6 @@ where
     }
 }
 
-// ===== impl HList =====
-
 impl HList for () {
     type Tuple = ();
     #[inline]
@@ -72,77 +63,6 @@ impl HList for () {
         ()
     }
 }
-
-impl<T1> HList for One<T1> {
-    type Tuple = (T1,);
-
-    #[inline]
-    fn flatten(self) -> Self::Tuple {
-        (self.0,)
-    }
-}
-
-impl<T1, T2> HList for Product<T1, One<T2>> {
-    type Tuple = (T1, T2);
-
-    #[inline]
-    fn flatten(self) -> Self::Tuple {
-        (self.0, (self.1).0)
-    }
-}
-
-impl<T1, T2, T3> HList for Product<T1, Product<T2, One<T3>>> {
-    type Tuple = (T1, T2, T3);
-
-    #[inline]
-    fn flatten(self) -> Self::Tuple {
-        (self.0, (self.1).0, (((self.1).1).0))
-    }
-}
-
-// ===== impl Tuple =====
-
-impl Tuple for () {
-    type HList = ();
-    #[inline]
-    fn hlist(self) -> Self::HList {
-        ()
-    }
-}
-
-impl<T1> Tuple for (T1,) {
-    type HList = One<T1>;
-    #[inline]
-    fn hlist(self) -> Self::HList {
-        Product(self.0, ())
-    }
-}
-
-impl<T1, T2> Tuple for (T1, T2,) {
-    type HList = Product<T1, One<T2>>;
-    #[inline]
-    fn hlist(self) -> Self::HList {
-        Product(self.0, Product(self.1, ()))
-    }
-}
-
-impl<T1, T2, T3> Tuple for (T1, T2, T3,) {
-    type HList = Product<T1, Product<T2, One<T3>>>;
-    #[inline]
-    fn hlist(self) -> Self::HList {
-        Product(self.0, Product(self.1, Product(self.2, ())))
-    }
-}
-
-impl<T1, T2, T3, T4> Tuple for (T1, T2, T3, T4,) {
-    type HList = Product<T1, Product<T2, Product<T3, One<T4>>>>;
-    #[inline]
-    fn hlist(self) -> Self::HList {
-        Product(self.0, Product(self.1, Product(self.2, Product(self.3, ()))))
-    }
-}
-
-// ===== impl Func =====
 
 impl<F, R> Func<()> for F
 where
@@ -156,39 +76,89 @@ where
     }
 }
 
-impl<F, A1, R> Func<One<A1>> for F
-where
-    F: Fn(A1) -> R,
-{
-    type Output = R;
-
-    #[inline]
-    fn call(&self, args: One<A1>) -> Self::Output {
-        (*self)(args.0)
-    }
+macro_rules! product {
+    ($H:ty) => { Product<$H, ()> };
+    ($H:ty, $($T:ty),*) => { Product<$H, product!($($T),*)> };
 }
 
-impl<F, A1, A2, R> Func<Product<A1, One<A2>>> for F
-where
-    F: Fn(A1, A2) -> R,
-{
-    type Output = R;
-
-    #[inline]
-    fn call(&self, args: Product<A1, One<A2>>) -> Self::Output {
-        (*self)(args.0, (args.1).0)
-    }
+macro_rules! product_pat {
+    ($H:pat) => { Product($H, ()) };
+    ($H:pat, $($T:pat),*) => { Product($H, product_pat!($($T),*)) };
 }
 
-impl<F, A1, A2, A3, R> Func<Product<A1, Product<A2, One<A3>>>> for F
-where
-    F: Fn(A1, A2, A3) -> R,
-{
-    type Output = R;
+macro_rules! generics {
+    ($type:ident) => {
+        impl<$type> HList for product!($type) {
+            type Tuple = ($type,);
 
-    #[inline]
-    fn call(&self, args: Product<A1, Product<A2, One<A3>>>) -> Self::Output {
-        (*self)(args.0, (args.1).0, ((args.1).1).0)
-    }
+            #[inline]
+            fn flatten(self) -> Self::Tuple {
+                (self.0,)
+            }
+        }
+
+        impl<F, R, $type> Func<product!($type)> for F
+        where
+            F: Fn($type) -> R,
+        {
+            type Output = R;
+
+            #[inline]
+            fn call(&self, args: product!($type)) -> Self::Output {
+                (*self)(args.0)
+            }
+
+        }
+
+    };
+
+    ($type1:ident, $( $type:ident ),*) => {
+        generics!($( $type ),*);
+
+        impl<$type1, $( $type ),*> HList for product!($type1, $($type),*) {
+            type Tuple = ($type1, $( $type ),*);
+
+            #[inline]
+            fn flatten(self) -> Self::Tuple {
+                #[allow(non_snake_case)]
+                let product_pat!($type1, $( $type ),*) = self;
+                ($type1, $( $type ),*)
+            }
+        }
+
+        impl<F, R, $type1, $( $type ),*> Func<product!($type1, $($type),*)> for F
+        where
+            F: Fn($type1, $( $type ),*) -> R,
+        {
+            type Output = R;
+
+            #[inline]
+            fn call(&self, args: product!($type1, $($type),*)) -> Self::Output {
+                #[allow(non_snake_case)]
+                let product_pat!($type1, $( $type ),*) = args;
+                (*self)($type1, $( $type ),*)
+            }
+
+        }
+    };
+}
+
+generics! {
+    T1,
+    T2,
+    T3,
+    T4,
+    T5,
+    T6,
+    T7,
+    T8,
+    T9,
+    T10,
+    T11,
+    T12,
+    T13,
+    T14,
+    T15,
+    T16
 }
 
