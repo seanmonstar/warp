@@ -14,7 +14,7 @@ pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
-pub(crate) use self::or::{Either, Or};
+pub(crate) use self::or::Or;
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.

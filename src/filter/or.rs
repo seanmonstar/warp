@@ -2,6 +2,7 @@ use std::mem;
 
 use futures::{Async, Future, Poll};
 
+use ::generic::Either;
 use ::reject::CombineRejection;
 use ::route;
 use super::{FilterBase, Filter, One, one};
@@ -10,12 +11,6 @@ use super::{FilterBase, Filter, One, one};
 pub struct Or<T, U> {
     pub(super) first: T,
     pub(super) second: U,
-}
-
-#[derive(Debug)]
-pub enum Either<T, U> {
-    A(T),
-    B(U),
 }
 
 impl<T, U> FilterBase for Or<T, U>

@@ -123,8 +123,7 @@ fn _assert_object_safe() {
 mod sealed {
     use hyper::Body;
 
-    use ::filter::{Either};
-    use ::generic::One;
+    use ::generic::{Either, One};
 
     use super::Reply;
 
