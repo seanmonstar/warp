@@ -29,16 +29,11 @@ where
     })
 }
 
-// Must be public because used in FilterBase::filter(route).
-//
-// But both FilterBase and Route aren't exposed outside of the crate.
-// Ideally the missing_docs lint helps prove this.
 #[derive(Debug)]
-pub struct Route {
+pub(crate) struct Route {
     req: Request,
     segments_index: usize,
 }
-
 
 impl Route {
     pub(crate) fn new(req: Request) -> RefCell<Route> {

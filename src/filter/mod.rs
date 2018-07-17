@@ -181,7 +181,7 @@ fn _assert_object_safe() {
 
 // ===== FilterFn =====
 
-pub fn filter_fn<F, U>(func: F) -> FilterFn<F>
+pub(crate) fn filter_fn<F, U>(func: F) -> FilterFn<F>
 where
     F: Fn(&mut Route) -> U,
     U: IntoFuture,
@@ -192,7 +192,7 @@ where
     }
 }
 
-pub fn filter_fn_one<F, U>(func: F)
+pub(crate) fn filter_fn_one<F, U>(func: F)
     -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> One<U::Item>> + Copy>
 where
     F: Fn(&mut Route) -> U + Copy,
@@ -207,7 +207,7 @@ where
 
 #[derive(Copy, Clone)]
 #[allow(missing_debug_implementations)]
-pub struct FilterFn<F> {
+pub(crate) struct FilterFn<F> {
     // TODO: could include a `debug_str: &'static str` to be used in Debug impl
     func: F,
 }
