@@ -60,7 +60,7 @@ impl ReplySealed for Json {
 /// warp), but it is implemented for the following:
 ///
 /// - `http::StatusCode`
-/// - `http::Response<hyper::Body>`
+/// - `http::Response<impl Into<hyper::Chunk>>`
 /// - `String`
 /// - `&'static str`
 pub trait Reply: ReplySealed {
@@ -166,7 +166,7 @@ mod sealed {
     }
 
     // For now, only allow `Into<Chunk>` types, since we may want to
-    // change how streaming bodies work in hyper...
+    // change how streaming bodies work, instead of commiting to hyper::Body
     impl<T> ReplySealed for ::http::Response<T>
     where
         Chunk: From<T>,

@@ -9,6 +9,7 @@ pub(crate) enum Kind {
     Ws,
 }
 
+#[doc(hidden)]
 impl From<Kind> for Error {
     fn from(kind: Kind) -> Error {
         Error(kind)
