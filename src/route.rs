@@ -15,6 +15,10 @@ where
     ROUTE.set(r, func)
 }
 
+pub(crate) fn is_set() -> bool {
+    ROUTE.is_set()
+}
+
 pub(crate) fn with<F, R>(func: F) -> R
 where
     F: Fn(&mut Route) -> R,

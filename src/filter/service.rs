@@ -21,6 +21,8 @@ where
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
+        debug_assert!(!route::is_set(), "nested route::set calls");
+
         let route = Route::new(req);
         let fut = route::set(&route, || self.filter.filter());
         FilteredFuture {
@@ -45,6 +47,8 @@ where
 
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        debug_assert!(!route::is_set(), "nested route::set calls");
+
         let fut = &mut self.future;
         route::set(&self.route, || fut.poll())
     }

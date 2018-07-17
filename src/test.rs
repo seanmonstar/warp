@@ -62,6 +62,8 @@ impl RequestBuilder {
     where
         F: Filter,
     {
+        assert!(!route::is_set(), "nested test filter calls");
+
         let route = Route::new(self.req);
         route::set(&route, move || f.filter().wait())
     }
