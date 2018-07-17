@@ -131,7 +131,7 @@ fn _assert_object_safe() {
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
-    use hyper::Body;
+    use hyper::{Body, Chunk};
 
     use ::generic::{Either, One};
 
@@ -165,10 +165,15 @@ mod sealed {
         }
     }
 
-    impl ReplySealed for Response {
+    // For now, only allow `Into<Chunk>` types, since we may want to
+    // change how streaming bodies work in hyper...
+    impl<T> ReplySealed for ::http::Response<T>
+    where
+        Chunk: From<T>,
+    {
         #[inline]
         fn into_response(self) -> Response {
-            self
+            self.map(|t| Chunk::from(t).into())
         }
     }
 

@@ -9,8 +9,10 @@ use http::StatusCode;
 use ::filter::{Filter, FilterClone, One};
 use ::never::Never;
 use ::reject::{CombineRejection, Reject};
-use ::reply::{Reply, ReplySealed, Reply_};
+use ::reply::{Reply, ReplySealed};
 use ::route;
+
+use self::internal::Logged;
 
 /// Create a decorating filter with the specified `name` as the `target`.
 ///
@@ -77,7 +79,7 @@ where
 {
     /// Decorates a [`Filter`](::Filter) to log requests and responses handled by inner.
     pub fn decorate<F>(&self, inner: F) -> impl FilterClone<
-        Extract=One<Reply_>,
+        Extract=One<Logged>,
         Error=<F::Error as CombineRejection<Never>>::Rejection
     >
     where
@@ -97,7 +99,7 @@ where
                             Ok(rep) => {
                                 let resp = rep.into_response();
                                 let status = resp.status();
-                                (Ok(Reply_(resp)), status)
+                                (Ok(Logged(resp)), status)
                             },
                             Err(reject) => {
                                 let status = reject.status();
@@ -115,3 +117,16 @@ where
     }
 }
 
+mod internal {
+    use ::reply::{ReplySealed, Response};
+
+    #[allow(missing_debug_implementations)]
+    pub struct Logged(pub(super) Response);
+
+    impl ReplySealed for Logged {
+        #[inline]
+        fn into_response(self) -> Response {
+            self.0
+        }
+    }
+}
