@@ -78,6 +78,7 @@ extern crate crossbeam_channel;
 extern crate http;
 extern crate hyper;
 #[macro_use] extern crate log as logcrate;
+#[macro_use] extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;

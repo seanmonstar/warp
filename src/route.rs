@@ -6,14 +6,13 @@ use hyper::Body;
 
 use ::Request;
 
-task_local! {
-    static ROUTE: RefCell<Route> = RefCell::new(Route::new(Request::default()))
-}
+scoped_thread_local!(static ROUTE: RefCell<Route>);
 
-pub(crate) fn set(req: Request) {
-    ROUTE.with(move |route| {
-        *route.borrow_mut() = Route::new(req);
-    });
+pub(crate) fn set<F, U>(r: &RefCell<Route>, func: F) -> U
+where
+    F: FnMut() -> U,
+{
+    ROUTE.set(r, func)
 }
 
 pub(crate) fn with<F, R>(func: F) -> R
@@ -38,14 +37,14 @@ pub struct Route {
 
 
 impl Route {
-    pub(crate) fn new(req: Request) -> Route {
+    pub(crate) fn new(req: Request) -> RefCell<Route> {
         debug_assert_eq!(req.uri().path().as_bytes()[0], b'/');
 
-        Route {
+        RefCell::new(Route {
             req,
             // always start at 1, since paths are `/...`.
             segments_index: 1,
-        }
+        })
     }
 
     pub(crate) fn method(&self) -> &http::Method {

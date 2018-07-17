@@ -6,7 +6,7 @@ use ::filter::Filter;
 use ::generic::HList;
 use ::reject::Reject;
 use ::reply::{Reply, ReplySealed};
-use ::route;
+use ::route::{self, Route};
 use ::Request;
 
 use self::inner::OneOrTuple;
@@ -62,11 +62,8 @@ impl RequestBuilder {
     where
         F: Filter,
     {
-        ::futures::future::lazy(move || {
-            route::set(self.req);
-            f.filter()
-        })
-            .wait()
+        let route = Route::new(self.req);
+        route::set(&route, move || f.filter().wait())
     }
 
     /// Returns whether the `Filter` matches this request.

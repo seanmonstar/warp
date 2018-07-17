@@ -1,9 +1,9 @@
-use futures::Future;
+use futures::{Future, Poll};
 
 use ::{Filter, Request};
 use ::reject::Reject;
 use ::reply::{Reply};
-use ::route;
+use ::route::{self, Route};
 use ::server::{IntoWarpService, WarpService};
 
 #[derive(Copy, Clone, Debug)]
@@ -17,12 +17,36 @@ where
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reject,
 {
-    type Reply = F::Future;
+    type Reply = FilteredFuture<F::Future>;
 
     #[inline]
     fn call(&self, req: Request) -> Self::Reply {
-        route::set(req);
-        self.filter.filter()
+        let route = Route::new(req);
+        let fut = route::set(&route, || self.filter.filter());
+        FilteredFuture {
+            future: fut,
+            route: route,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FilteredFuture<F> {
+    future: F,
+    route: ::std::cell::RefCell<Route>,
+}
+
+impl<F> Future for FilteredFuture<F>
+where
+    F: Future,
+{
+    type Item = F::Item;
+    type Error = F::Error;
+
+    #[inline]
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let fut = &mut self.future;
+        route::set(&self.route, || fut.poll())
     }
 }
 
