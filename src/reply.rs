@@ -1,7 +1,6 @@
 //! Create responses to reply to requests.
 
-use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
-use http::HttpTryFrom;
+use http::header::{CONTENT_TYPE, HeaderValue};
 use serde::Serialize;
 use serde_json;
 
@@ -15,7 +14,7 @@ pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 #[inline]
 pub fn reply() -> impl Reply
 {
-    StatusCode::OK
+   StatusCode::OK
 }
 
 /// Convert the value into a `Response` with the value encoded as JSON.
@@ -65,6 +64,16 @@ impl ReplySealed for Json {
 /// - `String`
 /// - `&'static str`
 pub trait Reply: ReplySealed {
+    /* 
+    TODO: Currently unsure about having trait methods here, as it
+    requires returning an exact type, which I'd rather not commit to.
+    Additionally, it doesn't work great with `Box<Reply>`.
+
+    A possible alternative is to have wrappers, like
+
+    - `WithStatus<R: Reply>(StatusCode, R)`
+
+
     /// Change the status code of this `Reply`.
     fn with_status(self, status: StatusCode) -> Reply_
     where
@@ -111,6 +120,7 @@ pub trait Reply: ReplySealed {
             }
         }
     }
+    */
 }
 
 impl<T: ReplySealed> Reply for T {}

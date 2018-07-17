@@ -2,23 +2,7 @@
 //!
 //! These "filters" behave a little differently than the rest. Instead of
 //! being used directly on requests, these filters "decorate" other filters.
-//! Consider these two equivalent examples:
 //!
-//! ## Just mapping a `Filter`
-//!
-//! ```
-//! use warp::{Filter, Reply};
-//!
-//! // Note: free function since you can't use `rep: impl Reply`
-//! // in closures yet...
-//! fn with_header(rep: impl Reply) -> impl Reply {
-//!     rep.with_header("server", "warp")
-//! }
-//!
-//! let route = warp::any()
-//!     .map(warp::reply)
-//!     .map(with_header);
-//! ```
 //!
 //! ## Decorating a `Filter`
 //!
@@ -31,10 +15,8 @@
 //! let route = with_server.decorate(ok);
 //! ```
 //!
-//! Both of these examples end up in the same, but the "decorating" filter
-//! can be cleaner in intent. Additionally, decorating allows adding in
-//! conditional logic *before* the request enters the inner filter (though
-//! the `with::header` decorator does not).
+//! Decorating allows adding in conditional logic *before* the request enters
+//! the inner filter (though the `with::header` decorator does not).
 
 use http::header::{HeaderName, HeaderValue};
 use http::HttpTryFrom;

@@ -1,7 +1,7 @@
 extern crate pretty_env_logger;
 extern crate warp;
 
-use warp::{Filter, Reply};
+use warp::Filter;
 
 #[test]
 fn header() {
@@ -15,8 +15,9 @@ fn header() {
     let resp = req.reply(&no_header);
     assert_eq!(resp.headers()["foo"], "bar");
 
+    let prev_header = warp::reply::with::header("foo", "sean");
     let yes_header = header.decorate(
-        warp::any().map(|| warp::reply().with_header("foo", "sean"))
+        prev_header.decorate(warp::any().map(warp::reply))
     );
 
     let req = warp::test::request();
@@ -37,8 +38,9 @@ fn default_header() {
 
     assert_eq!(resp.headers()["foo"], "bar");
 
+    let header = warp::reply::with::header("foo", "sean");
     let yes_header = def_header.decorate(
-        warp::any().map(|| warp::reply().with_header("foo", "sean"))
+        header.decorate(warp::any().map(warp::reply))
     );
 
     let req = warp::test::request();
