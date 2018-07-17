@@ -120,16 +120,21 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
         .then(|res| match res {
             Ok(f) => Either::A(file_metadata(f)),
             Err(err) => {
-                debug!("file open error: {} ", err);
                 let rej = match err.kind() {
-                    io::ErrorKind::NotFound => reject::not_found(),
+                    io::ErrorKind::NotFound => {
+                        debug!("file open error: {} ", err);
+                        reject::not_found()
+                    },
                     // There are actually other errors that could
                     // occur that really mean a 404, but the kind
                     // return is Other, making it hard to tell.
                     //
                     // A fix would be to check `Path::is_file` first,
                     // using `tokio_threadpool::blocking` around it...
-                    _ => reject::server_error(),
+                    _ => {
+                        warn!("file open error: {} ", err);
+                        reject::server_error()
+                    },
                 };
                 Either::B(future::err(rej))
             }

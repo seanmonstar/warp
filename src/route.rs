@@ -37,7 +37,11 @@ pub(crate) struct Route {
 
 impl Route {
     pub(crate) fn new(req: Request) -> RefCell<Route> {
-        debug_assert_eq!(req.uri().path().as_bytes()[0], b'/');
+        debug_assert_eq!(
+            req.uri().path().as_bytes()[0],
+            b'/',
+            "path should start with /"
+        );
 
         RefCell::new(Route {
             req,

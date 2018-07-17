@@ -1,6 +1,10 @@
 //! Test utilities to test your filters.
 
-use futures::Future;
+use bytes::Bytes;
+use futures::{future, Future, Stream};
+use http::Response;
+use tokio::executor::thread_pool::Builder as ThreadPoolBuilder;
+use tokio::runtime::Builder as RtBuilder;
 
 use ::filter::Filter;
 use ::generic::HList;
@@ -47,46 +51,102 @@ impl RequestBuilder {
         self
     }
 
+    /// Set the bytes of this request body.
+    pub fn body(mut self, body: impl AsRef<[u8]>) -> Self {
+        let body = body.as_ref().to_vec();
+        *self.req.body_mut() = body.into();
+        self
+    }
+
     /// Tries to apply the `Filter` on this request.
     pub fn filter<F>(self, f: F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
     where
         F: Filter,
-        F::Extract: HList,
+        F::Future: Send + 'static,
+        F::Extract: HList + Send + 'static,
+        F::Error: Send + 'static,
         <F::Extract as HList>::Tuple: OneOrTuple,
     {
         self.apply_filter(f)
             .map(|ex| ex.flatten().one_or_tuple())
     }
 
-    fn apply_filter<F>(self, f: F) -> Result<F::Extract, F::Error>
-    where
-        F: Filter,
-    {
-        assert!(!route::is_set(), "nested test filter calls");
-
-        let route = Route::new(self.req);
-        route::set(&route, move || f.filter().wait())
-    }
-
     /// Returns whether the `Filter` matches this request.
     pub fn matches<F>(self, f: F) -> bool
     where
         F: Filter,
+        F::Future: Send + 'static,
+        F::Extract: Send + 'static,
+        F::Error: Send + 'static,
     {
         self.apply_filter(f).is_ok()
     }
 
     /// Returns whether the `Filter` matches this request.
-    pub fn reply<F>(self, f: F) -> ::reply::Response
+    pub fn reply<F>(self, f: F) -> Response<Bytes>
     where
         F: Filter,
-        F::Extract: Reply,
-        F::Error: Reject,
+        F::Future: Send + 'static,
+        F::Extract: Reply + Send + 'static,
+        F::Error: Reject + Send + 'static,
     {
-        self.apply_filter(f)
-            .map(|r| r.into_response())
-            .unwrap_or_else(|err| err.into_response())
+        // TODO: de-duplicate this and apply_filter()
+        assert!(!route::is_set(), "nested test filter calls");
+
+        let route = Route::new(self.req);
+        let mut fut = route::set(&route, move || f.filter())
+            .map(|rep| rep.into_response())
+            .or_else(|rej| Ok(rej.into_response()))
+            .and_then(|res| {
+                let (parts, body) = res.into_parts();
+                body
+                    .concat2()
+                    .map(|chunk| {
+                        Response::from_parts(parts, chunk.into())
+                    })
+
+            });
+        let fut = future::poll_fn(move || {
+            route::set(&route, || fut.poll())
+        });
+
+        block_on(fut).expect("reply shouldn't fail")
     }
+
+    fn apply_filter<F>(self, f: F) -> Result<F::Extract, F::Error>
+    where
+        F: Filter,
+        F::Future: Send + 'static,
+        F::Extract: Send + 'static,
+        F::Error: Send + 'static,
+    {
+        assert!(!route::is_set(), "nested test filter calls");
+
+        let route = Route::new(self.req);
+        let mut fut = route::set(&route, move || f.filter());
+        let fut = future::poll_fn(move || {
+            route::set(&route, || fut.poll())
+        });
+
+        block_on(fut)
+    }
+}
+
+fn block_on<F>(fut: F) -> Result<F::Item, F::Error>
+where
+    F: Future + Send + 'static,
+    F::Item: Send + 'static,
+    F::Error: Send + 'static,
+{
+    let mut pool = ThreadPoolBuilder::new();
+    pool.pool_size(1);
+
+    let mut rt = RtBuilder::new()
+        .threadpool_builder(pool)
+        .build()
+        .expect("new rt");
+
+    rt.block_on(fut)
 }
 
 mod inner {
