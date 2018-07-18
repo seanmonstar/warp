@@ -22,6 +22,10 @@ sha-1 = "0.7"
 tokio = "0.1.7"
 tungstenite = "0.5"
 
+[dependencies.tungstenite]
+default-features = false
+version = "0.5"
+
 [dependencies.tokio-tungstenite]
 default-features = false
 git = "https://github.com/snapview/tokio-tungstenite"
