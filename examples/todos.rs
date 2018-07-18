@@ -81,7 +81,7 @@ fn main() {
                 // No existing Todo with id, so insert and return `201 Created`.
                 vec.push(create);
 
-                Ok(warp::reply::StatusCode::CREATED)
+                Ok(warp::http::StatusCode::CREATED)
             });
 
         // Only for PUT requests
@@ -106,7 +106,7 @@ fn main() {
                 for todo in vec.iter_mut() {
                     if todo.id == id {
                         *todo = update;
-                        return Ok(warp::reply::StatusCode::OK);
+                        return Ok(warp::reply());
                     }
                 }
 
@@ -142,7 +142,7 @@ fn main() {
             if deleted {
                 // respond with a `204 No Content`, which means successful,
                 // yet no body expected...
-                Ok(warp::reply::StatusCode::NO_CONTENT)
+                Ok(warp::http::StatusCode::NO_CONTENT)
             } else {
                 // Reject this request with a `404 Not Found`...
                 Err(warp::reject::not_found())

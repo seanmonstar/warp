@@ -24,7 +24,7 @@
 //!         } else {
 //!             Ok("something since id is valid")
 //!         }
-//!     })
+//!     });
 //! ```
 
 use http;

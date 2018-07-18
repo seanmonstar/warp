@@ -16,18 +16,18 @@
 //! # Example
 //!
 //! ```
-//! use warp::Filter;
+//! use warp::{Filter, http::Response};
 //!
 //! // Returns an empty `200 OK` response.
 //! let empty_200 = warp::any().map(warp::reply);
 //!
 //! // Returns a `200 OK` response with custom header and body.
 //! let custom = warp::any().map(|| {
-//!     warp::http::Response::builder()
+//!     Response::builder()
 //!         .header("my-custom-header", "some-value")
 //!         .body("and a custom body")
 //!         .expect("custom header name and value are legal headers")
-//! })
+//! });
 //!
 //! // GET requests return the empty 200, POST return the custom.
 //! let routes = warp::get(empty_200)
@@ -58,7 +58,7 @@ pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 ///     .map(|| {
 ///         println!("got a /just-ok request!");
 ///         warp::reply()
-///     })
+///     });
 /// ```
 #[inline]
 pub fn reply() -> impl Reply
@@ -68,8 +68,10 @@ pub fn reply() -> impl Reply
 
 /// Convert the value into a `Reply` with the value encoded as JSON.
 ///
-/// The passed value must implement [`Serialize`](::serde::Serialize). Many
+/// The passed value must implement [`Serialize`][ser]. Many
 /// collections do, and custom domain types can have `Serialize` derived.
+///
+/// [ser]: https://serde.rs
 ///
 /// # Example
 ///
@@ -82,7 +84,7 @@ pub fn reply() -> impl Reply
 ///     .map(|| {
 ///         let our_ids = vec![1, 3, 7, 13];
 ///         warp::reply::json(&our_ids)
-///     })
+///     });
 /// ```
 ///
 /// # Note
