@@ -134,6 +134,6 @@ pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
 
-pub use futures::{Future, Stream};
+pub use futures::{Future, Sink, Stream};
 
 pub(crate) type Request = http::Request<hyper::Body>;
