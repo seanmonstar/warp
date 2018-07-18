@@ -1,4 +1,8 @@
 //! Test utilities to test your filters.
+//!
+//! [`Filter`](::Filter)s can be easily tested without starting up an HTTP
+//! server, by making use of the [`RequestBuilder`](RequestBuilder) in this
+//! module.
 
 use bytes::Bytes;
 use futures::{future, Future, Stream};
@@ -23,6 +27,9 @@ pub fn request() -> RequestBuilder {
 }
 
 /// A request builder for testing filters.
+///
+/// See [module documentation](::test) for an overview.
+#[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
     req: Request,
@@ -30,12 +37,40 @@ pub struct RequestBuilder {
 
 impl RequestBuilder {
     /// Sets the method of this builder.
+    ///
+    /// The default if not set is `GET`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::request()
+    ///     .method("POST");
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// This panics if the passed string is not able to be parsed as a valid
+    /// `Method`.
     pub fn method(mut self, method: &str) -> Self {
         *self.req.method_mut() = method.parse().expect("valid method");
         self
     }
 
     /// Sets the request path of this builder.
+    ///
+    /// The default is not set is `/`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::request()
+    ///     .path("/todos/33");
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// This panics if the passed string is not able to be parsed as a valid
+    /// `Uri`.
     pub fn path(mut self, p: &str) -> Self {
         let uri = p.parse()
             .expect("test request path invalid");
@@ -44,6 +79,18 @@ impl RequestBuilder {
     }
 
     /// Set a header for this request.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::request()
+    ///     .header("accept", "application/json");
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// This panics if the passed strings are not able to be parsed as a valid
+    /// `HeaderName` and `HeaderValue`.
     pub fn header(mut self, key: &str, value: &str) -> Self {
         let name: ::http::header::HeaderName = key.parse().expect("invalid header name");
         let value = value.parse().expect("invalid header value");
@@ -52,6 +99,15 @@ impl RequestBuilder {
     }
 
     /// Set the bytes of this request body.
+    ///
+    /// Default is an empty body.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::request()
+    ///     .body("foo=bar&baz=quux");
+    /// ```
     pub fn body(mut self, body: impl AsRef<[u8]>) -> Self {
         let body = body.as_ref().to_vec();
         *self.req.body_mut() = body.into();
@@ -59,6 +115,26 @@ impl RequestBuilder {
     }
 
     /// Tries to apply the `Filter` on this request.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let param = warp::path::param::<u32>();
+    ///
+    /// let ex = warp::test::request()
+    ///     .path("/41")
+    ///     .filter(&param)
+    ///     .unwrap();
+    ///
+    /// assert_eq!(ex, 41);
+    ///
+    /// assert!(
+    ///     warp::test::request()
+    ///         .path("/foo")
+    ///         .filter(&param)
+    ///         .is_err()
+    /// );
+    /// ```
     pub fn filter<F>(self, f: F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
     where
         F: Filter,
@@ -71,7 +147,26 @@ impl RequestBuilder {
             .map(|ex| ex.flatten().one_or_tuple())
     }
 
-    /// Returns whether the `Filter` matches this request.
+    /// Returns whether the `Filter` matches this request, or rejects it.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let get = warp::get(warp::any());
+    /// let post = warp::post(warp::any());
+    ///
+    /// assert!(
+    ///     warp::test::request()
+    ///         .method("GET")
+    ///         .matches(&get)
+    /// );
+    ///
+    /// assert!(
+    ///     !warp::test::request()
+    ///         .method("GET")
+    ///         .matches(&post)
+    /// );
+    /// ```
     pub fn matches<F>(self, f: F) -> bool
     where
         F: Filter,
@@ -82,7 +177,9 @@ impl RequestBuilder {
         self.apply_filter(f).is_ok()
     }
 
-    /// Returns whether the `Filter` matches this request.
+    /// Returns `Response` provided by applying the `Filter`.
+    ///
+    /// This requires that the supplied `Filter` return a [`Reply`](::reply).
     pub fn reply<F>(self, f: F) -> Response<Bytes>
     where
         F: Filter,

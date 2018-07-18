@@ -1,23 +1,95 @@
-//! Create responses to reply to requests.
+//! Reply to requests.
+//!
+//! A [`Reply`](Reply) is a type that can be converted into an HTTP
+//! response to be sent to the client. These are typically the successful
+//! counterpart to a [rejection](::reject).
+//!
+//! The functions in this module are helpers for quickly creating a reply.
+//! Besides them, you can return a type that implement [`Reply`](Reply). This
+//! could be any of the following:
+//!
+//! - [`http::Response<impl Into<hyper::Chunk>`](https://docs.rs/http)
+//! - `String`
+//! - `&'static str`
+//! - `http::StatusCode`
+//!
+//! # Example
+//!
+//! ```
+//! use warp::Filter;
+//!
+//! // Returns an empty `200 OK` response.
+//! let empty_200 = warp::any().map(warp::reply);
+//!
+//! // Returns a `200 OK` response with custom header and body.
+//! let custom = warp::any().map(|| {
+//!     warp::http::Response::builder()
+//!         .header("my-custom-header", "some-value")
+//!         .body("and a custom body")
+//!         .expect("custom header name and value are legal headers")
+//! })
+//!
+//! // GET requests return the empty 200, POST return the custom.
+//! let routes = warp::get(empty_200)
+//!     .or(warp::post(custom));
+//! ```
 
 use http::header::{CONTENT_TYPE, HeaderValue};
+use http::StatusCode;
 use serde::Serialize;
 use serde_json;
 
-pub use http::StatusCode;
 
 use ::reject::Reject;
+// This re-export just looks weird in docs...
+#[doc(hidden)]
 pub use ::filters::reply as with;
 pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 
 /// Returns an empty `Reply` with status code `200 OK`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // GET /just-ok returns an empty `200 OK`.
+/// let route = warp::path("just-ok")
+///     .map(|| {
+///         println!("got a /just-ok request!");
+///         warp::reply()
+///     })
+/// ```
 #[inline]
 pub fn reply() -> impl Reply
 {
    StatusCode::OK
 }
 
-/// Convert the value into a `Response` with the value encoded as JSON.
+/// Convert the value into a `Reply` with the value encoded as JSON.
+///
+/// The passed value must implement [`Serialize`](::serde::Serialize). Many
+/// collections do, and custom domain types can have `Serialize` derived.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // GET /ids returns a `200 OK` with a JSON array of ids:
+/// // `[1, 3, 7, 13]`
+/// let route = warp::path("ids")
+///     .map(|| {
+///         let our_ids = vec![1, 3, 7, 13];
+///         warp::reply::json(&our_ids)
+///     })
+/// ```
+///
+/// # Note
+///
+/// If a type fails to be serialized into JSON, the error is logged at the
+/// `warn` level, and the returned `impl Reply` will be an empty
+/// `500 Internal Server Error` response.
 pub fn json<T>(val: &T) -> impl Reply
 where
     T: Serialize,
@@ -63,6 +135,7 @@ impl ReplySealed for Json {
 /// - `http::Response<impl Into<hyper::Chunk>>`
 /// - `String`
 /// - `&'static str`
+//NOTE: This list is duplicated in the module documentation.
 pub trait Reply: ReplySealed {
     /* 
     TODO: Currently unsure about having trait methods here, as it
