@@ -68,6 +68,14 @@ pub fn __warp_filter_compilefail_doctest() {
 pub trait Filter: FilterBase {
     /// Composes a new `Filter` that requires both this and the other to filter a request.
     ///
+    /// Additionally, this will join together the extracted values of both
+    /// filters, so that `map` and `and_then` receive them as separate arguments.
+    ///
+    /// If a `Filter` extracts nothing (so, `()`), combining with any other
+    /// filter will simply discard the `()`. If a `Filter` extracts one or
+    /// more items, combining will mean it extracts the values of itself
+    /// combined with the other.
+    ///
     /// # Example
     ///
     /// ```
@@ -114,7 +122,8 @@ pub trait Filter: FilterBase {
         }
     }
 
-    /// Composes this `Filter` with a closure receiving the extracted value from this.
+    /// Composes this `Filter` with a function receiving the extracted value.
+    ///
     ///
     /// # Example
     ///
@@ -126,6 +135,34 @@ pub trait Filter: FilterBase {
     ///   format!("Hello #{}", id)
     /// });
     /// ```
+    ///
+    /// # `Func`
+    ///
+    /// The generic `Func` trait is implemented for any function that receives
+    /// the same arguments as this `Filter` extracts. In practice, this
+    /// shouldn't ever bother you, and simply makes things feel more natural.
+    ///
+    /// For example, if three `Filter`s were combined together, suppose one
+    /// extracts nothing (so `()`), and the other two extract two integers,
+    /// a function that accepts exactly two integer arguments is allowed.
+    /// Specifically, any `Fn(u32, u32)`.
+    ///
+    /// Without `Product` and `Func`, this would be a lot messier. First of
+    /// all, the `()`s couldn't be discarded, and the tuples would be nested.
+    /// So, instead, you'd need to pass an `Fn(((), (u32, u32)))`. That's just
+    /// a single argument. Bleck!
+    ///
+    /// Even worse, the tuples would shuffle the types around depending on
+    /// the exact invocation of `and`s. So, `unit.and(int).and(int)` would
+    /// result in a different extracted type from `unit.and(int.and(int)`,
+    /// or from `int.and(unit).and(int)`. If you changed around the order
+    /// of filters, while still having them be semantically equivalent, you'd
+    /// need to update all your `map`s as well.
+    ///
+    /// `Product`, `HList`, and `Func` do all the heavy work so that none of
+    /// this is a bother to you. What's more, the types are enforced at
+    /// compile-time, and tuple flattening is optimized away to nothing by
+    /// LLVM.
     fn map<F>(self, fun: F) -> Map<Self, F>
     where
         Self: Sized,
