@@ -7,6 +7,20 @@ use ::never::Never;
 use ::filter::{Filter, filter_fn, filter_fn_one, One};
 use ::reject::{self, Rejection};
 
+pub(crate) fn if_value<F>(name: &'static str, func: F)
+    -> impl Filter<Extract=(), Error=Rejection> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<()> + Copy,
+{
+    filter_fn(move |route| {
+        route.headers()
+            .get(name)
+            .and_then(func)
+            .map(Ok)
+            .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
+
 pub(crate) fn value<F, U>(name: &'static str, func: F)
     -> impl Filter<Extract=One<U>, Error=Rejection> + Copy
 where
@@ -87,6 +101,7 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
         route.headers()
             .get(name)
             .map(|val| {
+                trace!("    -> {:?}", val);
                 if val.as_bytes().eq_ignore_ascii_case(value.as_bytes()) {
                     Ok(())
                 } else {

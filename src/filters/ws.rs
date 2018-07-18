@@ -6,6 +6,7 @@ use std::str::FromStr;
 use base64;
 use futures::{ Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 use http;
+use http::header::HeaderValue;
 use sha1::{Digest, Sha1};
 use tungstenite::protocol;
 use tokio_tungstenite::WebSocketStream;
@@ -60,7 +61,7 @@ where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,
 {
-    ::get(header::exact_ignore_case("connection", "upgrade")
+    ::get(header::if_value("connection", connection_has_upgrade)
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
         .and(header::header::<Accept>("sec-websocket-key"))
@@ -84,6 +85,22 @@ where
                 accept,
             }
         }))
+}
+
+fn connection_has_upgrade(value: &HeaderValue) -> Option<()> {
+    trace!("header connection has upgrade? value={:?}", value);
+
+    value
+        .to_str()
+        .ok()
+        .and_then(|s| {
+            for opt in s.split(", ") {
+                if opt.eq_ignore_ascii_case("upgrade") {
+                    return Some(());
+                }
+            }
+            None
+        })
 }
 
 /// A [`Reply`](::Reply) that returns the websocket handshake response.
@@ -121,15 +138,18 @@ impl Stream for WebSocket {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            let item = try_ready!(self.inner.poll().map_err(|e| {
-                debug!("websocket poll error: {}", e);
-                Kind::Ws
-            }));
-
-            let msg = if let Some(msg) = item {
-                msg
-            } else {
-                return Ok(Async::Ready(None));
+            let msg = match self.inner.poll() {
+                Ok(Async::Ready(Some(item))) => item,
+                Ok(Async::Ready(None)) => return Ok(Async::Ready(None)),
+                Ok(Async::NotReady) => return Ok(Async::NotReady),
+                Err(::tungstenite::Error::ConnectionClosed(frame)) => {
+                    trace!("websocket closed: {:?}", frame);
+                    return Ok(Async::Ready(None));
+                },
+                Err(e) => {
+                    debug!("websocket poll error: {}", e);
+                    return Err(Kind::Ws(e).into());
+                }
             };
 
             match msg {
@@ -166,7 +186,7 @@ impl Sink for WebSocket {
             })),
             Err(e) => {
                 debug!("websocket start_send error: {}", e);
-                Err(Kind::Ws.into())
+                Err(Kind::Ws(e).into())
             }
         }
     }
@@ -175,7 +195,7 @@ impl Sink for WebSocket {
         self.inner.poll_complete()
             .map_err(|e| {
                 debug!("websocket poll_complete error: {}", e);
-                Kind::Ws.into()
+                Kind::Ws(e).into()
             })
     }
 
@@ -183,7 +203,7 @@ impl Sink for WebSocket {
         self.inner.close()
             .map_err(|e| {
                 debug!("websocket close error: {}", e);
-                Kind::Ws.into()
+                Kind::Ws(e).into()
             })
     }
 }
@@ -214,7 +234,7 @@ impl Message {
         }
     }
 
-    /// Construct a new Text `Message`.
+    /// Construct a new Binary `Message`.
     pub fn binary<V: Into<Vec<u8>>>(v: V) -> Message {
         Message {
             inner: protocol::Message::binary(v),
@@ -229,6 +249,14 @@ impl Message {
     /// Returns true if this message is a Binary message.
     pub fn is_binary(&self) -> bool {
         self.inner.is_binary()
+    }
+
+    /// Try to get a reference to the string text, if this is a Text message.
+    pub fn to_str(&self) -> Result<&str, ()> {
+        match self.inner {
+            protocol::Message::Text(ref s) => Ok(s),
+            _ => Err(())
+        }
     }
 
     /// Return the bytes of this message.

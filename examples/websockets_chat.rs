@@ -2,27 +2,32 @@ extern crate pretty_env_logger;
 extern crate warp;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering, ATOMIC_USIZE_INIT}};
+use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
 
 use warp::{Filter, Future, Sink, Stream};
 use warp::ws::Message;
 
-static NEXT_USER_ID: AtomicUsize = ATOMIC_USIZE_INIT;
+static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 
 fn main() {
     pretty_env_logger::init();
 
+    // Keep track of all connected users, key is usize, value
+    // is a websocket sender.
     let users = Arc::new(Mutex::new(HashMap::new()));
 
     // The `ws()` filter will do the full Websocket handshake,
     // and call our function if the handshake succeeds.
     let ws = warp::ws(move |websocket| {
+        // Use a counter to assign a new unique ID for this user.
         let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
 
         eprintln!("new chat user: {}", my_id);
 
+        // Split the socket into a sender and receive of messages.
         let (tx, rx) = websocket.split();
 
+        // Save the sender in our list of connected users.
         users
             .lock()
             .unwrap()
@@ -34,11 +39,16 @@ fn main() {
             .for_each(move |msg| {
                 // New message from this user, send it to
                 // everyone else (except same uid)...
-                let mut new_msg = format!("From #{}", my_id).into_bytes();
-                new_msg.extend(msg.as_bytes());
+                let msg = if let Ok(s) = msg.to_str() {
+                    s
+                } else{
+                    // Skip any non-Text messages...
+                    return Ok(());
+                };
+                let new_msg = format!("<User#{}>: {}", my_id, msg);
                 for (&uid, tx) in users.lock().unwrap().iter_mut() {
                     if my_id != uid {
-                        let _ = tx.start_send(Message::binary(new_msg.clone()));
+                        let _ = tx.start_send(Message::text(new_msg.clone()));
                     }
                 }
                 Ok(())
@@ -60,7 +70,8 @@ fn main() {
     });
 
     let chat = warp::path("chat").and(ws);
-    let index = warp::path::index().map(|| INDEX_HTML);
+    let index = warp::reply::with::header("content-type", "text/html; charset=utf-8")
+        .decorate(warp::path::index().map(|| INDEX_HTML));
 
     let routes = index.or(chat);
 
@@ -69,13 +80,16 @@ fn main() {
 }
 
 static INDEX_HTML: &str = r#"
+<!DOCTYPE html>
 <html>
     <head>
-        <title>Chat</title>
+        <title>Warp Chat</title>
     </head>
     <body>
         <h1>warp chat</h1>
-        <div id="chat"></div>
+        <div id="chat">
+            <p><em>Connecting...</em></p>
+        </div>
         <input type="text" id="text" />
         <button type="button" id="send">Send</button>
         <script type="text/javascript">
@@ -84,8 +98,12 @@ static INDEX_HTML: &str = r#"
 
         function message(data) {
             var line = document.createElement('p');
-            line.innerText = msg.data;
+            line.innerText = data;
             chat.appendChild(line);
+        }
+
+        ws.onopen = function() {
+            chat.innerHTML = "<p><em>Connected!</em></p>";
         }
 
         ws.onmessage = function(msg) {
