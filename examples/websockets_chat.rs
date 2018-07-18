@@ -65,13 +65,21 @@ fn main() {
                 res
             })
             .map_err(move |e| {
-                eprintln!("websocket error(uid={}): {:?}", my_id, e);
+                eprintln!("websocket error(uid={}): {}", my_id, e);
             })
     });
 
+    // GET /ws -> websocket upgrade
     let chat = warp::path("chat").and(ws);
-    let index = warp::reply::with::header("content-type", "text/html; charset=utf-8")
-        .decorate(warp::path::index().map(|| INDEX_HTML));
+
+    // GET / -> index html
+    let index = warp::path::index()
+        .map(|| {
+            warp::http::Response::builder()
+                .header("content-type", "text/html; charset=utf-8")
+                .body(INDEX_HTML)
+                .expect("content-type header is valid")
+        });
 
     let routes = index.or(chat);
 
