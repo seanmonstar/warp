@@ -63,7 +63,7 @@
 //! Hello sean, whose agent is reqwest/v0.8.6
 //! ```
 //!
-//! Take a look at the full list of [`filters`](filters) to see what you can build.
+//! Take a look at the full list of [`filters`](warp::filters) to see what you can build.
 //!
 //! ## Testing
 //!

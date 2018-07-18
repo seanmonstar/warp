@@ -8,7 +8,7 @@ use ::filter::{FilterBase, Filter};
 /// A filter that matches any route.
 ///
 /// This can be a useful building block to build new filters from,
-/// since [`Filter`](::Filter) is otherwise a sealed trait.
+/// since [`Filter`](warp::Filter) is otherwise a sealed trait.
 ///
 /// # Example
 ///
@@ -24,6 +24,25 @@ use ::filter::{FilterBase, Filter};
 /// This could allow creating a single `impl Filter` returning a specific
 /// reply, that can then be used as the end of several different filter
 /// chains.
+///
+/// Another use case is turning some clone-able resource into a `Filter`,
+/// thus allowing to easily `and` it together with others.
+///
+/// ```
+/// use std::sync::Arc;
+/// use warp::Filter;
+///
+/// let state = Arc::new(vec![33, 41]);
+/// let with_state = warp::any().map(move || state.clone());
+///
+/// // Now we could `and` with any other filter:
+///
+/// let route = warp::path::param()
+///     .and(with_state)
+///     .map(|param_id: u32, db: Arc<Vec<u32>>| {
+///         db.contains(&param_id)
+///     });
+/// ```
 pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
     Any
 }
