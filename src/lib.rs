@@ -75,7 +75,8 @@ extern crate base64;
 extern crate bytes;
 extern crate crossbeam_channel;
 #[macro_use] extern crate futures;
-extern crate http;
+#[doc(hidden)]
+pub extern crate http;
 extern crate hyper;
 #[macro_use] extern crate log as logcrate;
 #[macro_use] extern crate scoped_tls;
@@ -102,6 +103,10 @@ pub mod test;
 pub use self::blocking::blocking;
 pub use self::error::Error;
 pub use self::filter::Filter;
+// This otherwise shows a big dump of re-exports in the doc homepage,
+// with zero context, so just hide it from the docs. Doc examples
+// on each can show that a convenient import exists.
+#[doc(hidden)]
 pub use self::filters::{
     // any() function
     any::any,
@@ -129,11 +134,14 @@ pub use self::filters::{
     // ws() function
     ws::ws,
 };
+#[doc(hidden)]
 pub use self::reject::{reject, Rejection};
+#[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
 
+#[doc(hidden)]
 pub use futures::{Future, Sink, Stream};
 
 pub(crate) type Request = http::Request<hyper::Body>;
