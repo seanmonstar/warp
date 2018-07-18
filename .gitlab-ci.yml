@@ -11,6 +11,7 @@ pages:
         - cargo doc --no-deps
         - rm -rf public
         - mv target/doc/ public
+        - echo '<meta http-equiv="refresh" content="0; url=warp">' > public/index.html
     artifacts:
         paths:
             - public
