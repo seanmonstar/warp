@@ -1,0 +1,11 @@
+pages:
+    stage: deploy
+    only:
+        - master
+    script:
+        - cargo doc --no-deps
+        - rm -rf public
+        - mv target/doc/ public
+    artifacts:
+        paths:
+            - public
