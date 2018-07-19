@@ -59,6 +59,9 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);
+        if seg.is_empty() {
+            return Err(reject::not_found());
+        }
         T::from_str(seg)
             .map(one)
             .map_err(|_| reject::not_found())

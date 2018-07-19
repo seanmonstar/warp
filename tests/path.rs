@@ -5,7 +5,7 @@ extern crate warp;
 use warp::Filter;
 
 #[test]
-fn exact() {
+fn path() {
     let _ = pretty_env_logger::try_init();
 
     let foo = warp::path("foo");
@@ -35,7 +35,7 @@ fn exact() {
 }
 
 #[test]
-fn extract() {
+fn param() {
     let _ = pretty_env_logger::try_init();
 
     let num = warp::path::param::<u32>();
@@ -60,6 +60,10 @@ fn extract() {
     let req = warp::test::request()
         .path("/42/vroom");
     assert_eq!(req.filter(combo).unwrap(), (47, "vroom".to_string()));
+
+    // empty segments never match
+    let req = warp::test::request();
+    assert!(!req.matches(s), "param should never match an empty segment");
 }
 
 #[test]
