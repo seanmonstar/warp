@@ -88,12 +88,18 @@ where
 
 /// Convenient way to chain multiple path filters together.
 ///
+/// Any number of either type identifiers or string expressions can be passed,
+/// each separated by a forward slash (`/`). Strings will be used to match
+/// path segments exactly, and type identifiers are used just like
+/// [`param`](warp::path::param) filters.
+///
 /// # Example
 ///
 /// ```
 /// # #[macro_use] extern crate warp; fn main() {
 /// use warp::Filter;
 ///
+/// // Match `/sum/:a/:b`
 /// let route = path!("sum" / u32 / u32)
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
