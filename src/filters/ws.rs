@@ -72,7 +72,7 @@ where
                 .map(move |upgraded| {
                     trace!("websocket upgrade complete");
 
-                    let io = WebSocketStream::from_raw_socket(upgraded, protocol::Role::Server);
+                    let io = WebSocketStream::from_raw_socket(upgraded, protocol::Role::Server, None);
 
                     fun(WebSocket {
                         inner: io,

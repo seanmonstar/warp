@@ -23,12 +23,13 @@ tokio = "0.1.7"
 
 [dependencies.tungstenite]
 default-features = false
-version = "0.5"
+version = "0.6"
 
 [dependencies.tokio-tungstenite]
 default-features = false
-git = "https://github.com/snapview/tokio-tungstenite"
 features = ["tokio"]
+git = "https://github.com/snapview/tokio-tungstenite"
+rev = "d43c61428eba1ce3a56a1fb22d83b1f06147b03a"
 #version = "0.5.1"
 
 [dev-dependencies]
