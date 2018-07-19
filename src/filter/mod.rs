@@ -175,7 +175,9 @@ pub trait Filter: FilterBase {
     }
 
 
-    /// Composes this `Filter` with a closure receiving the extracted value from this.
+    /// Composes this `Filter` with a function receiving the extracted value.
+    ///
+    /// The function should return some `IntoFuture` type.
     ///
     /// # Example
     ///

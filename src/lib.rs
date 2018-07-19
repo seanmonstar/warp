@@ -27,7 +27,7 @@
 //! ```
 //! use warp::Filter;
 //!
-//! let ro = warp::path("hello")
+//! let hi = warp::path("hello")
 //!     .and(warp::path::param())
 //!     .and(warp::header("user-agent"))
 //!     .map(|param: String, agent: String| {
