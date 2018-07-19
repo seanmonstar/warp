@@ -1,17 +1,19 @@
+#[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate warp;
 
+use std::env;
 use std::sync::{Arc, Mutex};
-use warp::Filter;
+use warp::{http::StatusCode, Filter};
 
 
 /// So we don't have to tackle how different database work, we'll just use
 /// a simple in-memory DB, a vector synchronized by a mutex.
 type Db = Arc<Mutex<Vec<Todo>>>;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Todo {
     id: u64,
     text: String,
@@ -23,10 +25,15 @@ struct Todo {
 /// API will be:
 ///
 /// - `GET /todos`: return a JSON list of Todos.
-/// - `PUT /todos`: create a new Todo.
-/// - `POST /todos/:id`: update a specific Todo.
+/// - `POST /todos`: create a new Todo.
+/// - `PUT /todos/:id`: update a specific Todo.
 /// - `DELETE /todos/:id`: delete a specific Todo.
 fn main() {
+    if env::var_os("RUST_LOG").is_none() {
+        // Set `RUST_LOG=todos=debug` to see debug logs,
+        // this only shows access logs.
+        env::set_var("RUST_LOG", "todos=info");
+    }
     pretty_env_logger::init();
 
     // These are some `Filter`s that several of the endpoints share,
@@ -60,16 +67,16 @@ fn main() {
             .map(list_todos)
     );
 
-    // `PUT /todos`
-    let create = warp::put(
+    // `POST /todos`
+    let create = warp::post(
         todos_index
             .and(warp::body::json())
             .and(db.clone())
             .and_then(create_todo)
     );
 
-    // `POST /todos/:id`
-    let update = warp::post(
+    // `PUT /todos/:id`
+    let update = warp::put(
         todos_id
             .and(warp::body::json())
             .and(db.clone())
@@ -109,14 +116,17 @@ fn list_todos(db: Db) -> impl warp::Reply {
     warp::reply::json(&*db.lock().unwrap())
 }
 
-/// PUT /todos with JSON body
+/// POST /todos with JSON body
 fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    debug!("create_todo: {:?}", create);
+
     let mut vec = db
         .lock()
         .unwrap();
 
     for todo in vec.iter() {
         if todo.id == create.id {
+            debug!("    -> id already exists: {}", create.id);
             // Todo with id already exists, return `400 BadRequest`.
             return Err(warp::reject::bad_request());
         }
@@ -125,11 +135,12 @@ fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection
     // No existing Todo with id, so insert and return `201 Created`.
     vec.push(create);
 
-    Ok(warp::http::StatusCode::CREATED)
+    Ok(StatusCode::CREATED)
 }
 
-/// POST /todos/:id with JSON body
+/// PUT /todos/:id with JSON body
 fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    debug!("update_todo: id={}, todo={:?}", id, update);
     let mut vec = db
         .lock()
         .unwrap();
@@ -142,12 +153,16 @@ fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::
         }
     }
 
+    debug!("    -> todo id not found!");
+
     // If the for loop didn't return OK, then the ID doesn't exist...
     Err(warp::reject::not_found())
 }
 
 /// DELETE /todos/:id
 fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    debug!("delete_todo: id={}", id);
+
     let mut vec = db
         .lock()
         .unwrap();
@@ -165,8 +180,9 @@ fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     if deleted {
         // respond with a `204 No Content`, which means successful,
         // yet no body expected...
-        Ok(warp::http::StatusCode::NO_CONTENT)
+        Ok(StatusCode::NO_CONTENT)
     } else {
+        debug!("    -> todo id not found!");
         // Reject this request with a `404 Not Found`...
         Err(warp::reject::not_found())
     }
