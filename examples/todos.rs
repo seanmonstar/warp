@@ -105,72 +105,6 @@ fn main() {
         .run(([127, 0, 0, 1], 3030));
 }
 
-fn build_routes() -> impl warp::FilterReply {
-
-    // These are some `Filter`s that several of the endpoints share,
-    // so we'll define them here and reuse them below...
-
-
-    // Turn our "state", our db, into a Filter so we can combine it
-    // easily with others...
-    let db = Arc::new(Mutex::new(Vec::<Todo>::new()));
-    let db = warp::any().map(move || db.clone());
-
-    // Just the path segment "todos"...
-    let todos = warp::path("todos");
-
-    // Combined with `index`, this means nothing comes after "todos".
-    // So, for example: `GET /todos`, but not `GET /todos/32`.
-    let todos_index = todos.and(warp::path::index());
-
-    // Combined with an id path parameter, for refering to a specific Todo.
-    // For example, `POST /todos/32`, but not `POST /todos/32/something-more`.
-    let todos_id = todos
-        .and(warp::path::param::<u64>())
-        .and(warp::path::index());
-
-    // Next, we'll define each our 4 endpoints:
-
-    // `GET /todos`
-    let list = warp::get(
-        todos_index
-            .and(db.clone())
-            .map(list_todos)
-    );
-
-    // `POST /todos`
-    let create = warp::post(
-        todos_index
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(create_todo)
-    );
-
-    // `PUT /todos/:id`
-    let update = warp::put(
-        todos_id
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(update_todo)
-    );
-
-    // `DELETE /todos/:id`
-    let delete = warp::delete(
-        todos_id
-            .and(db.clone())
-            .and_then(delete_todo)
-    );
-
-
-    // Combine our endpoints, since we want requests to match any of them:
-    let api = list
-        .or(create)
-        .or(update)
-        .or(delete);
-
-    api
-}
-
 // These are our API handlers, the ends of each filter chain.
 // Notice how thanks to using `Filter::and`, we can define a function
 // with the exact arguments we'd expect from each filter in the chain.
@@ -254,35 +188,3 @@ fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     }
 }
 
-#[test]
-fn test_todos() {
-    // We can test our API here in unit tests, without having to start up
-    // an HTTP server!
-
-    let routes = build_routes();
-
-    // List is empty...
-    let req = warp::test::request()
-        .path("/todos");
-    let res = req.reply(&routes);
-    assert_eq!(res.status(), 200);
-    assert_eq!(res.body(), "[]");
-
-    let todo = Todo {
-        id: 33,
-        text: "unit testing".to_owned(),
-        completed: false,
-    };
-
-    // Create a new todo...
-    let req = warp::test::request()
-        .method("POST")
-        .path("/todos")
-        .json(&todo);
-    assert_eq!(req.reply(&routes).status(), 201);
-
-    let req = warp::test::request()
-        .path("/todos");
-    let res = req.reply(&routes);
-    assert_eq!(res.body(), "");
-}
