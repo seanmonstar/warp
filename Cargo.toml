@@ -20,17 +20,9 @@ serde_json = "1.0"
 serde_urlencoded = "0.5.2"
 sha-1 = "0.7"
 tokio = "0.1.7"
+# tls is enabled by default, we don't want that yet
+tungstenite = { default-features = false, version = "0.6" }
 
-[dependencies.tungstenite]
-default-features = false
-version = "0.6"
-
-[dependencies.tokio-tungstenite]
-default-features = false
-features = ["tokio"]
-git = "https://github.com/snapview/tokio-tungstenite"
-rev = "d43c61428eba1ce3a56a1fb22d83b1f06147b03a"
-#version = "0.5.1"
 
 [dev-dependencies]
 pretty_env_logger = "0.2"

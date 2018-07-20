@@ -1,6 +1,7 @@
 //! Websockets Filters
 
 use std::fmt;
+use std::io::ErrorKind::WouldBlock;
 use std::str::FromStr;
 
 use base64;
@@ -9,7 +10,6 @@ use http;
 use http::header::HeaderValue;
 use sha1::{Digest, Sha1};
 use tungstenite::protocol;
-use tokio_tungstenite::WebSocketStream;
 
 use ::error::Kind;
 use ::filter::{Filter, FilterClone, One};
@@ -72,7 +72,7 @@ where
                 .map(move |upgraded| {
                     trace!("websocket upgrade complete");
 
-                    let io = WebSocketStream::from_raw_socket(upgraded, protocol::Role::Server, None);
+                    let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, None);
 
                     fun(WebSocket {
                         inner: io,
@@ -129,7 +129,7 @@ impl fmt::Debug for Ws {
 
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
 pub struct WebSocket {
-    inner: WebSocketStream<::hyper::upgrade::Upgraded>,
+    inner: protocol::WebSocket<::hyper::upgrade::Upgraded>,
 }
 
 impl Stream for WebSocket {
@@ -138,10 +138,9 @@ impl Stream for WebSocket {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
-            let msg = match self.inner.poll() {
-                Ok(Async::Ready(Some(item))) => item,
-                Ok(Async::Ready(None)) => return Ok(Async::Ready(None)),
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
+            let msg = match self.inner.read_message() {
+                Ok(item) => item,
+                Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => return Ok(Async::NotReady),
                 Err(::tungstenite::Error::ConnectionClosed(frame)) => {
                     trace!("websocket closed: {:?}", frame);
                     return Ok(Async::Ready(None));
@@ -161,10 +160,9 @@ impl Stream for WebSocket {
                 },
                 protocol::Message::Ping(payload) => {
                     trace!("websocket client ping: {:?}", payload);
-                    // Pings are just suggestions, so *try* to send a pong back,
-                    // but if we're backed up, no need to do any fancy buffering
-                    // or anything.
-                    let _ = self.inner.start_send(protocol::Message::Pong(payload));
+                    // tungstenite automatically responds to pings, so this
+                    // branch should actually never happen...
+                    debug_assert!(false, "tungstenite handles pings");
                 }
                 protocol::Message::Pong(payload) => {
                     trace!("websocket client pong: {:?}", payload);
@@ -179,11 +177,17 @@ impl Sink for WebSocket {
     type SinkError = ::Error;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
-        match self.inner.start_send(item.inner) {
-            Ok(AsyncSink::Ready) => Ok(AsyncSink::Ready),
-            Ok(AsyncSink::NotReady(inner)) => Ok(AsyncSink::NotReady(Message {
-                inner,
-            })),
+        match self.inner.write_message(item.inner) {
+            Ok(()) => Ok(AsyncSink::Ready),
+            Err(::tungstenite::Error::SendQueueFull(inner)) => {
+                debug!("websocket send queue full");
+                Ok(AsyncSink::NotReady(Message { inner }))
+            },
+            Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
+                // the message was accepted and partly written, so this
+                // isn't an error.
+                Ok(AsyncSink::Ready)
+            }
             Err(e) => {
                 debug!("websocket start_send error: {}", e);
                 Err(Kind::Ws(e).into())
@@ -192,19 +196,29 @@ impl Sink for WebSocket {
     }
 
     fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        self.inner.poll_complete()
-            .map_err(|e| {
-                debug!("websocket poll_complete error: {}", e);
-                Kind::Ws(e).into()
-            })
+        match self.inner.write_pending() {
+            Ok(()) => Ok(Async::Ready(())),
+            Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
+                Ok(Async::NotReady)
+            },
+            Err(err) => {
+                debug!("websocket poll_complete error: {}", err);
+                Err(Kind::Ws(err).into())
+            }
+        }
     }
 
     fn close(&mut self) -> Poll<(), Self::SinkError> {
-        self.inner.close()
-            .map_err(|e| {
-                debug!("websocket close error: {}", e);
-                Kind::Ws(e).into()
-            })
+        match self.inner.close(None) {
+            Ok(()) => Ok(Async::Ready(())),
+            Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
+                Ok(Async::NotReady)
+            },
+            Err(err) => {
+                debug!("websocket close error: {}", err);
+                Err(Kind::Ws(err).into())
+            }
+        }
     }
 }
 
@@ -221,7 +235,6 @@ impl fmt::Debug for WebSocket {
 ///
 /// This will likely become a `non-exhaustive` enum in the future, once that
 /// language feature has stabilized.
-#[derive(Debug)]
 pub struct Message {
     inner: protocol::Message,
 }
@@ -266,6 +279,12 @@ impl Message {
             protocol::Message::Binary(ref v) => v,
             _ => unreachable!(),
         }
+    }
+}
+
+impl fmt::Debug for Message {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, f)
     }
 }
 
