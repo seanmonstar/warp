@@ -10,7 +10,7 @@ fn file() {
     let file = warp::fs::file("README.md");
 
     let req = warp::test::request();
-    let res = req.reply(file);
+    let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
 
@@ -28,7 +28,7 @@ fn dir() {
 
     let req = warp::test::request()
         .path("/todos.rs");
-    let res = req.reply(file);
+    let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
 
@@ -46,7 +46,7 @@ fn dir_not_found() {
 
     let req = warp::test::request()
         .path("/definitely-not-found");
-    let res = req.reply(file);
+    let res = req.reply(&file);
 
     assert_eq!(res.status(), 404);
 }
@@ -59,8 +59,9 @@ fn dir_bad_path() {
 
     let req = warp::test::request()
         .path("/../README.md");
-    let res = req.reply(file);
+    let res = req.reply(&file);
 
     assert_eq!(res.status(), 400);
     assert_eq!(res.body(), "");
 }
+

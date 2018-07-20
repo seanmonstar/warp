@@ -30,7 +30,7 @@ fn json() {
     let req = warp::test::request()
         .body("[1, 2, 3]");
 
-    let vec = req.filter(json).unwrap();
+    let vec = req.filter(&json).unwrap();
     assert_eq!(vec, &[1, 2, 3]);
 }
 
@@ -43,7 +43,7 @@ fn form() {
     let req = warp::test::request()
         .body("foo=bar&baz=quux");
 
-    let vec = req.filter(form).unwrap();
+    let vec = req.filter(&form).unwrap();
     let expected = vec![
         ("foo".to_owned(), "bar".to_owned()),
         ("baz".to_owned(), "quux".to_owned()),

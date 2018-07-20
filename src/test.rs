@@ -7,13 +7,15 @@
 use bytes::Bytes;
 use futures::{future, Future, Stream};
 use http::Response;
+use serde::Serialize;
+use serde_json;
 use tokio::executor::thread_pool::Builder as ThreadPoolBuilder;
 use tokio::runtime::Builder as RtBuilder;
 
-use ::filter::Filter;
+use ::filter::{Filter, FilterReply};
 use ::generic::HList;
 use ::reject::Reject;
-use ::reply::{Reply, ReplySealed};
+use ::reply::{/*Reply,*/ ReplySealed};
 use ::route::{self, Route};
 use ::Request;
 
@@ -114,6 +116,21 @@ impl RequestBuilder {
         self
     }
 
+    /// Set the bytes of this request body by serializing a value into JSON.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::request()
+    ///     .json(&true);
+    /// ```
+    pub fn json(mut self, val: &impl Serialize) -> Self {
+        let vec = serde_json::to_vec(val)
+            .expect("json() must serialize to JSON");
+        *self.req.body_mut() = vec.into();
+        self
+    }
+
     /// Tries to apply the `Filter` on this request.
     ///
     /// # Example
@@ -135,7 +152,7 @@ impl RequestBuilder {
     ///         .is_err()
     /// );
     /// ```
-    pub fn filter<F>(self, f: F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
+    pub fn filter<F>(self, f: &F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
     where
         F: Filter,
         F::Future: Send + 'static,
@@ -167,7 +184,7 @@ impl RequestBuilder {
     ///         .matches(&post)
     /// );
     /// ```
-    pub fn matches<F>(self, f: F) -> bool
+    pub fn matches<F>(self, f: &F) -> bool
     where
         F: Filter,
         F::Future: Send + 'static,
@@ -180,18 +197,15 @@ impl RequestBuilder {
     /// Returns `Response` provided by applying the `Filter`.
     ///
     /// This requires that the supplied `Filter` return a [`Reply`](::reply).
-    pub fn reply<F>(self, f: F) -> Response<Bytes>
+    pub fn reply<F>(self, f: &F) -> Response<Bytes>
     where
-        F: Filter,
-        F::Future: Send + 'static,
-        F::Extract: Reply + Send + 'static,
-        F::Error: Reject + Send + 'static,
+        F: FilterReply,
     {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
         let route = Route::new(self.req);
-        let mut fut = route::set(&route, move || f.filter())
+        let mut fut = route::set(&route, move || f.reply())
             .map(|rep| rep.into_response())
             .or_else(|rej| Ok(rej.into_response()))
             .and_then(|res| {
@@ -210,7 +224,7 @@ impl RequestBuilder {
         block_on(fut).expect("reply shouldn't fail")
     }
 
-    fn apply_filter<F>(self, f: F) -> Result<F::Extract, F::Error>
+    fn apply_filter<F>(self, f: &F) -> Result<F::Extract, F::Error>
     where
         F: Filter,
         F::Future: Send + 'static,

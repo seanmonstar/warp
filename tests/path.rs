@@ -42,28 +42,28 @@ fn param() {
 
     let req = warp::test::request()
         .path("/321");
-    assert_eq!(req.filter(num).unwrap(), 321);
+    assert_eq!(req.filter(&num).unwrap(), 321);
 
     let s = warp::path::param::<String>();
 
     let req = warp::test::request()
         .path("/warp");
-    assert_eq!(req.filter(s).unwrap(), "warp");
+    assert_eq!(req.filter(&s).unwrap(), "warp");
 
     // u32 doesn't extract a non-int
     let req = warp::test::request()
         .path("/warp");
-    assert!(!req.matches(num));
+    assert!(!req.matches(&num));
 
     let combo = num.map(|n| n + 5).and(s);
 
     let req = warp::test::request()
         .path("/42/vroom");
-    assert_eq!(req.filter(combo).unwrap(), (47, "vroom".to_string()));
+    assert_eq!(req.filter(&combo).unwrap(), (47, "vroom".to_string()));
 
     // empty segments never match
     let req = warp::test::request();
-    assert!(!req.matches(s), "param should never match an empty segment");
+    assert!(!req.matches(&s), "param should never match an empty segment");
 }
 
 #[test]
@@ -80,13 +80,13 @@ fn or() {
     let req = warp::test::request()
         .path("/foo/bar");
 
-    assert!(req.matches(p));
+    assert!(req.matches(&p));
 
     // /foo/baz
     let req = warp::test::request()
         .path("/foo/baz");
 
-    assert!(req.matches(p));
+    assert!(req.matches(&p));
 
     // deeper nested ORs
     // /foo/bar/baz OR /foo/baz/bar OR /foo/bar/bar
@@ -109,26 +109,20 @@ fn or() {
 #[test]
 fn path_macro() {
     let _ = pretty_env_logger::try_init();
-    /* TODO
-    let req = warp::test::request()
-        .path("/foo/bar");
-    let p = path!("foo/bar");
-    assert!(req.matches(p));
-    */
 
     let req = warp::test::request()
         .path("/foo/bar");
     let p = path!("foo" / "bar");
-    assert!(req.matches(p));
+    assert!(req.matches(&p));
 
     let req = warp::test::request()
         .path("/foo/bar");
     let p = path!(String / "bar");
-    assert_eq!(req.filter(p).unwrap(), "foo");
+    assert_eq!(req.filter(&p).unwrap(), "foo");
 
     let req = warp::test::request()
         .path("/foo/bar");
     let p = path!("foo" / String);
-    assert_eq!(req.filter(p).unwrap(), "bar");
+    assert_eq!(req.filter(&p).unwrap(), "bar");
 }
 

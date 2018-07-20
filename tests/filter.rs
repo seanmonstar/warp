@@ -13,58 +13,58 @@ fn flattens_tuples() {
 
     // just 1 value
     let ext = warp::test::request()
-        .filter(str1)
+        .filter(&str1)
         .unwrap();
     assert_eq!(ext, "warp");
 
     // just 1 unit
     let ext = warp::test::request()
-        .filter(unit1)
+        .filter(&unit1)
         .unwrap();
     assert_eq!(ext, ());
 
     // combine 2 values
     let ext = warp::test::request()
-        .filter(str1.and(true1))
+        .filter(&str1.and(true1))
         .unwrap();
     assert_eq!(ext, ("warp", true));
 
     // combine 2 reversed
     let ext = warp::test::request()
-        .filter(true1.and(str1))
+        .filter(&true1.and(str1))
         .unwrap();
     assert_eq!(ext, (true, "warp"));
 
     // combine 1 with unit
     let ext = warp::test::request()
-        .filter(str1.and(unit1))
+        .filter(&str1.and(unit1))
         .unwrap();
     assert_eq!(ext, "warp");
 
     let ext = warp::test::request()
-        .filter(unit1.and(str1))
+        .filter(&unit1.and(str1))
         .unwrap();
     assert_eq!(ext, "warp");
 
     // combine 3 values
     let ext = warp::test::request()
-        .filter(str1.and(str1).and(true1))
+        .filter(&str1.and(str1).and(true1))
         .unwrap();
     assert_eq!(ext, ("warp", "warp", true));
 
     // combine 2 with unit
     let ext = warp::test::request()
-        .filter(str1.and(unit1).and(true1))
+        .filter(&str1.and(unit1).and(true1))
         .unwrap();
     assert_eq!(ext, ("warp", true));
 
     let ext = warp::test::request()
-        .filter(unit1.and(str1).and(true1))
+        .filter(&unit1.and(str1).and(true1))
         .unwrap();
     assert_eq!(ext, ("warp", true));
 
     let ext = warp::test::request()
-        .filter(str1.and(true1).and(unit1))
+        .filter(&str1.and(true1).and(unit1))
         .unwrap();
     assert_eq!(ext, ("warp", true));
 
@@ -73,12 +73,12 @@ fn flattens_tuples() {
     let unit_str_true = unit1.and(str1).and(true1);
 
     let ext = warp::test::request()
-        .filter(str_true_unit.and(unit_str_true))
+        .filter(&str_true_unit.and(unit_str_true))
         .unwrap();
     assert_eq!(ext, ("warp", true, "warp", true));
 
     let ext = warp::test::request()
-        .filter(unit_str_true.and(unit1).and(str1).and(str_true_unit))
+        .filter(&unit_str_true.and(unit1).and(str1).and(str_true_unit))
         .unwrap();
     assert_eq!(ext, ("warp", true, "warp", "warp", true));
 }

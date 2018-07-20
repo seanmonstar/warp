@@ -8,7 +8,8 @@ mod service;
 use futures::{future, Future, IntoFuture};
 
 pub(crate) use ::generic::{Combine, One, one, Func, HList};
-use ::reject::CombineRejection;
+use ::reject::{CombineRejection, Reject};
+use ::reply::Reply;
 use ::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
@@ -39,6 +40,7 @@ pub trait FilterBase {
     }
 }
 
+/* This may not actually make any sense...
 impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
     type Extract = T::Extract;
     type Error = T::Error;
@@ -48,6 +50,7 @@ impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
         (**self).filter()
     }
 }
+*/
 
 /// This just makes use of rustdoc's ability to make compile_fail tests.
 /// This is specifically testing to make sure `Filter::filter` isn't
@@ -213,6 +216,57 @@ impl<T: FilterBase> Filter for T {}
 pub trait FilterClone: Filter + Clone {}
 
 impl<T: Filter + Clone> FilterClone for T {}
+
+// ===== FilterReply =====
+
+// This is a hack to mimic a trait alias, such that if a user has some
+// `impl Filter` that extracts some `impl Reply`, they can still use the
+// type system to return the type. Without this, it's currently illegal
+// to return an `impl Filter<Extract = impl Reply>`.
+//
+// So, instead, they can write `impl FilterReply`.
+//
+// The associated types here technically leak, (so, you could technically
+// type `impl FilterReply<__DontNameMeReply = StatusCode>`, but hopefully
+// the name will tell people to expect to be broken if they do.
+pub trait FilterReplyBase: Filter {
+    type __DontNameMeReply: Reply + Send;
+    type __DontNameMeReject: Reject + Send;
+    type __DontNameMeFut: Future<Item = Self::__DontNameMeReply, Error = Self::__DontNameMeReject> + Send + 'static;
+
+    fn reply(&self) -> Self::__DontNameMeFut;
+}
+
+impl<T> FilterReplyBase for T
+where
+    T: Filter,
+    T::Extract: Reply + Send,
+    T::Error: Reject + Send,
+    T::Future: 'static,
+{
+    type __DontNameMeReply = T::Extract;
+    type __DontNameMeReject = T::Error;
+    type __DontNameMeFut = T::Future;
+
+    fn reply(&self) -> Self::__DontNameMeFut {
+        self.filter()
+    }
+}
+
+/// A form of "trait alias" of `Filter`.
+///
+/// Specifically, for any type that implements `Filter`, and extracts from
+/// type that implements `Reply`, and an error that implements `Reject`,
+/// automatically implements `FilterReply`.
+///
+/// The usefulness of this alias is to allow applications to construct filters
+/// in some function, and return them, before starting a server that uses them.
+/// These types can then be used in unit tests without having to start the
+/// server.
+pub trait FilterReply: FilterReplyBase {}
+
+impl<T: FilterReplyBase> FilterReply for T {}
+
 
 fn _assert_object_safe() {
     fn _assert(_f: &Filter<Extract=(), Error=(), Future=future::FutureResult<(), ()>>) {}
