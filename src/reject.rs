@@ -45,15 +45,25 @@ pub fn bad_request() -> Rejection {
     Reason::BAD_REQUEST.into()
 }
 
+/// Rejects a request with `404 Not Found`.
+#[inline]
+pub fn not_found() -> Rejection {
+    Reason::empty().into()
+}
+
+// 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
     Reason::METHOD_NOT_ALLOWED.into()
 }
 
-/// Rejects a request with `404 Not Found`.
+// 415 Unsupported Media Type
+//
+// Used by the body filters if the request payload content-type doesn't match
+// what can be deserialized.
 #[inline]
-pub fn not_found() -> Rejection {
-    Reason::empty().into()
+pub(crate) fn unsupported_media_type() -> Rejection {
+    Reason::UNSUPPORTED_MEDIA_TYPE.into()
 }
 
 /// Rejects a request with `500 Internal Server Error`.
@@ -74,7 +84,8 @@ bitflags! {
         // NOT_FOUND = 0
         const BAD_REQUEST = 0b001;
         const METHOD_NOT_ALLOWED = 0b010;
-        const SERVER_ERROR = 0b100;
+        const UNSUPPORTED_MEDIA_TYPE = 0b100;
+        const SERVER_ERROR = 0b1000;
     }
 }
 
@@ -112,6 +123,8 @@ impl Reject for Rejection {
             http::StatusCode::INTERNAL_SERVER_ERROR
         } else if self.reason.contains(Reason::METHOD_NOT_ALLOWED) {
             http::StatusCode::METHOD_NOT_ALLOWED
+        } else if self.reason.contains(Reason::UNSUPPORTED_MEDIA_TYPE) {
+            http::StatusCode::UNSUPPORTED_MEDIA_TYPE
         } else if self.reason.contains(Reason::BAD_REQUEST) {
             http::StatusCode::BAD_REQUEST
         } else {
