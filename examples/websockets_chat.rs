@@ -1,3 +1,4 @@
+#![deny(warnings)]
 extern crate futures;
 extern crate pretty_env_logger;
 extern crate warp;

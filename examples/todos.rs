@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate serde;
@@ -98,7 +99,7 @@ fn main() {
         .or(delete);
 
     // View access logs by setting `RUST_LOG=todos`.
-    let routes = warp::log("todos").decorate(api);
+    let routes = api.with(warp::log("todos"));
 
     // Start up the server...
     warp::serve(routes)

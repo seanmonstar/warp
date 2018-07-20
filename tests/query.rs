@@ -1,3 +1,4 @@
+#![deny(warnings)]
 extern crate warp;
 
 use std::collections::HashMap;
