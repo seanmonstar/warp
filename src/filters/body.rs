@@ -71,6 +71,11 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=R
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a form encoded body.
+///
+/// # Note
+///
+/// This filter is for the simpler `application/x-www-form-urlencoded` format,
+/// not `multipart/form-data`.
 pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
     is_content_type("application/x-www-form-urlencoded")
         .and(concat())

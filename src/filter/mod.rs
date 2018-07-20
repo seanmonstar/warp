@@ -4,6 +4,7 @@ mod map;
 mod map_err;
 mod or;
 mod service;
+mod wrap;
 
 use futures::{future, Future, IntoFuture};
 
@@ -16,6 +17,7 @@ use self::and_then::AndThen;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
+pub(crate) use self::wrap::{WrapSealed, Wrap};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -208,6 +210,30 @@ pub trait Filter: FilterBase {
             filter: self,
             callback: fun,
         }
+    }
+
+    /// Wraps the current filter with some wrapper.
+    ///
+    /// The wrapper may do some preparation work before starting this filter,
+    /// and may do post-processing after the filter completes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let route = warp::any()
+    ///     .map(warp::reply);
+    ///
+    /// // Wrap the route with a log wrapper.
+    /// let route = route.with(warp::log("example"));
+    /// ```
+    fn with<W>(self, wrapper: W) -> W::Wrapped
+    where
+        Self: Sized,
+        W: Wrap<Self>,
+    {
+        wrapper.wrap(self)
     }
 }
 

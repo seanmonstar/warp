@@ -3,18 +3,16 @@
 use std::marker::PhantomData;
 use std::time::Instant;
 
-use futures::Future;
 use http::StatusCode;
 
-use ::filter::{Filter, FilterClone, One};
-use ::never::Never;
-use ::reject::{CombineRejection, Reject};
-use ::reply::{Reply, ReplySealed};
+use ::filter::{Filter, FilterClone, One, WrapSealed};
+use ::reject::Reject;
+use ::reply::Reply;
 use ::route;
 
-use self::internal::Logged;
+use self::internal::{Logged, WithLog};
 
-/// Create a decorating filter with the specified `name` as the `target`.
+/// Create a wrapping filter with the specified `name` as the `target`.
 ///
 /// This uses the default access logging format, and log records produced
 /// will have their `target` set to `name`.
@@ -24,12 +22,12 @@ use self::internal::Logged;
 /// ```
 /// use warp::Filter;
 ///
-/// // If using something like `env_logger` or `pretty_env_logger`,
+/// // If using something like `pretty_env_logger`,
 /// // view logs by setting `RUST_LOG=example::api`.
 /// let log = warp::log("example::api");
-/// let route = log.decorate(
-///     warp::any().map(warp::reply)
-/// );
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .with(log);
 /// ```
 pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
     let func = move |info: Info| {
@@ -73,52 +71,52 @@ pub struct Info<'a> {
     _marker: PhantomData<&'a ()>,
 }
 
+impl<FN, F> WrapSealed<F> for Log<FN>
+where
+    FN: Fn(Info) + Clone + Send,
+    F: Filter + Clone + Send,
+    F::Extract: Reply,
+    F::Error: Reject,
+{
+    type Wrapped = WithLog<FN, F>;
+
+    fn wrap(&self, filter: F) -> Self::Wrapped {
+        WithLog {
+            filter,
+            log: self.clone(),
+        }
+    }
+}
+
 impl<FN> Log<FN>
 where
     FN: Fn(Info) + Clone + Send,
 {
-    /// Decorates a [`Filter`](::Filter) to log requests and responses handled by inner.
+    #[doc(hidden)]
+    #[deprecated(note = "use Filter::with(log) instead")]
     pub fn decorate<F>(&self, inner: F) -> impl FilterClone<
         Extract=One<Logged>,
-        Error=<F::Error as CombineRejection<Never>>::Rejection
+        Error=F::Error
     >
     where
         F: Filter + Clone + Send,
         F::Extract: Reply,
-        F::Error: CombineRejection<Never> + Reject,
+        F::Error: Reject,
     {
-        let func = self.func.clone();
-        ::filters::any::any()
-            .and_then(move || {
-                let start = Instant::now();
-                let func = func.clone();
-                inner
-                    .filter()
-                    .then(move |result| {
-                        let (result, status) = match result {
-                            Ok(rep) => {
-                                let resp = rep.into_response();
-                                let status = resp.status();
-                                (Ok(Logged(resp)), status)
-                            },
-                            Err(reject) => {
-                                let status = reject.status();
-                                (Err(reject), status)
-                            }
-                        };
-                        func(Info {
-                            start,
-                            status,
-                            _marker: PhantomData,
-                        });
-                        result
-                    })
-            })
+        self.wrap(inner)
     }
 }
 
 mod internal {
-    use ::reply::{ReplySealed, Response};
+    use std::marker::PhantomData;
+    use std::time::Instant;
+
+    use futures::{Async, Future, Poll};
+
+    use ::filter::{FilterBase, Filter, One, one};
+    use ::reject::Reject;
+    use ::reply::{Reply, ReplySealed, Response};
+    use super::{Info, Log};
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);
@@ -129,4 +127,74 @@ mod internal {
             self.0
         }
     }
+
+    #[allow(missing_debug_implementations)]
+    #[derive(Clone, Copy)]
+    pub struct WithLog<FN, F> {
+        pub(super) filter: F,
+        pub(super) log: Log<FN>,
+    }
+
+    impl<FN, F> FilterBase for WithLog<FN, F>
+    where
+        FN: Fn(Info) + Clone + Send,
+        F: Filter + Clone + Send,
+        F::Extract: Reply,
+        F::Error: Reject,
+    {
+        type Extract = One<Logged>;
+        type Error = F::Error;
+        type Future = WithLogFuture<FN, F::Future>;
+
+        fn filter(&self) -> Self::Future {
+            let started = Instant::now();
+            WithLogFuture {
+                log: self.log.clone(),
+                future: self.filter.filter(),
+                started,
+            }
+        }
+
+    }
+
+    #[allow(missing_debug_implementations)]
+    pub struct WithLogFuture<FN, F> {
+        log: Log<FN>,
+        future: F,
+        started: Instant,
+    }
+
+    impl<FN, F> Future for WithLogFuture<FN, F>
+    where
+        FN: Fn(Info),
+        F: Future,
+        F::Item: Reply,
+        F::Error: Reject,
+    {
+        type Item = One<Logged>;
+        type Error = F::Error;
+        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+            let (result, status) = match self.future.poll() {
+                Ok(Async::Ready(reply)) => {
+                    let resp = reply.into_response();
+                    let status = resp.status();
+                    (Ok(Async::Ready(one(Logged(resp)))), status)
+                },
+                Ok(Async::NotReady) => return Ok(Async::NotReady),
+                Err(reject) => {
+                    let status = reject.status();
+                    (Err(reject), status)
+                },
+            };
+
+            (self.log.func)(Info {
+                start: self.started,
+                status,
+                _marker: PhantomData,
+            });
+
+            result
+        }
+    }
 }
+
