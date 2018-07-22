@@ -40,7 +40,6 @@ fn main() {
             warp::http::Response::builder()
                 .header("content-type", "text/html; charset=utf-8")
                 .body(INDEX_HTML)
-                .expect("content-type header is valid")
         });
 
     let routes = index.or(chat);

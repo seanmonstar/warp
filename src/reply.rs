@@ -26,7 +26,6 @@
 //!     Response::builder()
 //!         .header("my-custom-header", "some-value")
 //!         .body("and a custom body")
-//!         .expect("custom header name and value are legal headers")
 //! });
 //!
 //! // GET requests return the empty 200, POST return the custom.
@@ -209,6 +208,7 @@ mod sealed {
     use hyper::{Body, Chunk};
 
     use ::generic::{Either, One};
+    use ::reject::Reject;
 
     use super::Reply;
 
@@ -258,6 +258,24 @@ mod sealed {
             let mut res = Response::default();
             *res.status_mut() = self;
             res
+        }
+    }
+
+    impl<T, E> ReplySealed for Result<T, E>
+    where
+        T: Reply,
+        E: ::std::fmt::Debug,
+    {
+        #[inline]
+        fn into_response(self) -> Response {
+            match self {
+                Ok(t) => t.into_response(),
+                Err(e) => {
+                    warn!("reply error: {:?}", e);
+                    ::reject::server_error()
+                        .into_response()
+                }
+            }
         }
     }
 
