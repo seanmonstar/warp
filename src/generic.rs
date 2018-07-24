@@ -1,11 +1,11 @@
 #[derive(Debug)]
-pub struct Product<H, T>(pub(crate) H, pub(crate) T);
+pub struct Product<H, T: HList>(pub(crate) H, pub(crate) T);
 
-pub type One<T> = Product<T, ()>;
+pub type One<T> = (T,);
 
 #[inline]
 pub(crate) fn one<T>(val: T) -> One<T> {
-    Product(val, ())
+    (val,)
 }
 
 #[derive(Debug)]
@@ -15,15 +15,22 @@ pub enum Either<T, U> {
 }
 
 // Converts Product (and ()) into tuples.
-pub trait HList {
-    type Tuple;
+pub trait HList: Sized {
+    type Tuple: Tuple<HList = Self>;
 
     fn flatten(self) -> Self::Tuple;
 }
 
+// Typeclass that tuples can be converted into a Product (or unit ()).
+pub trait Tuple: Sized {
+    type HList: HList<Tuple = Self>;
+
+    fn hlist(self) -> Self::HList;
+}
+
 // Combines Product together.
-pub trait Combine<T> {
-    type Output;
+pub trait Combine<T: HList> {
+    type Output: HList;
 
     fn combine(self, other: T) -> Self::Output;
 }
@@ -36,7 +43,7 @@ pub trait Func<Args> {
 
 // ===== impl Combine =====
 
-impl<T> Combine<T> for () {
+impl<T: HList> Combine<T> for () {
     type Output = T;
     #[inline]
     fn combine(self, other: T) -> Self::Output {
@@ -44,9 +51,10 @@ impl<T> Combine<T> for () {
     }
 }
 
-impl<H, T, U> Combine<U> for Product<H, T>
+impl<H, T: HList, U: HList> Combine<U> for Product<H, T>
 where
     T: Combine<U>,
+    Product<H, <T as Combine<U>>::Output>: HList,
 {
     type Output = Product<H, <T as Combine<U>>::Output>;
 
@@ -64,6 +72,15 @@ impl HList for () {
     }
 }
 
+impl Tuple for () {
+    type HList = ();
+
+    #[inline]
+    fn hlist(self) -> Self::HList {
+        ()
+    }
+}
+
 impl<F, R> Func<()> for F
 where
     F: Fn() -> R,
@@ -77,8 +94,13 @@ where
 }
 
 macro_rules! product {
+    ($H:expr) => { Product($H, ()) };
+    ($H:expr, $($T:expr),*) => { Product($H, product!($($T),*)) };
+}
+
+macro_rules! Product {
     ($H:ty) => { Product<$H, ()> };
-    ($H:ty, $($T:ty),*) => { Product<$H, product!($($T),*)> };
+    ($H:ty, $($T:ty),*) => { Product<$H, Product!($($T),*)> };
 }
 
 macro_rules! product_pat {
@@ -88,7 +110,7 @@ macro_rules! product_pat {
 
 macro_rules! generics {
     ($type:ident) => {
-        impl<$type> HList for product!($type) {
+        impl<$type> HList for Product!($type) {
             type Tuple = ($type,);
 
             #[inline]
@@ -97,17 +119,37 @@ macro_rules! generics {
             }
         }
 
-        impl<F, R, $type> Func<product!($type)> for F
+        impl<$type> Tuple for ($type,) {
+            type HList = Product!($type);
+            #[inline]
+            fn hlist(self) -> Self::HList {
+                product!(self.0)
+            }
+        }
+
+        impl<F, R, $type> Func<Product!($type)> for F
         where
             F: Fn($type) -> R,
         {
             type Output = R;
 
             #[inline]
-            fn call(&self, args: product!($type)) -> Self::Output {
+            fn call(&self, args: Product!($type)) -> Self::Output {
                 (*self)(args.0)
             }
 
+        }
+
+        impl<F, R, $type> Func<($type,)> for F
+        where
+            F: Fn($type) -> R,
+        {
+            type Output = R;
+
+            #[inline]
+            fn call(&self, args: ($type,)) -> Self::Output {
+                (*self)(args.0)
+            }
         }
 
     };
@@ -115,7 +157,7 @@ macro_rules! generics {
     ($type1:ident, $( $type:ident ),*) => {
         generics!($( $type ),*);
 
-        impl<$type1, $( $type ),*> HList for product!($type1, $($type),*) {
+        impl<$type1, $( $type ),*> HList for Product!($type1, $($type),*) {
             type Tuple = ($type1, $( $type ),*);
 
             #[inline]
@@ -126,19 +168,43 @@ macro_rules! generics {
             }
         }
 
-        impl<F, R, $type1, $( $type ),*> Func<product!($type1, $($type),*)> for F
+        impl<$type1, $( $type ),*> Tuple for ($type1, $($type),*) {
+            type HList = Product!($type1, $( $type ),*);
+
+            #[inline]
+            fn hlist(self) -> Self::HList {
+                #[allow(non_snake_case)]
+                let ($type1, $( $type ),*) = self;
+                product!($type1, $( $type ),*)
+            }
+        }
+
+        impl<F, R, $type1, $( $type ),*> Func<Product!($type1, $($type),*)> for F
         where
             F: Fn($type1, $( $type ),*) -> R,
         {
             type Output = R;
 
             #[inline]
-            fn call(&self, args: product!($type1, $($type),*)) -> Self::Output {
+            fn call(&self, args: Product!($type1, $($type),*)) -> Self::Output {
                 #[allow(non_snake_case)]
                 let product_pat!($type1, $( $type ),*) = args;
                 (*self)($type1, $( $type ),*)
             }
+        }
 
+        impl<F, R, $type1, $( $type ),*> Func<($type1, $($type),*)> for F
+        where
+            F: Fn($type1, $( $type ),*) -> R,
+        {
+            type Output = R;
+
+            #[inline]
+            fn call(&self, args: ($type1, $($type),*)) -> Self::Output {
+                #[allow(non_snake_case)]
+                let ($type1, $( $type ),*) = args;
+                (*self)($type1, $( $type ),*)
+            }
         }
     };
 }

@@ -12,10 +12,9 @@ use serde_json;
 use tokio::executor::thread_pool::Builder as ThreadPoolBuilder;
 use tokio::runtime::Builder as RtBuilder;
 
-use ::filter::{Filter, FilterReply};
-use ::generic::HList;
+use ::filter::{Filter};
 use ::reject::Reject;
-use ::reply::{/*Reply,*/ ReplySealed};
+use ::reply::{Reply, ReplySealed};
 use ::route::{self, Route};
 use ::Request;
 
@@ -152,16 +151,15 @@ impl RequestBuilder {
     ///         .is_err()
     /// );
     /// ```
-    pub fn filter<F>(self, f: &F) -> Result<<<F::Extract as HList>::Tuple as OneOrTuple>::Output, F::Error>
+    pub fn filter<F>(self, f: &F) -> Result<<F::Extract as OneOrTuple>::Output, F::Error>
     where
         F: Filter,
         F::Future: Send + 'static,
-        F::Extract: HList + Send + 'static,
+        F::Extract: OneOrTuple + Send + 'static,
         F::Error: Send + 'static,
-        <F::Extract as HList>::Tuple: OneOrTuple,
     {
         self.apply_filter(f)
-            .map(|ex| ex.flatten().one_or_tuple())
+            .map(|ex| ex.one_or_tuple())
     }
 
     /// Returns whether the `Filter` matches this request, or rejects it.
@@ -199,13 +197,15 @@ impl RequestBuilder {
     /// This requires that the supplied `Filter` return a [`Reply`](::reply).
     pub fn reply<F>(self, f: &F) -> Response<Bytes>
     where
-        F: FilterReply,
+        F: Filter + 'static,
+        F::Extract: Reply + Send,
+        F::Error: Reject + Send,
     {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
         let route = Route::new(self.req);
-        let mut fut = route::set(&route, move || f.reply())
+        let mut fut = route::set(&route, move || f.filter())
             .map(|rep| rep.into_response())
             .or_else(|rej| Ok(rej.into_response()))
             .and_then(|res| {

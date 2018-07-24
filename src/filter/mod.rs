@@ -1,5 +1,6 @@
 mod and;
 mod and_then;
+mod boxed;
 mod map;
 mod map_err;
 mod or;
@@ -8,12 +9,12 @@ mod wrap;
 
 use futures::{future, Future, IntoFuture};
 
-pub(crate) use ::generic::{Combine, One, one, Func, HList};
-use ::reject::{CombineRejection, Reject};
-use ::reply::Reply;
+pub(crate) use ::generic::{Combine, One, one, Func, HList, Tuple};
+use ::reject::{CombineRejection, Reject, Rejection};
 use ::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
+pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
@@ -22,8 +23,8 @@ pub(crate) use self::wrap::{WrapSealed, Wrap};
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
 pub trait FilterBase {
-    type Extract;
-    type Error: ::std::fmt::Debug + Send;
+    type Extract: Tuple; // + Send;
+    type Error: Reject;
     type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
 
     fn filter(&self) -> Self::Future;
@@ -70,6 +71,26 @@ pub fn __warp_filter_compilefail_doctest() {
 }
 
 /// Composable request filters.
+///
+/// A `Filter` can optionally extract some data from a request, combine
+/// it with others, mutate it, and return back some value as a reply. The
+/// power of `Filter`s come from being able to isolate small subsets, and then
+/// chain and reuse them in various parts of your app.
+///
+/// # Extracting Tuples
+///
+/// You may notice that several of these filters extract some tuple, often
+/// times a tuple of just 1 item! Why?
+///
+/// If a filter extracts a `(String,)`, that simply means that it
+/// extracts a `String`. If you were to `map` the filter, the argument type
+/// would be exactly that, just a `String`.
+///
+/// What is it? It's just some type magic that allows for automatic combining
+/// and flattening of tuples. Without it, combining two filters together with
+/// `and`, where one extracted `()`, and another `String`, would mean the
+/// `map` would be given a single argument of `((), String,)`, which is just
+/// no fun.
 pub trait Filter: FilterBase {
     /// Composes a new `Filter` that requires both this and the other to filter a request.
     ///
@@ -93,9 +114,9 @@ pub trait Filter: FilterBase {
     fn and<F>(self, other: F) -> And<Self, F>
     where
         Self: Sized,
-        Self::Extract: HList + Combine<F::Extract>,
+        //Self::Extract: HList + Combine<F::Extract>,
+        <Self::Extract as Tuple>::HList: Combine<<F::Extract as Tuple>::HList>,
         F: Filter + Clone,
-        F::Extract: HList,
         F::Error: CombineRejection<Self::Error>,
     {
         And {
@@ -120,6 +141,7 @@ pub trait Filter: FilterBase {
     where
         Self: Sized,
         F: Filter,
+        F::Error: CombineRejection<Self::Error>,
     {
         Or {
             first: self,
@@ -235,6 +257,28 @@ pub trait Filter: FilterBase {
     {
         wrapper.wrap(self)
     }
+
+    /// Boxes this filter into a trait object, making it easier to name the type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// fn named_filter() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
+    ///     warp::any()
+    ///         .map(warp::reply)
+    ///         .boxed()
+    /// }
+    /// ```
+    fn boxed(self) -> BoxedFilter<Self::Extract>
+    where
+        Self: Sized + Send + Sync + 'static,
+        Self::Extract: Send,
+        Rejection: From<Self::Error>,
+    {
+        BoxedFilter::new(self)
+    }
 }
 
 impl<T: FilterBase> Filter for T {}
@@ -243,59 +287,12 @@ pub trait FilterClone: Filter + Clone {}
 
 impl<T: Filter + Clone> FilterClone for T {}
 
-// ===== FilterReply =====
-
-// This is a hack to mimic a trait alias, such that if a user has some
-// `impl Filter` that extracts some `impl Reply`, they can still use the
-// type system to return the type. Without this, it's currently illegal
-// to return an `impl Filter<Extract = impl Reply>`.
-//
-// So, instead, they can write `impl FilterReply`.
-//
-// The associated types here technically leak, (so, you could technically
-// type `impl FilterReply<__DontNameMeReply = StatusCode>`, but hopefully
-// the name will tell people to expect to be broken if they do.
-pub trait FilterReplyBase: Filter {
-    type __DontNameMeReply: Reply + Send;
-    type __DontNameMeReject: Reject + Send;
-    type __DontNameMeFut: Future<Item = Self::__DontNameMeReply, Error = Self::__DontNameMeReject> + Send + 'static;
-
-    fn reply(&self) -> Self::__DontNameMeFut;
-}
-
-impl<T> FilterReplyBase for T
-where
-    T: Filter,
-    T::Extract: Reply + Send,
-    T::Error: Reject + Send,
-    T::Future: 'static,
-{
-    type __DontNameMeReply = T::Extract;
-    type __DontNameMeReject = T::Error;
-    type __DontNameMeFut = T::Future;
-
-    fn reply(&self) -> Self::__DontNameMeFut {
-        self.filter()
-    }
-}
-
-/// A form of "trait alias" of `Filter`.
-///
-/// Specifically, for any type that implements `Filter`, and extracts from
-/// type that implements `Reply`, and an error that implements `Reject`,
-/// automatically implements `FilterReply`.
-///
-/// The usefulness of this alias is to allow applications to construct filters
-/// in some function, and return them, before starting a server that uses them.
-/// These types can then be used in unit tests without having to start the
-/// server.
-pub trait FilterReply: FilterReplyBase {}
-
-impl<T: FilterReplyBase> FilterReply for T {}
-
-
 fn _assert_object_safe() {
-    fn _assert(_f: &Filter<Extract=(), Error=(), Future=future::FutureResult<(), ()>>) {}
+    fn _assert(_f: &Filter<
+        Extract=(),
+        Error=(),
+        Future=future::FutureResult<(), ()>
+    >) {}
 }
 
 // ===== FilterFn =====
@@ -304,7 +301,8 @@ pub(crate) fn filter_fn<F, U>(func: F) -> FilterFn<F>
 where
     F: Fn(&mut Route) -> U,
     U: IntoFuture,
-    U::Item: HList,
+    U::Item: Tuple,
+    U::Error: Reject,
 {
     FilterFn {
         func,
@@ -312,16 +310,21 @@ where
 }
 
 pub(crate) fn filter_fn_one<F, U>(func: F)
-    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> One<U::Item>> + Copy>
+    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> (U::Item,)> + Copy>
 where
     F: Fn(&mut Route) -> U + Copy,
     U: IntoFuture,
+    U::Error: Reject,
 {
     filter_fn(move |route| {
         func(route)
             .into_future()
-            .map(one as _)
+            .map(tup_one as _)
     })
+}
+
+fn tup_one<T>(item: T) -> (T,) {
+    (item,)
 }
 
 #[derive(Copy, Clone)]
@@ -336,8 +339,8 @@ where
     F: Fn(&mut Route) -> U,
     U: IntoFuture,
     U::Future: Send,
-    U::Item: HList,
-    U::Error: ::std::fmt::Debug + Send,
+    U::Item: Tuple,
+    U::Error: Reject,
 {
     type Extract = U::Item;
     type Error = U::Error;

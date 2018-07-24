@@ -215,7 +215,7 @@ mod sealed {
     pub type Response = ::http::Response<Body>;
 
     // A trait describing the various things that a Warp server can turn into a `Response`.
-    pub trait ReplySealed {
+    pub trait ReplySealed: Send {
         fn into_response(self) -> Response;
     }
 
@@ -242,7 +242,7 @@ mod sealed {
 
     // For now, only allow `Into<Chunk>` types, since we may want to
     // change how streaming bodies work, instead of commiting to hyper::Body
-    impl<T> ReplySealed for ::http::Response<T>
+    impl<T: Send> ReplySealed for ::http::Response<T>
     where
         Chunk: From<T>,
     {
@@ -263,8 +263,8 @@ mod sealed {
 
     impl<T, E> ReplySealed for Result<T, E>
     where
-        T: Reply,
-        E: ::std::fmt::Debug,
+        T: Reply + Send,
+        E: ::std::fmt::Debug + Send,
     {
         #[inline]
         fn into_response(self) -> Response {

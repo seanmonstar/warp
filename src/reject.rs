@@ -148,7 +148,7 @@ mod sealed {
     use ::never::Never;
     use super::Rejection;
 
-    pub trait Reject {
+    pub trait Reject: ::std::fmt::Debug + Send {
         fn status(&self) -> ::http::StatusCode;
         fn into_response(self) -> ::reply::Response;
     }
@@ -158,7 +158,7 @@ mod sealed {
     }
 
     pub trait CombineRejection<E>: Send + Sized {
-        type Rejection: ::std::fmt::Debug + From<Self> + From<E> + Send;
+        type Rejection: Reject + From<Self> + From<E>;
 
         fn combine(self, other: E) -> Self::Rejection;
         fn cancel(self, other: E) -> Self::Rejection;

@@ -5,7 +5,7 @@ use futures::{Async, Future, Poll};
 use ::generic::Either;
 use ::reject::CombineRejection;
 use ::route;
-use super::{FilterBase, Filter, One, one};
+use super::{FilterBase, Filter};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
@@ -19,12 +19,10 @@ where
     U: Filter + Clone + Send,
     U::Error: CombineRejection<T::Error>,
 {
-    type Extract = One<
-        Either<
-            T::Extract,
-            U::Extract,
-        >
-    >;
+    type Extract = (Either<
+        T::Extract,
+        U::Extract,
+    >,);
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
     type Future = EitherFuture<T, U>;
 
@@ -65,20 +63,20 @@ where
     U: Filter,
     U::Error: CombineRejection<T::Error>,
 {
-    type Item = One<Either<T::Extract, U::Extract>>;
+    type Item = (Either<T::Extract, U::Extract>,);
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let err1 = match self.state {
             State::First(ref mut first, _) => match first.poll() {
                 Ok(Async::Ready(ex1)) => {
-                    return Ok(Async::Ready(one(Either::A(ex1))));
+                    return Ok(Async::Ready((Either::A(ex1),)));
                 },
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(e) => e,
             },
             State::Second(ref mut err1, ref mut second) => return match second.poll() {
-                Ok(Async::Ready(ex2)) => Ok(Async::Ready(one(Either::B(ex2)))),
+                Ok(Async::Ready(ex2)) => Ok(Async::Ready((Either::B(ex2),))),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
 
                 Err(e) => {
@@ -101,7 +99,7 @@ where
 
         match second.poll() {
             Ok(Async::Ready(ex2)) => {
-                Ok(Async::Ready(one(Either::B(ex2))))
+                Ok(Async::Ready((Either::B(ex2),)))
             },
             Ok(Async::NotReady) => {
                 self.state = State::Second(Some(err1), second);

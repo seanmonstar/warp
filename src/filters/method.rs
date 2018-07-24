@@ -8,7 +8,7 @@
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
 
-use ::filter::{And, Filter, filter_fn, filter_fn_one, HList, MapErr, One};
+use ::filter::{And, Filter, filter_fn, filter_fn_one, MapErr, One};
 use ::never::Never;
 use ::reject::{CombineRejection, Rejection};
 
@@ -28,7 +28,6 @@ pub fn get<F>(filter: F) -> And<
 >
 where
     F: Filter + Clone,
-    F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
@@ -51,7 +50,6 @@ pub fn post<F>(filter: F) -> And<
 >
 where
     F: Filter + Clone,
-    F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
@@ -74,7 +72,6 @@ pub fn put<F>(filter: F) -> And<
 >
 where
     F: Filter + Clone,
-    F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
@@ -98,7 +95,6 @@ pub fn delete<F>(filter: F) -> And<
 >
 where
     F: Filter + Clone,
-    F::Extract: HList,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {

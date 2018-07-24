@@ -3,7 +3,7 @@ use std::mem;
 use futures::{Async, Future, Poll};
 
 use ::reject::CombineRejection;
-use super::{Combine, FilterBase, Filter};
+use super::{Combine, FilterBase, Filter, HList, Tuple};
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {
@@ -15,10 +15,12 @@ impl<T, U> FilterBase for And<T, U>
 where
     T: Filter,
     U: Filter + Clone + Send,
-    T::Extract: Combine<U::Extract> + Send,
+    T::Extract: Send,
+    <T::Extract as Tuple>::HList: Combine<<U::Extract as Tuple>::HList> + Send,
+    <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple: Send,
     U::Error: CombineRejection<T::Error>,
 {
-    type Extract = <T::Extract as Combine<U::Extract>>::Output;
+    type Extract = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
     type Future = AndFuture<T, U>;
 
@@ -44,10 +46,12 @@ impl<T, U> Future for AndFuture<T, U>
 where
     T: Filter,
     U: Filter,
-    T::Extract: Combine<U::Extract>,
+    //T::Extract: Combine<U::Extract>,
+    <T::Extract as Tuple>::HList: Combine<<U::Extract as Tuple>::HList> + Send,
     U::Error: CombineRejection<T::Error>,
 {
-    type Item = <T::Extract as Combine<U::Extract>>::Output;
+    //type Item = <T::Extract as Combine<U::Extract>>::Output;
+    type Item = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
     type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -57,7 +61,7 @@ where
             },
             State::Second(ref mut ex1, ref mut second) => {
                 let ex2 = try_ready!(second.poll());
-                let ex3 = ex1.take().unwrap().combine(ex2);
+                let ex3 = ex1.take().unwrap().hlist().combine(ex2.hlist()).flatten();
                 return Ok(Async::Ready(ex3));
             },
             State::Done => panic!("polled after complete"),
@@ -70,7 +74,7 @@ where
 
         match second.poll()? {
             Async::Ready(ex2) => {
-                Ok(Async::Ready(ex1.combine(ex2)))
+                Ok(Async::Ready(ex1.hlist().combine(ex2.hlist()).flatten()))
             },
             Async::NotReady => {
                 self.state = State::Second(Some(ex1), second);

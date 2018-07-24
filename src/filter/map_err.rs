@@ -1,5 +1,6 @@
 use futures::{Future, Poll};
 
+use ::reject::Reject;
 use super::{FilterBase, Filter};
 
 #[derive(Clone, Copy, Debug)]
@@ -12,7 +13,7 @@ impl<T, F, E> FilterBase for MapErr<T, F>
 where
     T: Filter,
     F: Fn(T::Error) -> E + Clone + Send,
-    E: ::std::fmt::Debug + Send,
+    E: Reject,
 {
     type Extract = T::Extract;
     type Error = E;
@@ -36,7 +37,6 @@ impl<T, F, E> Future for MapErrFuture<T, F>
 where
     T: Filter,
     F: Fn(T::Error) -> E,
-    E: ::std::fmt::Debug + Send,
 {
     type Item = T::Extract;
     type Error = E;

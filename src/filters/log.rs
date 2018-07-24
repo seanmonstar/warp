@@ -5,12 +5,12 @@ use std::time::Instant;
 
 use http::StatusCode;
 
-use ::filter::{Filter, FilterClone, One, WrapSealed};
+use ::filter::{Filter, WrapSealed};
 use ::reject::Reject;
 use ::reply::Reply;
 use ::route;
 
-use self::internal::{Logged, WithLog};
+use self::internal::{WithLog};
 
 /// Create a wrapping filter with the specified `name` as the `target`.
 ///
@@ -88,32 +88,13 @@ where
     }
 }
 
-impl<FN> Log<FN>
-where
-    FN: Fn(Info) + Clone + Send,
-{
-    #[doc(hidden)]
-    #[deprecated(note = "use Filter::with(log) instead")]
-    pub fn decorate<F>(&self, inner: F) -> impl FilterClone<
-        Extract=One<Logged>,
-        Error=F::Error
-    >
-    where
-        F: Filter + Clone + Send,
-        F::Extract: Reply,
-        F::Error: Reject,
-    {
-        self.wrap(inner)
-    }
-}
-
 mod internal {
     use std::marker::PhantomData;
     use std::time::Instant;
 
     use futures::{Async, Future, Poll};
 
-    use ::filter::{FilterBase, Filter, One, one};
+    use ::filter::{FilterBase, Filter};
     use ::reject::Reject;
     use ::reply::{Reply, ReplySealed, Response};
     use super::{Info, Log};
@@ -142,7 +123,7 @@ mod internal {
         F::Extract: Reply,
         F::Error: Reject,
     {
-        type Extract = One<Logged>;
+        type Extract = (Logged,);
         type Error = F::Error;
         type Future = WithLogFuture<FN, F::Future>;
 
@@ -171,14 +152,14 @@ mod internal {
         F::Item: Reply,
         F::Error: Reject,
     {
-        type Item = One<Logged>;
+        type Item = (Logged,);
         type Error = F::Error;
         fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
             let (result, status) = match self.future.poll() {
                 Ok(Async::Ready(reply)) => {
                     let resp = reply.into_response();
                     let status = resp.status();
-                    (Ok(Async::Ready(one(Logged(resp)))), status)
+                    (Ok(Async::Ready((Logged(resp),))), status)
                 },
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(reject) => {

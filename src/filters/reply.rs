@@ -22,7 +22,7 @@
 use http::header::{HeaderName, HeaderValue};
 use http::HttpTryFrom;
 
-use ::filter::{Filter, Map, One, WrapSealed};
+use ::filter::{Filter, Map, WrapSealed};
 use ::reply::Reply;
 use self::sealed::{WithHeader_, WithDefaultHeader_};
 
@@ -84,21 +84,9 @@ pub struct WithHeader {
     value: HeaderValue,
 }
 
-impl WithHeader {
-    #[doc(hidden)]
-    #[deprecated(note="use Filter::with(decorator) instead")]
-    pub fn decorate<F, R>(&self, inner: F) -> Map<F, WithHeader_>
-    where
-        F: Filter<Extract=One<R>>,
-        R: Reply,
-    {
-        inner.with(self)
-    }
-}
-
 impl<F, R> WrapSealed<F> for WithHeader
 where
-    F: Filter<Extract=One<R>>,
+    F: Filter<Extract=(R,)>,
     R: Reply,
 {
     type Wrapped = Map<F, WithHeader_>;
@@ -119,21 +107,9 @@ pub struct WithDefaultHeader {
     value: HeaderValue,
 }
 
-impl WithDefaultHeader {
-    #[doc(hidden)]
-    #[deprecated(note="use Filter::with(decorator) instead")]
-    pub fn decorate<F, R>(&self, inner: F) -> Map<F, WithDefaultHeader_>
-    where
-        F: Filter<Extract=One<R>>,
-        R: Reply,
-    {
-        inner.with(self)
-    }
-}
-
 impl<F, R> WrapSealed<F> for WithDefaultHeader
 where
-    F: Filter<Extract=One<R>>,
+    F: Filter<Extract=(R,)>,
     R: Reply,
 {
     type Wrapped = Map<F, WithDefaultHeader_>;

@@ -12,13 +12,13 @@ use serde_json;
 use serde_urlencoded;
 
 use ::never::Never;
-use ::filter::{Filter, filter_fn, filter_fn_one, One};
+use ::filter::{Filter, filter_fn, filter_fn_one};
 use ::reject::{self, Rejection};
 
 /// Extracts the `Body` Stream from the route.
 ///
 /// Does not consume any of it.
-pub(crate) fn body() -> impl Filter<Extract=One<Body>, Error=Never> + Copy {
+pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Never> + Copy {
     filter_fn_one(|route| {
         Ok::<_, Never>(route.take_body())
     })
@@ -26,7 +26,7 @@ pub(crate) fn body() -> impl Filter<Extract=One<Body>, Error=Never> + Copy {
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
-pub fn concat() -> impl Filter<Extract=One<FullBody>, Error=Rejection> + Copy {
+pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
     filter_fn_one(move |route| {
         let body = route.take_body();
         Concat {
@@ -57,7 +57,7 @@ fn is_content_type(ct: &'static str) -> impl Filter<Extract=(), Error=Rejection>
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a JSON-decoded body.
-pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
     is_content_type("application/json")
         .and(concat())
         .and_then(|buf: FullBody| {
@@ -76,7 +76,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=R
 ///
 /// This filter is for the simpler `application/x-www-form-urlencoded` format,
 /// not `multipart/form-data`.
-pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
     is_content_type("application/x-www-form-urlencoded")
         .and(concat())
         .and_then(|buf: FullBody| {

@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use ::filter::{Filter, filter_fn, HList, One, one};
+use ::filter::{Filter, filter_fn, Tuple, One, one};
 use ::reject::{self, Rejection};
 
 
@@ -71,7 +71,7 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection
 fn segment<F, U>(func: F) -> impl Filter<Extract=U, Error=Rejection> + Copy
 where
     F: Fn(&str) -> Result<U, Rejection> + Copy,
-    U: HList + Send,
+    U: Tuple + Send,
 {
     filter_fn(move |route| {
         let (u, idx) = {

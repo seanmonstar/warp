@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{FilterBase, Filter, Func, One, one};
+use super::{FilterBase, Filter, Func};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
@@ -13,7 +13,7 @@ where
     T: Filter,
     F: Func<T::Extract> + Clone + Send,
 {
-    type Extract = One<F::Output>;
+    type Extract = (F::Output,);
     type Error = T::Error;
     type Future = MapFuture<T, F>;
     #[inline]
@@ -36,13 +36,13 @@ where
     T: Filter,
     F: Func<T::Extract>,
 {
-    type Item = One<F::Output>;
+    type Item = (F::Output,);
     type Error = T::Error;
 
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex = try_ready!(self.extract.poll());
-        let ex = one(self.callback.call(ex));
+        let ex = (self.callback.call(ex),);
         Ok(Async::Ready(ex))
     }
 }

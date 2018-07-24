@@ -100,7 +100,7 @@ pub mod test;
 
 pub use self::blocking::blocking;
 pub use self::error::Error;
-pub use self::filter::Filter;
+pub use self::filter::{Filter};
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
