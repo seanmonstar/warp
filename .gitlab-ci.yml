@@ -1,4 +1,4 @@
-image: 'rustlang/rust:nightly'
+image: 'rust:latest'
 
 stages:
     - doc

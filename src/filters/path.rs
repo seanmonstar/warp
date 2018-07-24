@@ -91,7 +91,7 @@ where
 /// Any number of either type identifiers or string expressions can be passed,
 /// each separated by a forward slash (`/`). Strings will be used to match
 /// path segments exactly, and type identifiers are used just like
-/// [`param`](warp::path::param) filters.
+/// [`param`](filters::path::param) filters.
 ///
 /// # Example
 ///

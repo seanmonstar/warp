@@ -8,7 +8,7 @@ use ::filter::{FilterBase, Filter};
 /// A filter that matches any route.
 ///
 /// This can be a useful building block to build new filters from,
-/// since [`Filter`](warp::Filter) is otherwise a sealed trait.
+/// since [`Filter`](::Filter) is otherwise a sealed trait.
 ///
 /// # Example
 ///

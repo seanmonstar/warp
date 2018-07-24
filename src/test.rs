@@ -1,6 +1,6 @@
 //! Test utilities to test your filters.
 //!
-//! [`Filter`](::Filter)s can be easily tested without starting up an HTTP
+//! [`Filter`](Filter)s can be easily tested without starting up an HTTP
 //! server, by making use of the [`RequestBuilder`](RequestBuilder) in this
 //! module.
 
@@ -194,7 +194,7 @@ impl RequestBuilder {
 
     /// Returns `Response` provided by applying the `Filter`.
     ///
-    /// This requires that the supplied `Filter` return a [`Reply`](::reply).
+    /// This requires that the supplied `Filter` return a [`Reply`](Reply).
     pub fn reply<F>(self, f: &F) -> Response<Bytes>
     where
         F: Filter + 'static,

@@ -41,7 +41,7 @@
 //! - A path parameter of a `String`
 //! - The `user-agent` header parsed as a `String`
 //!
-//! These specific filters will [`reject`](reject) requests that don't match
+//! These specific filters will [`reject`](mod@reject) requests that don't match
 //! their requirements.
 //!
 //! This ends up matching requests like:

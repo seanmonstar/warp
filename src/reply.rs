@@ -2,7 +2,7 @@
 //!
 //! A [`Reply`](Reply) is a type that can be converted into an HTTP
 //! response to be sent to the client. These are typically the successful
-//! counterpart to a [rejection](::reject).
+//! counterpart to a [rejection](mod@reject).
 //!
 //! The functions in this module are helpers for quickly creating a reply.
 //! Besides them, you can return a type that implement [`Reply`](Reply). This
