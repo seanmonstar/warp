@@ -265,9 +265,20 @@ pub trait Filter: FilterBase {
     /// ```
     /// use warp::Filter;
     ///
-    /// fn named_filter() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
+    /// fn impl_reply() -> warp::filters::BoxedFilter<(impl warp::Reply,)> {
     ///     warp::any()
     ///         .map(warp::reply)
+    ///         .boxed()
+    /// }
+    ///
+    /// fn named_i32() -> warp::filters::BoxedFilter<(i32,)> {
+    ///     warp::path::param::<i32>()
+    ///         .boxed()
+    /// }
+    ///
+    /// fn named_and() -> warp::filters::BoxedFilter<(i32, String)> {
+    ///     warp::path::param::<i32>()
+    ///         .and(warp::header::<String>("host"))
     ///         .boxed()
     /// }
     /// ```

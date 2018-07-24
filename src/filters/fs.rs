@@ -20,6 +20,8 @@ use ::reply::{ReplySealed, Response};
 /// Does not filter out based on any information of the request. Always serves
 /// the file at the exact `path` provided.
 ///
+/// For serving a directory, see [dir].
+///
 /// # Example
 ///
 /// ```
