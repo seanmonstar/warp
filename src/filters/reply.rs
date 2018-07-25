@@ -28,6 +28,12 @@ use self::sealed::{WithHeader_, WithDefaultHeader_};
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply.
 ///
+/// # Note
+///
+/// This **only** adds a header if the underlying filter is successful, and
+/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// header is not added.
+///
 /// # Example
 ///
 /// ```
@@ -54,6 +60,12 @@ where
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply, if they
 /// aren't already set.
+///
+/// # Note
+///
+/// This **only** adds a header if the underlying filter is successful, and
+/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// header is not added.
 ///
 /// # Example
 ///
