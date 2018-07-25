@@ -261,10 +261,9 @@ mod sealed {
         }
     }
 
-    impl<T, E> ReplySealed for Result<T, E>
+    impl<T> ReplySealed for Result<T, ::http::Error>
     where
         T: Reply + Send,
-        E: ::std::fmt::Debug + Send,
     {
         #[inline]
         fn into_response(self) -> Response {
