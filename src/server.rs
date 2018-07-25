@@ -35,10 +35,26 @@ where
     <<S::Service as WarpService>::Reply as Future>::Error: Reject + Send,
 {
     /// Run this `Server` forever on the current thread.
-    pub fn run<A>(self, addr: A)
-    where
-        A: Into<SocketAddr>,
-    {
+    pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
+        let (addr, fut) = self.bind_ephemeral(addr);
+
+        info!("warp drive engaged: listening on {}", addr);
+
+        rt::run(fut);
+    }
+
+    /// Bind to a socket address, returning a `Future` that can be
+    /// executed on any runtime.
+    pub fn bind(self, addr: impl Into<SocketAddr> + 'static) -> impl Future<Item=(), Error=()> + 'static {
+        let (_, fut) = self.bind_ephemeral(addr);
+        fut
+    }
+
+    /// Bind to a possibly ephemeral socket address.
+    ///
+    /// Returns the bound address and a `Future` that can be executed on
+    /// any runtime.
+    pub fn bind_ephemeral(self, addr: impl Into<SocketAddr> + 'static) -> (SocketAddr, impl Future<Item=(), Error=()> + 'static) {
         let inner = Arc::new(self.service.into_warp_service());
         let service = move || {
             let inner = inner.clone();
@@ -51,9 +67,8 @@ where
         let srv = HyperServer::bind(&addr.into())
             .http1_pipeline_flush(self.pipeline)
             .serve(service);
-        info!("warp drive engaged: listening on {}", srv.local_addr());
-
-        rt::run(srv.map_err(|e| error!("server error: {}", e)));
+        let addr = srv.local_addr();
+        (addr, srv.map_err(|e| error!("server error: {}", e)))
     }
 
     // Generally shouldn't be used, as it can slow down non-pipelined responses.
@@ -79,6 +94,7 @@ pub trait WarpService {
 
 // Optimizes better than using Future::then, since it doesn't
 // have to return an IntoFuture.
+#[derive(Debug)]
 struct ReplyFuture<F> {
     inner: F,
 }
