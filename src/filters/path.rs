@@ -1,4 +1,129 @@
 //! Path Filters
+//!
+//! The filters here work on the "path" of requests.
+//!
+//! - [`path`](path) matches a specific segment, like `/foo`.
+//! - [`param`](param) tries to parse a segment into a type, like `/:u16`.
+//! - [`index`](index) matches when the path end is found.
+//!
+//! # Routing
+//!
+//! Routing in warp is simple yet powerful.
+//!
+//! First up, matching a single segment:
+//!
+//! ```
+//! use warp::Filter;
+//!
+//! // GET /hi
+//! let hi = warp::path("hi").map(|| {
+//!     "Hello, World!"
+//! });
+//! ```
+//!
+//! How about multiple segments? It's easiest with the `path!` macro:
+//!
+//! ```
+//! # #[macro_use] extern crate warp; fn main() {
+//! # use warp::Filter;
+//! // GET /hello/from/warp
+//! let hello_from_warp = path!("hello" / "from" / "warp").map(|| {
+//!     "Hello from warp!"
+//! });
+//! # }
+//! ```
+//!
+//! Neat! But do I handle **parameters** in paths?
+//!
+//! ```
+//! # #[macro_use] extern crate warp; fn main() {
+//! # use warp::Filter;
+//! // GET /sum/:u32/:u32
+//! let sum = path!("sum" / u32 / u32).map(|a, b| {
+//!     format!("{} + {} = {}", a, b, a + b)
+//! });
+//! # }
+//! ```
+//!
+//! In fact, any type that implements `FromStr` can be used, in any order:
+//!
+//! ```
+//! # #[macro_use] extern crate warp; fn main() {
+//! # use warp::Filter;
+//! // GET /:u16/times/:u16
+//! let times = path!(u16 / "times" / u16).map(|a, b| {
+//!     format!("{} times {} = {}", a, b, a * b)
+//! });
+//! # }
+//! ```
+//!
+//! Oh shoot, those math routes should be **mounted** at a different path,
+//! is that possible? Yep!
+//!
+//! ```
+//! # use warp::Filter;
+//! # let sum = warp::any().map(warp::reply);
+//! # let times = sum.clone();
+//! // GET /math/sum/:u32/:u32
+//! // GET /math/:u16/times/:u16
+//! let math = warp::path("math");
+//! let math_sum = math.and(sum);
+//! let math_times = math.and(times);
+//! ```
+//!
+//! What! `and`? What's that do?
+//!
+//! It combines the filters in a sort of "this and then that" order. In fact,
+//! it's exactly what the `path!` macro has been doing internally.
+//!
+//! ```
+//! # use warp::Filter;
+//! // GET /bye/:string
+//! let bye = warp::path("bye")
+//!     .and(warp::path::param())
+//!     .map(|name: String| {
+//!         format!("Good bye, {}!", name)
+//!     });
+//! ```
+//!
+//! Ah, so, can filters do things besides `and`?
+//!
+//! Why, yes they can! They can also `or`! As you might expect, `or` creates a
+//! "this or else that" chain of filters. If the first doesn't succeed, then
+//! it tries the other.
+//!
+//! So, those `math` routes could have been **mounted** all as one, with `or`.
+//!
+//!
+//! ```
+//! # use warp::Filter;
+//! # let sum = warp::any().map(warp::reply);
+//! # let times = sum.clone();
+//! // GET /math/sum/:u32/:u32
+//! // GET /math/:u16/times/:u16
+//! let math = warp::path("math")
+//!     .and(sum.or(times));
+//! ```
+//!
+//! It turns out, using `or` is how you combine everything together into a
+//! single API.
+//!
+//! ```
+//! # use warp::Filter;
+//! # let hi = warp::any().map(warp::reply);
+//! # let hello_from_warp = hi.clone();
+//! # let bye = hi.clone();
+//! # let math = hi.clone();
+//! // GET /hi
+//! // GET /hello/from/warp
+//! // GET /bye/:string
+//! // GET /math/sum/:u32/:u32
+//! // GET /math/:u16/times/:u16
+//! let routes = hi
+//!     .or(hello_from_warp)
+//!     .or(bye)
+//!     .or(math);
+//! ```
 
 use std::str::FromStr;
 
