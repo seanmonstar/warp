@@ -18,7 +18,10 @@ use ::reply::{ReplySealed, Response};
 /// Creates a `Filter` that serves a File at the `path`.
 ///
 /// Does not filter out based on any information of the request. Always serves
-/// the file at the exact `path` provided.
+/// the file at the exact `path` provided. Thus, this can be used to serve a
+/// single file with `GET`s, but could also be used in combination with other
+/// filters, such as after validating in `POST` request, wanting to return a
+/// specific file as the body.
 ///
 /// For serving a directory, see [dir].
 ///
@@ -43,7 +46,9 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// Creates a `Filter` that serves a directory at the base `path` joined
 /// by the request path.
 ///
-/// This can be used to serve "static files" from a directory.
+/// This can be used to serve "static files" from a directory. By far the most
+/// common pattern of serving static files is for `GET` requests, so this
+/// filter automatically includes a `GET` check.
 ///
 /// # Example
 ///
@@ -62,7 +67,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// ```
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
-    filter_fn(move |route| {
+    ::get(filter_fn(move |route| {
         let mut buf = PathBuf::from(base.as_ref());
 
         //TODO: this could probably be factored out into a `path::tail()`
@@ -92,7 +97,7 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
             .map(|resp| one(File {
                 resp,
             })))
-    })
+    }))
 }
 
 /// A file response.
