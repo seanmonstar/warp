@@ -12,16 +12,48 @@ use serde_json;
 use serde_urlencoded;
 
 use ::never::Never;
-use ::filter::{Filter, filter_fn, filter_fn_one};
+use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
 use ::reject::{self, Rejection};
 
 /// Extracts the `Body` Stream from the route.
 ///
 /// Does not consume any of it.
+// XXX: Before making public, error should be changeed to Rejection, as it's
+// likely that a server error rejection should be returned if trying to take
+// the body more than once.
 pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Never> + Copy {
     filter_fn_one(|route| {
         Ok::<_, Never>(route.take_body())
     })
+}
+
+/// Require a `content-length` header to have a value no greater than some limit.
+///
+/// Rejects if `content-length` header is missing, is invalid, or has a number
+/// larger than the limit provided.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Limit the upload to 4kb...
+/// let upload = warp::body::content_length_limit(4096)
+///     .and(warp::body::concat());
+/// ```
+pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    ::filters::header::header("content-length")
+        //TODO: .map_err( entity length required )
+        .and_then(move |length: u64| {
+            if length <= limit {
+                Ok(())
+            } else {
+                debug!("content-length: {} is over limit {}", length, limit);
+                // TODO should be payload too large
+                Err(reject::bad_request())
+            }
+        })
+        .unit()
 }
 
 /// Returns a `Filter` that matches any request and extracts a
