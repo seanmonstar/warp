@@ -57,6 +57,18 @@ pub(crate) fn method_not_allowed() -> Rejection {
     Reason::METHOD_NOT_ALLOWED.into()
 }
 
+// 411 Length Required
+#[inline]
+pub(crate) fn length_required() -> Rejection {
+    Reason::LENGTH_REQUIRED.into()
+}
+
+// 413 Payload Too Large
+#[inline]
+pub(crate) fn payload_too_large() -> Rejection {
+    Reason::PAYLOAD_TOO_LARGE.into()
+}
+
 // 415 Unsupported Media Type
 //
 // Used by the body filters if the request payload content-type doesn't match
@@ -82,10 +94,12 @@ pub struct Rejection {
 bitflags! {
     struct Reason: u8 {
         // NOT_FOUND = 0
-        const BAD_REQUEST = 0b001;
-        const METHOD_NOT_ALLOWED = 0b010;
-        const UNSUPPORTED_MEDIA_TYPE = 0b100;
-        const SERVER_ERROR = 0b1000;
+        const BAD_REQUEST            = 0b00000001;
+        const METHOD_NOT_ALLOWED     = 0b00000010;
+        const LENGTH_REQUIRED        = 0b00000100;
+        const PAYLOAD_TOO_LARGE      = 0b00001000;
+        const UNSUPPORTED_MEDIA_TYPE = 0b00010000;
+        const SERVER_ERROR           = 0b10000000;
     }
 }
 
@@ -132,6 +146,10 @@ impl Reject for Rejection {
             http::StatusCode::METHOD_NOT_ALLOWED
         } else if self.reason.contains(Reason::UNSUPPORTED_MEDIA_TYPE) {
             http::StatusCode::UNSUPPORTED_MEDIA_TYPE
+        } else if self.reason.contains(Reason::LENGTH_REQUIRED) {
+            http::StatusCode::LENGTH_REQUIRED
+        } else if self.reason.contains(Reason::PAYLOAD_TOO_LARGE) {
+            http::StatusCode::PAYLOAD_TOO_LARGE
         } else if self.reason.contains(Reason::BAD_REQUEST) {
             http::StatusCode::BAD_REQUEST
         } else {

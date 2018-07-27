@@ -43,14 +43,16 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Never> + Copy {
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     ::filters::header::header("content-length")
-        //TODO: .map_err( entity length required )
+        .map_err(|_| {
+            debug!("content-length missing");
+            reject::length_required()
+        })
         .and_then(move |length: u64| {
             if length <= limit {
                 Ok(())
             } else {
                 debug!("content-length: {} is over limit {}", length, limit);
-                // TODO should be payload too large
-                Err(reject::bad_request())
+                Err(reject::payload_too_large())
             }
         })
         .unit()

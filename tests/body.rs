@@ -23,6 +23,28 @@ fn matches() {
 }
 
 #[test]
+fn content_length_limit() {
+    let _ = pretty_env_logger::try_init();
+
+    let limit = warp::body::content_length_limit(30)
+        .map(warp::reply);
+
+    let res = warp::test::request()
+        .reply(&limit);
+    assert_eq!(res.status(), 411, "missing content-length returns 411");
+
+    let res = warp::test::request()
+        .header("content-length", "999")
+        .reply(&limit);
+    assert_eq!(res.status(), 413, "over limit returns 413");
+
+    let res = warp::test::request()
+        .header("content-length", "2")
+        .reply(&limit);
+    assert_eq!(res.status(), 200, "under limit succeeds");
+}
+
+#[test]
 fn json() {
     let _ = pretty_env_logger::try_init();
 
