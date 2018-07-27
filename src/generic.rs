@@ -93,6 +93,18 @@ where
     }
 }
 
+impl<F, R> Func<::Rejection> for F
+where
+    F: Fn(::Rejection) -> R,
+{
+    type Output = R;
+
+    #[inline]
+    fn call(&self, arg: ::Rejection) -> Self::Output {
+        (*self)(arg)
+    }
+}
+
 macro_rules! product {
     ($H:expr) => { Product($H, ()) };
     ($H:expr, $($T:expr),*) => { Product($H, product!($($T),*)) };

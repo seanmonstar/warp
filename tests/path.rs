@@ -108,6 +108,22 @@ fn or() {
 }
 
 #[test]
+fn or_else() {
+    let _ = pretty_env_logger::try_init();
+
+    let foo = warp::path("foo");
+    let bar = warp::path("bar");
+
+    let p = foo.and(bar.or_else(|_| Ok(())));
+
+    // /foo/bar
+    let req = warp::test::request()
+        .path("/foo/nope");
+
+    assert!(req.matches(&p));
+}
+
+#[test]
 fn path_macro() {
     let _ = pretty_env_logger::try_init();
 

@@ -4,6 +4,7 @@ mod boxed;
 mod map;
 mod map_err;
 mod or;
+mod or_else;
 mod service;
 mod wrap;
 
@@ -18,6 +19,7 @@ pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
+use self::or_else::OrElse;
 pub(crate) use self::wrap::{WrapSealed, Wrap};
 
 // A crate-private base trait, allowing the actual `filter` method to change
@@ -229,6 +231,23 @@ pub trait Filter: FilterBase {
         <F::Output as IntoFuture>::Future: Send,
     {
         AndThen {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Compose this `Filter` with a function receiving an error.
+    ///
+    /// The function should return some `IntoFuture` type yielding the
+    /// same item and error types.
+    fn or_else<F>(self, fun: F) -> OrElse<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Error>,
+        F::Output: IntoFuture<Item=Self::Extract, Error=Self::Error> + Send,
+        <F::Output as IntoFuture>::Future: Send,
+    {
+        OrElse {
             filter: self,
             callback: fun,
         }
