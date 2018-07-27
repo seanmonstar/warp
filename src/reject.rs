@@ -89,6 +89,13 @@ bitflags! {
     }
 }
 
+impl Rejection {
+    /// Return the HTTP status code that this rejection represents.
+    pub fn status(&self) -> http::StatusCode {
+        Reject::status(self)
+    }
+}
+
 #[doc(hidden)]
 impl From<Reason> for Rejection {
     #[inline]
