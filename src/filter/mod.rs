@@ -6,6 +6,7 @@ mod map_err;
 mod or;
 mod or_else;
 mod service;
+mod unit;
 mod wrap;
 
 use futures::{future, Future, IntoFuture};
@@ -20,6 +21,7 @@ pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
+use self::unit::Unit;
 pub(crate) use self::wrap::{WrapSealed, Wrap};
 
 // A crate-private base trait, allowing the actual `filter` method to change
@@ -32,6 +34,7 @@ pub trait FilterBase {
     fn filter(&self) -> Self::Future;
 
     // crate-private for now
+
     fn map_err<F, E>(self, fun: F) -> MapErr<Self, F>
     where
         Self: Sized,
@@ -41,6 +44,15 @@ pub trait FilterBase {
         MapErr {
             filter: self,
             callback: fun,
+        }
+    }
+
+    fn unit(self) -> Unit<Self>
+    where
+        Self: Filter<Extract=((),)> + Sized,
+    {
+        Unit {
+            filter: self,
         }
     }
 }
