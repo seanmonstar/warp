@@ -1,4 +1,9 @@
 //! Header Filters
+//!
+//! These filters are used to interact with the Request HTTP headers. Some
+//! of them, like `exact` and `exact_ignore_case`, are just predicates,
+//! they don't extract any values. The `header` filter allows parsing
+//! a type from any header.
 use std::str::FromStr;
 
 use http::header::{HeaderName, HeaderValue};
@@ -49,10 +54,25 @@ where
     })
 }
 
-/// Return an extract `Filter` for a specific header name.
+/// Create a `Filter` that tries to parse the specified header.
 ///
-/// This `Filter` will look for a header with supplied name,
-/// and try to parse to a `T`, otherwise rejects the request.
+/// This `Filter` will look for a header with supplied name, and try to
+/// parse to a `T`, otherwise rejects the request.
+///
+/// # Example
+///
+/// ```
+/// use std::net::SocketAddr;
+///
+/// // Parse `content-length: 100` as a `u64`
+/// let content_length = warp::header::<u64>("content-length");
+///
+/// // Parse `host: 127.0.0.1:8080` as a `SocketAddr
+/// let local_host = warp::header::<SocketAddr>("host");
+///
+/// // Parse `foo: bar` into a `String`
+/// let foo = warp::header::<String>("foo");
+/// ```
 pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
     filter_fn_one(move |route| {
         trace!("header({:?})", name);
@@ -70,10 +90,17 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<
     })
 }
 
-/// Return an exact `Filter` for a specific header name.
+/// Create a `Filter` that requires a header to match the value exactly.
 ///
-/// This `Filter` will look for a header with supplied name and
-/// the exact value, otherwise rejects the request.
+/// This `Filter` will look for a header with supplied name and the exact
+/// value, otherwise rejects the request.
+///
+/// # Example
+///
+/// ```
+/// // Require `dnt: 1` header to be set.
+/// let must_dnt = warp::header::exact("dnt", "1");
+/// ```
 pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact({:?}, {:?})", name, value);
@@ -91,10 +118,17 @@ pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(),
     })
 }
 
-/// Return an exact `Filter` for a specific header name.
+/// Create a `Filter` that requires a header to match the value exactly.
 ///
-/// This `Filter` will look for a header with supplied name and
-/// the exact value, ignoring ASCII case, otherwise rejects the request.
+/// This `Filter` will look for a header with supplied name and the exact
+/// value, ignoring ASCII case, otherwise rejects the request.
+///
+/// # Example
+///
+/// ```
+/// // Require `connection: keep-alive` header to be set.
+/// let keep_alive = warp::header::exact("connection", "keep-alive");
+/// ```
 pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact_ignore_case({:?}, {:?})", name, value);
