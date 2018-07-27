@@ -11,7 +11,7 @@ use super::header;
 ///
 /// If found, extracts the value of the cookie, otherwise rejects.
 pub fn cookie(name: &'static str) -> impl Filter<Extract=One<String>, Error=Rejection> + Copy {
-    header::value("cookie", move |val| {
+    header::value(&::http::header::COOKIE, move |val| {
         find_cookie(name, val)
     })
 }
@@ -21,7 +21,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract=One<String>, Error=Reje
 /// If found, extracts the value of the cookie, otherwise continues
 /// the request, extracting `None`.
 pub fn optional(name: &'static str) -> impl Filter<Extract=One<Option<String>>, Error=Never> + Copy {
-    header::optional_value("cookie", move |val| {
+    header::optional_value(&::http::header::COOKIE, move |val| {
         find_cookie(name, val)
     })
 }
