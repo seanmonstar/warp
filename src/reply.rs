@@ -1,11 +1,11 @@
 //! Reply to requests.
 //!
-//! A [`Reply`](Reply) is a type that can be converted into an HTTP
+//! A [`Reply`](./trait.Reply.html) is a type that can be converted into an HTTP
 //! response to be sent to the client. These are typically the successful
-//! counterpart to a [rejection](mod@reject).
+//! counterpart to a [rejection](../reject).
 //!
 //! The functions in this module are helpers for quickly creating a reply.
-//! Besides them, you can return a type that implement [`Reply`](Reply). This
+//! Besides them, you can return a type that implement [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
 //! - [`http::Response<impl Into<hyper::Chunk>`](https://docs.rs/http)

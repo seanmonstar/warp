@@ -1,7 +1,7 @@
 //! Test utilities to test your filters.
 //!
-//! [`Filter`](Filter)s can be easily tested without starting up an HTTP
-//! server, by making use of the [`RequestBuilder`](RequestBuilder) in this
+//! [`Filter`](../trait.Filter.html)s can be easily tested without starting up an HTTP
+//! server, by making use of the [`RequestBuilder`](./struct.RequestBuilder.html) in this
 //! module.
 
 use bytes::Bytes;

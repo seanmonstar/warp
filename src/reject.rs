@@ -1,14 +1,14 @@
 //! Rejections
 //!
-//! Part of the power of the [`Filter`](Filter) system is being able to
+//! Part of the power of the [`Filter`](../trait.Filter.html) system is being able to
 //! reject a request from a filter chain. This allows for filters to be
 //! combined with `or`, so that if one side of the chain finds that a request
 //! doesn't fulfill its requirements, the other side can try to process
 //! the request.
 //!
-//! Many of the built-in [`filters`](filters) will automatically reject
+//! Many of the built-in [`filters`](../filters) will automatically reject
 //! the request with a appropriate rejection. However, you can also build
-//! new custom [`Filter`](Filter)s and still want other routes to be
+//! new custom [`Filter`](../trait.Filter.html)s and still want other routes to be
 //! matchable in the case a predicate doesn't hold.
 //!
 //! # Example
@@ -16,7 +16,7 @@
 //! ```
 //! use warp::Filter;
 //!
-//! // Filter on `/:id`, but reject with 404 if the `id` is `0`.
+//! // Filter on `/:id`, but reject with 400 if the `id` is `0`.
 //! let route = warp::path::param()
 //!     .and_then(|id: u32| {
 //!         if id == 0 {

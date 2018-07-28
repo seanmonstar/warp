@@ -2,9 +2,10 @@
 //!
 //! The filters here work on the "path" of requests.
 //!
-//! - [`path`](path) matches a specific segment, like `/foo`.
-//! - [`param`](param) tries to parse a segment into a type, like `/:u16`.
-//! - [`index`](index) matches when the path end is found.
+//! - [`path`](./fn.path.html) matches a specific segment, like `/foo`.
+//! - [`param`](./fn.param.html) tries to parse a segment into a type, like `/:u16`.
+//! - [`index`](./fn.index.html) matches when the path end is found.
+//! - [`path!`](../../macro.path.html) eases combining multiple `path` and `param` filters.
 //!
 //! # Routing
 //!

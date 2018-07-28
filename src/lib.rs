@@ -4,7 +4,7 @@
 //!
 //! warp is a super-easy, composable, web framework for warp speeds.
 //!
-//! Thanks to its [`Filter`](Filter) system, warp provides these out of the box:
+//! Thanks to its [`Filter`][Filter] system, warp provides these out of the box:
 //!
 //! - Path routing and parameter extraction
 //! - Header requirements and extraction
@@ -17,7 +17,7 @@
 //!
 //! ## Filters
 //!
-//! The main concept in warp is the [`Filter`](Filter), which allows composition
+//! The main concept in warp is the [`Filter`][Filter], which allows composition
 //! to describe various endpoints in your web service. Besides this powerful
 //! trait, warp comes with several built in [filters](filters), which can be
 //! combined for your specific needs.
@@ -35,13 +35,13 @@
 //!     });
 //! ```
 //!
-//! This example composes several [`Filter`s](Filter) together using `and`:
+//! This example composes several [`Filter`s][Filter] together using `and`:
 //!
 //! - A path prefix of "hello"
 //! - A path parameter of a `String`
 //! - The `user-agent` header parsed as a `String`
 //!
-//! These specific filters will [`reject`](mod@reject) requests that don't match
+//! These specific filters will [`reject`](./reject) requests that don't match
 //! their requirements.
 //!
 //! This ends up matching requests like:
@@ -68,6 +68,8 @@
 //!
 //! Testing your web services easily is extremely important, and warp provides
 //! a [`test`](test) module to help send mocked requests through your service.
+//!
+//! [Filter]: trait.Filter.html
 
 extern crate base64;
 #[macro_use] extern crate bitflags;
