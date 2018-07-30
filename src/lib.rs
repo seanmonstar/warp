@@ -88,7 +88,6 @@ extern crate sha1;
 extern crate tokio;
 extern crate tungstenite;
 
-mod blocking;
 mod error;
 mod filter;
 pub mod filters;
@@ -100,7 +99,6 @@ mod route;
 mod server;
 pub mod test;
 
-pub use self::blocking::blocking;
 pub use self::error::Error;
 pub use self::filter::{Filter};
 // This otherwise shows a big dump of re-exports in the doc homepage,
