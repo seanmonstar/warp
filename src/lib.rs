@@ -1,4 +1,7 @@
-#![deny(warnings, missing_docs, missing_debug_implementations)]
+#![doc(html_root_url = "https://docs.rs/warp/0.0.0")]
+#![deny(missing_docs)]
+#![deny(missing_debug_implementations)]
+#![cfg_attr(test, deny(warnings))]
 
 //! # warp
 //!
