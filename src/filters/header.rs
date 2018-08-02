@@ -6,6 +6,7 @@
 //! a type from any header.
 use std::str::FromStr;
 
+use http::HeaderMap;
 use http::header::{HeaderName, HeaderValue};
 
 use ::never::Never;
@@ -102,6 +103,24 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
                 }
             })
             .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
+
+/// Create a `Filter` that returns a clone of the request's `HeaderMap`.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, http::HeaderMap};
+///
+/// let headers = warp::header::headers_cloned()
+///     .map(|headers: HeaderMap| {
+///         format!("header count: {}", headers.len())
+///     });
+/// ```
+pub fn headers_cloned() -> impl Filter<Extract=One<HeaderMap>, Error=Never> + Copy {
+    filter_fn_one(|route| {
+        Ok(route.headers().clone())
     })
 }
 
