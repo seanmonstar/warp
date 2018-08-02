@@ -12,48 +12,6 @@ use ::never::Never;
 use ::filter::{Filter, filter_fn, filter_fn_one, One};
 use ::reject::{self, Rejection};
 
-pub(crate) fn if_value<F>(name: &'static HeaderName, func: F)
-    -> impl Filter<Extract=(), Error=Rejection> + Copy
-where
-    F: Fn(&HeaderValue) -> Option<()> + Copy,
-{
-    filter_fn(move |route| {
-        route.headers()
-            .get(name)
-            .and_then(func)
-            .map(Ok)
-            .unwrap_or_else(|| Err(reject::bad_request()))
-    })
-}
-
-pub(crate) fn value<F, U>(name: &'static HeaderName, func: F)
-    -> impl Filter<Extract=One<U>, Error=Rejection> + Copy
-where
-    F: Fn(&HeaderValue) -> Option<U> + Copy,
-    U: Send,
-{
-    filter_fn_one(move |route| {
-        route.headers()
-            .get(name)
-            .and_then(func)
-            .map(Ok)
-            .unwrap_or_else(|| Err(reject::bad_request()))
-    })
-}
-
-pub(crate) fn optional_value<F, U>(name: &'static HeaderName, func: F)
-    -> impl Filter<Extract=One<Option<U>>, Error=Never> + Copy
-where
-    F: Fn(&HeaderValue) -> Option<U> + Copy,
-    U: Send,
-{
-    filter_fn_one(move |route| {
-        Ok::<_, Never>(route.headers()
-            .get(name)
-            .and_then(func))
-    })
-}
-
 /// Create a `Filter` that tries to parse the specified header.
 ///
 /// This `Filter` will look for a header with supplied name, and try to
@@ -144,6 +102,48 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
                 }
             })
             .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
+
+pub(crate) fn if_value<F>(name: &'static HeaderName, func: F)
+    -> impl Filter<Extract=(), Error=Rejection> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<()> + Copy,
+{
+    filter_fn(move |route| {
+        route.headers()
+            .get(name)
+            .and_then(func)
+            .map(Ok)
+            .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
+
+pub(crate) fn value<F, U>(name: &'static HeaderName, func: F)
+    -> impl Filter<Extract=One<U>, Error=Rejection> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<U> + Copy,
+    U: Send,
+{
+    filter_fn_one(move |route| {
+        route.headers()
+            .get(name)
+            .and_then(func)
+            .map(Ok)
+            .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
+
+pub(crate) fn optional_value<F, U>(name: &'static HeaderName, func: F)
+    -> impl Filter<Extract=One<Option<U>>, Error=Never> + Copy
+where
+    F: Fn(&HeaderValue) -> Option<U> + Copy,
+    U: Send,
+{
+    filter_fn_one(move |route| {
+        Ok::<_, Never>(route.headers()
+            .get(name)
+            .and_then(func))
     })
 }
 
