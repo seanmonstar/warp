@@ -11,7 +11,7 @@ use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
 
-use ::filter::{FilterClone, filter_fn, One, one};
+use ::filter::{Filter, FilterClone, filter_fn, One, one};
 use ::reject::{self, Rejection};
 use ::reply::{ReplySealed, Response};
 
@@ -67,36 +67,27 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// ```
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
-    ::get(filter_fn(move |route| {
+    ::get(::path::tail().and_then(move |tail: ::path::Tail| {
         let mut buf = PathBuf::from(base.as_ref());
-
-        //TODO: this could probably be factored out into a `path::tail()`
-        //or similar Filter...
-
-        let end = {
-            let p = route.path();
-            trace!("dir? base={:?}, route={:?}", base, p);
-            for seg in p.split('/') {
-                if seg.starts_with("..") {
-                    debug!("dir: rejecting segment starting with '..'");
-                    return Either::A(future::err(reject::bad_request()));
-                } else {
-                    buf.push(seg);
-                }
-
+        let p = tail.as_str();
+        trace!("dir? base={:?}, route={:?}", base, p);
+        for seg in p.split('/') {
+            if seg.starts_with("..") {
+                debug!("dir: rejecting segment starting with '..'");
+                return Either::A(future::err(reject::bad_request()));
+            } else {
+                buf.push(seg);
             }
-            p.len()
-        };
-        route.set_unmatched_path(end);
 
+        }
 
         trace!("dir: {:?}", buf);
         let path = Arc::new(buf);
 
         Either::B(file_reply(ArcPath(path.clone()))
-            .map(|resp| one(File {
+            .map(|resp| File {
                 resp,
-            })))
+            }))
     }))
 }
 

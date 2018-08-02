@@ -126,9 +126,13 @@
 //!     .or(math);
 //! ```
 
+use std::fmt;
 use std::str::FromStr;
 
+use http::uri::PathAndQuery;
+
 use ::filter::{Filter, filter_fn, Tuple, One, one};
+use ::never::Never;
 use ::reject::{self, Rejection};
 
 
@@ -192,6 +196,63 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection
             .map(one)
             .map_err(|_| reject::not_found())
     })
+}
+
+/// Extract the unmatched tail of the path.
+///
+/// This will return a `Tail`, which allows access to the rest of the path
+/// that previous filters have not already matched.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path("foo")
+///     .and(warp::path::tail())
+///     .map(|tail| {
+///         // GET /foo/bar/baz would return "bar/baz".
+///         format!("The tail after foo is {:?}", tail)
+///     });
+/// ```
+pub fn tail() -> impl Filter<Extract=One<Tail>, Error=Never> + Copy {
+    filter_fn(move |route| {
+        let path = route
+            .uri()
+            .path_and_query()
+            .expect("server URIs should always have path_and_query")
+            .clone();
+        let idx = route.matched_path_index();
+
+        // Giving the user the full tail means we assume the full path
+        // has been matched now.
+        let end = path.path().len() - idx;
+        route.set_unmatched_path(end);
+
+        Ok(one(Tail {
+            path,
+            start_index: idx,
+        }))
+    })
+}
+
+/// Represents that tail part of a request path, returned by the `tail()` filter.
+pub struct Tail {
+    path: PathAndQuery,
+    start_index: usize,
+}
+
+impl Tail {
+    /// Get the `&str` representation of the remaining path.
+    pub fn as_str(&self) -> &str {
+        &self.path.path()[self.start_index..]
+    }
+}
+
+impl fmt::Debug for Tail {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
 }
 
 fn segment<F, U>(func: F) -> impl Filter<Extract=U, Error=Rejection> + Copy

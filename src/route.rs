@@ -62,6 +62,10 @@ impl Route {
         self.req.version()
     }
 
+    pub(crate) fn uri(&self) -> &http::Uri {
+        self.req.uri()
+    }
+
     pub(crate) fn path(&self) -> &str {
         &self.req.uri().path()[self.segments_index..]
     }

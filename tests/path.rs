@@ -68,6 +68,48 @@ fn param() {
 }
 
 #[test]
+fn tail() {
+    let tail = warp::path::tail();
+
+    // matches full path
+    let ex = warp::test::request()
+        .path("/42/vroom")
+        .filter(&tail)
+        .unwrap();
+    assert_eq!(ex.as_str(), "42/vroom");
+
+    // matches index
+    let ex = warp::test::request()
+        .path("/")
+        .filter(&tail)
+        .unwrap();
+    assert_eq!(ex.as_str(), "");
+
+    // doesn't include query
+    let ex = warp::test::request()
+        .path("/foo/bar?baz=quux")
+        .filter(&tail)
+        .unwrap();
+    assert_eq!(ex.as_str(), "foo/bar");
+
+    // doesn't include previously matched prefix
+    let ex = warp::test::request()
+        .path("/foo/bar")
+        .filter(&warp::path("foo").and(tail))
+        .unwrap();
+    assert_eq!(ex.as_str(), "bar");
+
+    // sets unmatched path index to end
+    assert!(!warp::test::request()
+        .path("/foo/bar")
+        .matches(&tail.and(warp::path("foo"))));
+
+    assert!(warp::test::request()
+        .path("/foo/bar")
+        .matches(&tail.and(warp::path::index())));
+}
+
+#[test]
 fn or() {
     let _ = pretty_env_logger::try_init();
 
