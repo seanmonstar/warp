@@ -13,13 +13,14 @@ and composed to express rich requirements on requests.
 ## Example
 
 ```rust
+#[macro_use]
 extern crate warp;
 
 use warp::Filter;
 
 fn main() {
     // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello = warp::path!("hello" / String)
+    let hello = path!("hello" / String)
         .map(|name| format!("Hello, {}!", name));
 
     warp::serve(hello)
