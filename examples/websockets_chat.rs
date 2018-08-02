@@ -31,7 +31,7 @@ fn main() {
     // and call our function if the handshake succeeds.
     let ws = warp::ws(move |socket| user_connected(socket, users.clone()));
 
-    // GET /ws -> websocket upgrade
+    // GET /chat -> websocket upgrade
     let chat = warp::path("chat").and(ws);
 
     // GET / -> index html
