@@ -1,14 +1,16 @@
 #![deny(warnings)]
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 extern crate pretty_env_logger;
 extern crate serde;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
 extern crate warp;
 
 use std::env;
 use std::sync::{Arc, Mutex};
 use warp::{http::StatusCode, Filter};
-
 
 /// So we don't have to tackle how different database work, we'll just use
 /// a simple in-memory DB, a vector synchronized by a mutex.
@@ -40,70 +42,52 @@ fn main() {
     // These are some `Filter`s that several of the endpoints share,
     // so we'll define them here and reuse them below...
 
-
     // Turn our "state", our db, into a Filter so we can combine it
     // easily with others...
     let db = Arc::new(Mutex::new(Vec::<Todo>::new()));
     let db = warp::any().map(move || db.clone());
 
-    // Just the path segment "todos"...
-    let todos = warp::path("todos");
-
-    // Combined with `index`, this means nothing comes after "todos".
-    // So, for example: `GET /todos`, but not `GET /todos/32`.
-    let todos_index = todos.and(warp::path::index());
-
-    // Combined with an id path parameter, for refering to a specific Todo.
-    // For example, `POST /todos/32`, but not `POST /todos/32/something-more`.
-    let todos_id = todos
-        .and(warp::path::param::<u64>())
-        .and(warp::path::index());
-
-    // Next, we'll define each our 4 endpoints:
-
-    // `GET /todos`
-    let list = warp::get(
-        todos_index
-            .and(db.clone())
-            .map(list_todos)
-    );
-
-    // `POST /todos`
-    let create = warp::post(
-        todos_index
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(create_todo)
-    );
-
-    // `PUT /todos/:id`
-    let update = warp::put(
-        todos_id
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(update_todo)
-    );
-
-    // `DELETE /todos/:id`
-    let delete = warp::delete(
-        todos_id
-            .and(db.clone())
-            .and_then(delete_todo)
-    );
-
-
     // Combine our endpoints, since we want requests to match any of them:
-    let api = list
-        .or(create)
-        .or(update)
-        .or(delete);
+    let api = routes! {
+        ["todos"] => |p| {
+            get {
+                // `GET /todos`
+                // Combined with `index`, this means nothing comes after "todos".
+                // So, for example: `GET /todos`, but not `GET /todos/32`.
+                p.and(warp::path::index())
+                 .and(db.clone())
+                 .map(list_todos)
+            };
+            post {
+                // `POST /todos`
+                p.and(warp::path::index())
+                 .and(warp::body::json())
+                 .and(db.clone())
+                 .and_then(create_todo)
+            };
+        }
+        ["todos" / u64] => |p| {
+            put {
+                // `PUT /todos/:id`
+                p.and(warp::path::index())
+                 .and(warp::body::json())
+                 .and(db.clone())
+                 .and_then(update_todo)
+            };
+            delete {
+                // `DELETE /todos/:id`
+                p.and(warp::path::index())
+                 .and(db.clone())
+                 .and_then(delete_todo)
+            };
+        }
+    };
 
     // View access logs by setting `RUST_LOG=todos`.
     let routes = api.with(warp::log("todos"));
 
     // Start up the server...
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
 
 // These are our API handlers, the ends of each filter chain.
@@ -121,9 +105,7 @@ fn list_todos(db: Db) -> impl warp::Reply {
 fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     debug!("create_todo: {:?}", create);
 
-    let mut vec = db
-        .lock()
-        .unwrap();
+    let mut vec = db.lock().unwrap();
 
     for todo in vec.iter() {
         if todo.id == create.id {
@@ -142,9 +124,7 @@ fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection
 /// PUT /todos/:id with JSON body
 fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     debug!("update_todo: id={}, todo={:?}", id, update);
-    let mut vec = db
-        .lock()
-        .unwrap();
+    let mut vec = db.lock().unwrap();
 
     // Look for the specified Todo...
     for todo in vec.iter_mut() {
@@ -164,9 +144,7 @@ fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::
 fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     debug!("delete_todo: id={}", id);
 
-    let mut vec = db
-        .lock()
-        .unwrap();
+    let mut vec = db.lock().unwrap();
 
     let len = vec.len();
     vec.retain(|todo| {
@@ -188,4 +166,3 @@ fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
         Err(warp::reject::not_found())
     }
 }
-
