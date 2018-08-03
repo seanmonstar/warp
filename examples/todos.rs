@@ -47,27 +47,27 @@ fn main() {
     // Combine our endpoints, since we want requests to match any of them:
     let api = routes! {
         ["todos"] => |p| {
+            // `GET /todos`
             get {
-                // `GET /todos`
                 p.and(db.clone())
                  .map(list_todos)
             };
+            // `POST /todos`
             post {
-                // `POST /todos`
                 p.and(warp::body::json())
                  .and(db.clone())
                  .and_then(create_todo)
             };
         }
         ["todos" / u64] => |p| {
+            // `PUT /todos/:id`
             put {
-                // `PUT /todos/:id`
                 p.and(warp::body::json())
                  .and(db.clone())
                  .and_then(update_todo)
             };
+             // `DELETE /todos/:id`
             delete {
-                // `DELETE /todos/:id`
                 p.and(db.clone())
                  .and_then(delete_todo)
             };
