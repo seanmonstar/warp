@@ -31,6 +31,7 @@ tungstenite = { default-features = false, version = "0.6" }
 [dev-dependencies]
 pretty_env_logger = "0.2"
 serde_derive = "1.0"
+handlebars = "1.0.0"
 
 [profile.release]
 codegen-units = 1
