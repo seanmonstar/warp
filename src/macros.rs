@@ -5,7 +5,7 @@ macro_rules! routes {
     };
     (@path [$($path:tt)*] => |$p:ident| { $fm:ident $fh:expr; $($m:ident $h:expr;)*}) => {
         {
-            let $p = path!($($path)*);
+            let $p = path!($($path)*).and($crate::path::index());
             routes!(@method $p $fm $fh)
             $(
             .or(routes!(@method $p $m $h))

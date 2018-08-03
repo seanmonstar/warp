@@ -39,9 +39,6 @@ fn main() {
     }
     pretty_env_logger::init();
 
-    // These are some `Filter`s that several of the endpoints share,
-    // so we'll define them here and reuse them below...
-
     // Turn our "state", our db, into a Filter so we can combine it
     // easily with others...
     let db = Arc::new(Mutex::new(Vec::<Todo>::new()));
@@ -52,16 +49,12 @@ fn main() {
         ["todos"] => |p| {
             get {
                 // `GET /todos`
-                // Combined with `index`, this means nothing comes after "todos".
-                // So, for example: `GET /todos`, but not `GET /todos/32`.
-                p.and(warp::path::index())
-                 .and(db.clone())
+                p.and(db.clone())
                  .map(list_todos)
             };
             post {
                 // `POST /todos`
-                p.and(warp::path::index())
-                 .and(warp::body::json())
+                p.and(warp::body::json())
                  .and(db.clone())
                  .and_then(create_todo)
             };
@@ -69,15 +62,13 @@ fn main() {
         ["todos" / u64] => |p| {
             put {
                 // `PUT /todos/:id`
-                p.and(warp::path::index())
-                 .and(warp::body::json())
+                p.and(warp::body::json())
                  .and(db.clone())
                  .and_then(update_todo)
             };
             delete {
                 // `DELETE /todos/:id`
-                p.and(warp::path::index())
-                 .and(db.clone())
+                p.and(db.clone())
                  .and_then(delete_todo)
             };
         }
