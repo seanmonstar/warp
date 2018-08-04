@@ -89,6 +89,7 @@ extern crate serde_urlencoded;
 extern crate sha1;
 extern crate tokio;
 extern crate tungstenite;
+extern crate urlencoding;
 
 mod error;
 mod filter;

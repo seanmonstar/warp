@@ -10,6 +10,7 @@ use futures::future::Either;
 use http;
 use tokio::fs;
 use tokio::io::AsyncRead;
+use urlencoding::decode;
 
 use ::filter::{Filter, FilterClone, filter_fn, One, one};
 use ::reject::{self, Rejection};
@@ -69,7 +70,13 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
     let base = Arc::new(path.into());
     ::get(::path::tail().and_then(move |tail: ::path::Tail| {
         let mut buf = PathBuf::from(base.as_ref());
-        let p = tail.as_str();
+        let p = match decode(tail.as_str()) {
+            Ok(p) => p,
+            Err(e) => {
+                debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), e);
+                return Either::A(future::err(reject::bad_request()));
+            }
+        };
         trace!("dir? base={:?}, route={:?}", base, p);
         for seg in p.split('/') {
             if seg.starts_with("..") {
