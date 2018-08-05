@@ -40,6 +40,24 @@ fn dir() {
 }
 
 #[test]
+fn dir_encoded() {
+    let _ = pretty_env_logger::try_init();
+
+    let file = warp::fs::dir("examples");
+
+    let req = warp::test::request()
+        .path("/todos%2ers");
+    let res = req.reply(&file);
+
+    assert_eq!(res.status(), 200);
+
+    let contents = fs::read("examples/todos.rs").expect("fs::read");
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+
+    assert_eq!(res.body(), &*contents);
+}
+
+#[test]
 fn dir_not_found() {
     let _ = pretty_env_logger::try_init();
 
@@ -66,3 +84,16 @@ fn dir_bad_path() {
     assert_eq!(res.body(), "");
 }
 
+#[test]
+fn dir_bad_encoded_path() {
+    let _ = pretty_env_logger::try_init();
+
+    let file = warp::fs::dir("examples");
+
+    let req = warp::test::request()
+        .path("/%2E%2e/README.md");
+    let res = req.reply(&file);
+
+    assert_eq!(res.status(), 400);
+    assert_eq!(res.body(), "");
+}
