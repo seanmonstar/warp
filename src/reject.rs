@@ -88,7 +88,6 @@ pub fn server_error() -> Rejection {
 #[derive(Debug)]
 pub struct Rejection {
     reason: Reason,
-    cancel: Reason,
 }
 
 bitflags! {
@@ -116,7 +115,6 @@ impl From<Reason> for Rejection {
     fn from(reason: Reason) -> Rejection {
         Rejection {
             reason,
-            cancel: Reason::empty(),
         }
     }
 }
@@ -142,8 +140,6 @@ impl Reject for Rejection {
     fn status(&self) -> http::StatusCode {
         if self.reason.contains(Reason::SERVER_ERROR) {
             http::StatusCode::INTERNAL_SERVER_ERROR
-        } else if self.reason.contains(Reason::METHOD_NOT_ALLOWED) {
-            http::StatusCode::METHOD_NOT_ALLOWED
         } else if self.reason.contains(Reason::UNSUPPORTED_MEDIA_TYPE) {
             http::StatusCode::UNSUPPORTED_MEDIA_TYPE
         } else if self.reason.contains(Reason::LENGTH_REQUIRED) {
@@ -152,6 +148,8 @@ impl Reject for Rejection {
             http::StatusCode::PAYLOAD_TOO_LARGE
         } else if self.reason.contains(Reason::BAD_REQUEST) {
             http::StatusCode::BAD_REQUEST
+        } else if self.reason.contains(Reason::METHOD_NOT_ALLOWED) {
+            http::StatusCode::METHOD_NOT_ALLOWED
         } else {
             debug_assert!(self.reason.is_empty());
             http::StatusCode::NOT_FOUND
@@ -186,31 +184,15 @@ mod sealed {
         type Rejection: Reject + From<Self> + From<E>;
 
         fn combine(self, other: E) -> Self::Rejection;
-        fn cancel(self, other: E) -> Self::Rejection;
     }
 
     impl CombineRejection<Rejection> for Rejection {
         type Rejection = Rejection;
 
         fn combine(self, other: Rejection) -> Self::Rejection {
-            let reason = (self.reason - other.cancel)
-                | (other.reason - self.cancel);
-            let cancel = self.cancel | other.cancel;
-
-            Rejection {
-                reason,
-                cancel,
-            }
-            /*
             Rejection {
                 reason: self.reason | other.reason,
             }
-            */
-        }
-
-        fn cancel(mut self, other: Rejection) -> Self::Rejection {
-            self.cancel.insert(other.reason);
-            self
         }
     }
 
@@ -218,10 +200,6 @@ mod sealed {
         type Rejection = Rejection;
 
         fn combine(self, other: Never) -> Self::Rejection {
-            match other {}
-        }
-
-        fn cancel(self, other: Never) -> Self::Rejection {
             match other {}
         }
     }
@@ -232,20 +210,12 @@ mod sealed {
         fn combine(self, _: Rejection) -> Self::Rejection {
             match self {}
         }
-
-        fn cancel(self, _: Rejection) -> Self::Rejection {
-            match self {}
-        }
     }
 
     impl CombineRejection<Never> for Never {
         type Rejection = Never;
 
         fn combine(self, _: Never) -> Self::Rejection {
-            match self {}
-        }
-
-        fn cancel(self, _: Never) -> Self::Rejection {
             match self {}
         }
     }

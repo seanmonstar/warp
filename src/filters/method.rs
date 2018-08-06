@@ -8,7 +8,7 @@
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
 
-use ::filter::{And, Filter, filter_fn, filter_fn_one, MapErr, One};
+use ::filter::{And, Filter, filter_fn, filter_fn_one, One};
 use ::never::Never;
 use ::reject::{CombineRejection, Rejection};
 
@@ -24,7 +24,7 @@ use ::reject::{CombineRejection, Rejection};
 /// ```
 pub fn get<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
-    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+    F,
 >
 where
     F: Filter + Clone,
@@ -32,7 +32,7 @@ where
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
     method_is(|| &Method::GET)
-        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
+        .and(filter)
 }
 /// Wrap a `Filter` in a new one that requires the request method to be `POST`.
 ///
@@ -46,7 +46,7 @@ where
 /// ```
 pub fn post<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
-    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+    F,
 >
 where
     F: Filter + Clone,
@@ -54,7 +54,7 @@ where
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
     method_is(|| &Method::POST)
-        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
+        .and(filter)
 }
 /// Wrap a `Filter` in a new one that requires the request method to be `PUT`.
 ///
@@ -68,7 +68,7 @@ where
 /// ```
 pub fn put<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
-    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+    F,
 >
 where
     F: Filter + Clone,
@@ -76,7 +76,7 @@ where
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
     method_is(|| &Method::PUT)
-        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
+        .and(filter)
 }
 
 /// Wrap a `Filter` in a new one that requires the request method to be `DELETE`.
@@ -91,7 +91,7 @@ where
 /// ```
 pub fn delete<F>(filter: F) -> And<
     impl Filter<Extract=(), Error=Rejection> + Copy,
-    MapErr<F, fn(F::Error) -> <F::Error as CombineRejection<Rejection>>::Rejection>,
+    F,
 >
 where
     F: Filter + Clone,
@@ -99,7 +99,7 @@ where
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
     method_is(|| &Method::DELETE)
-        .and(filter.map_err(|err| err.cancel(::reject::method_not_allowed())))
+        .and(filter)
 }
 
 /// Extract the `Method` from the request.
