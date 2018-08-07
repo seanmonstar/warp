@@ -5,6 +5,7 @@ mod map;
 mod map_err;
 mod or;
 mod or_else;
+mod recover;
 mod service;
 mod unit;
 mod wrap;
@@ -21,6 +22,7 @@ pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
+use self::recover::Recover;
 use self::unit::Unit;
 pub(crate) use self::wrap::{WrapSealed, Wrap};
 
@@ -260,6 +262,26 @@ pub trait Filter: FilterBase {
         <F::Output as IntoFuture>::Future: Send,
     {
         OrElse {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Compose this `Filter` with a function receiving an error and
+    /// returning a *new* type, instead of the *same* type.
+    ///
+    /// This is useful for "customizing" rejections into new response types.
+    /// See also the [errors example][ex].
+    ///
+    /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/errors.rs
+    fn recover<F>(self, fun: F) -> Recover<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Error>,
+        F::Output: IntoFuture<Error=Self::Error> + Send,
+        <F::Output as IntoFuture>::Future: Send,
+    {
+        Recover {
             filter: self,
             callback: fun,
         }
