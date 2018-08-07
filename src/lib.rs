@@ -108,6 +108,7 @@ pub use self::filter::{Filter};
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
 #[doc(hidden)]
+#[allow(deprecated)]
 pub use self::filters::{
     // any() function
     any::any,
@@ -133,7 +134,7 @@ pub use self::filters::{
     query::query,
     ws,
     // ws() function
-    ws::ws,
+    ws::{ws, ws2},
 };
 #[doc(hidden)]
 pub use self::reject::{reject, Rejection};

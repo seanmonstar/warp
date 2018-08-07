@@ -26,13 +26,21 @@ fn main() {
     // Keep track of all connected users, key is usize, value
     // is a websocket sender.
     let users = Arc::new(Mutex::new(HashMap::new()));
+    // Turn our "state" into a new Filter...
+    let users = warp::any().map(move || users.clone());
 
-    // The `ws()` filter will do the full Websocket handshake,
-    // and call our function if the handshake succeeds.
-    let ws = warp::ws(move |socket| user_connected(socket, users.clone()));
 
     // GET /chat -> websocket upgrade
-    let chat = warp::path("chat").and(ws);
+    let chat = warp::path("chat")
+        // The `ws2()` filter will prepare Websocket handshake...
+        .and(warp::ws2())
+        .and(users)
+        .map(|ws: warp::ws::Ws2, users| {
+            // This will call our function if the handshake succeeds.
+            ws.on_upgrade(move |socket| {
+                user_connected(socket, users)
+            })
+        });
 
     // GET / -> index html
     let index = warp::path::index()

@@ -1,5 +1,7 @@
 //! Websockets Filters
 
+#![allow(deprecated)]
+
 use std::fmt;
 use std::io::ErrorKind::WouldBlock;
 use std::str::FromStr;
@@ -14,29 +16,11 @@ use tungstenite::protocol;
 use ::error::Kind;
 use ::filter::{Filter, FilterClone, One};
 use ::reject::{Rejection};
-use ::reply::{ReplySealed, Response};
+use ::reply::{ReplySealed, Reply, Response};
 use super::{body, header};
 
-/// Creates a Websocket Filter.
-///
-/// The passed function is called with each successful Websocket accepted.
-///
-/// # Note
-///
-/// This filter combines multiple filters internally, so you don't need them:
-///
-/// - Method must be `GET`
-/// - Header `connection` must be `upgrade`
-/// - Header `upgrade` must be `websocket`
-/// - Header `sec-websocket-version` must be `13`
-/// - Header `sec-websocket-key` must be set.
-///
-/// If the filters are met, yields a `Ws` which will reply with:
-///
-/// - Status of `101 Switching Protocols`
-/// - Header `connection: upgrade`
-/// - Header `upgrade: websocket`
-/// - Header `sec-websocket-accept` with the hash value of the received key.
+#[doc(hidden)]
+#[deprecated(note="will be replaced by ws2")]
 pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract=One<Ws>, Error=Rejection>
 where
     F: Fn(WebSocket) -> U + Clone + Send + 'static,
@@ -51,11 +35,44 @@ where
     })
 }
 
-/// Creates a Websocket Filter, with a supplied factory function.
+
+/// Creates a Websocket Filter.
 ///
-/// The factory function is called once for each accepted `WebSocket`. The
-/// factory should return a new function that is ready to handle the
-/// `WebSocket`.
+/// The yielded `Ws2` is used to finish the websocket upgrade.
+///
+/// # Note
+///
+/// This filter combines multiple filters internally, so you don't need them:
+///
+/// - Method must be `GET`
+/// - Header `connection` must be `upgrade`
+/// - Header `upgrade` must be `websocket`
+/// - Header `sec-websocket-version` must be `13`
+/// - Header `sec-websocket-key` must be set.
+///
+/// If the filters are met, yields a `Ws2`. Calling `Ws2::on_upgrade` will
+/// return a reply with:
+///
+/// - Status of `101 Switching Protocols`
+/// - Header `connection: upgrade`
+/// - Header `upgrade: websocket`
+/// - Header `sec-websocket-accept` with the hash value of the received key.
+pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
+    ::get(header::if_value(&http::header::CONNECTION, connection_has_upgrade)
+        .and(header::exact_ignore_case("upgrade", "websocket"))
+        .and(header::exact("sec-websocket-version", "13"))
+        .and(header::header::<Accept>("sec-websocket-key"))
+        .and(body::body())
+        .map(move |accept: Accept, body: ::hyper::Body| {
+            Ws2 {
+                accept,
+                body,
+            }
+        })
+    )
+}
+
+#[allow(deprecated)]
 fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract=One<Ws>, Error=Rejection>
 where
     F1: Fn() -> F2 + Clone + Send + 'static,
@@ -103,11 +120,13 @@ fn connection_has_upgrade(value: &HeaderValue) -> Option<()> {
         })
 }
 
-/// A [`Reply`](::Reply) that returns the websocket handshake response.
+#[doc(hidden)]
+#[deprecated(note="will be replaced with Ws2")]
 pub struct Ws {
     accept: Accept,
 }
 
+#[allow(deprecated)]
 impl ReplySealed for Ws {
     fn into_response(self) -> Response {
         http::Response::builder()
@@ -120,10 +139,76 @@ impl ReplySealed for Ws {
     }
 }
 
+#[allow(deprecated)]
 impl fmt::Debug for Ws {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Ws")
             .finish()
+    }
+}
+
+/// Extracted by the [`ws2`](ws2) filter, and used to finish an upgrade.
+pub struct Ws2 {
+    accept: Accept,
+    body: ::hyper::Body,
+}
+
+impl Ws2 {
+    /// Finish the upgrade, passing a function to handle the `WebSocket`.
+    ///
+    /// The passed function must return a `Future`.
+    pub fn on_upgrade<F, U>(self, func: F) -> impl Reply
+    where
+        F: FnOnce(WebSocket) -> U + Send + 'static,
+        U: Future<Item=(), Error=()> + Send + 'static,
+    {
+        WsReply {
+            ws: self,
+            on_upgrade: func,
+        }
+    }
+}
+
+impl fmt::Debug for Ws2 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Ws2")
+            .finish()
+    }
+}
+
+#[allow(missing_debug_implementations)]
+struct WsReply<F> {
+    ws: Ws2,
+    on_upgrade: F,
+}
+
+impl<F, U> ReplySealed for WsReply<F>
+where
+    F: FnOnce(WebSocket) -> U + Send + 'static,
+    U: Future<Item=(), Error=()> + Send + 'static,
+{
+    fn into_response(self) -> Response {
+        let on_upgrade = self.on_upgrade;
+        let fut = self.ws.body.on_upgrade()
+            .map_err(|err| debug!("ws upgrade error: {}", err))
+            .and_then(move |upgraded| {
+                trace!("websocket upgrade complete");
+
+                let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, None);
+
+                on_upgrade(WebSocket {
+                    inner: io,
+                })
+            });
+        ::hyper::rt::spawn(fut);
+
+        http::Response::builder()
+            .status(101)
+            .header("connection", "upgrade")
+            .header("upgrade", "websocket")
+            .header("sec-websocket-accept", self.ws.accept.0.as_str())
+            .body(Default::default())
+            .unwrap()
     }
 }
 
