@@ -32,6 +32,12 @@ use ::reply::{ReplySealed, Response};
 /// // Always serves this file from the file system.
 /// let route = warp::fs::file("/www/static/app.js");
 /// ```
+///
+/// # Note
+///
+/// This filter uses `tokio-fs` to serve files, which requires the server
+/// to be run in the threadpool runtime. This is only important to remember
+/// if starting a runtime manually.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let path = Arc::new(path.into());
     filter_fn(move |_| {
@@ -66,6 +72,12 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// // - `GET /static/app.js` would serve the file `/www/static/app.js`
 /// // - `GET /static/css/app.css` would serve the file `/www/static/css/app.css`
 /// ```
+///
+/// # Note
+///
+/// This filter uses `tokio-fs` to serve files, which requires the server
+/// to be run in the threadpool runtime. This is only important to remember
+/// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
     ::get(::path::tail().and_then(move |tail: ::path::Tail| {
