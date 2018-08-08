@@ -31,8 +31,15 @@ where
 
 #[derive(Debug)]
 pub(crate) struct Route {
+    body: BodyState,
     req: Request,
     segments_index: usize,
+}
+
+#[derive(Debug)]
+enum BodyState {
+    Ready,
+    Taken,
 }
 
 impl Route {
@@ -44,6 +51,7 @@ impl Route {
         );
 
         RefCell::new(Route {
+            body: BodyState::Ready,
             req,
             // always start at 1, since paths are `/...`.
             segments_index: 1,
@@ -109,8 +117,15 @@ impl Route {
         self.segments_index = index;
     }
 
-    pub(crate) fn take_body(&mut self) -> Body {
-        mem::replace(self.req.body_mut(), Body::empty())
+    pub(crate) fn take_body(&mut self) -> Option<Body> {
+        match self.body {
+            BodyState::Ready => {
+                let body = mem::replace(self.req.body_mut(), Body::empty());
+                self.body = BodyState::Taken;
+                Some(body)
+            },
+            BodyState::Taken => None,
+        }
     }
 }
 

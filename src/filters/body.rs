@@ -11,7 +11,6 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use ::never::Never;
 use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
 use ::reject::{self, Rejection};
 
@@ -21,9 +20,15 @@ use ::reject::{self, Rejection};
 // XXX: Before making public, error should be changeed to Rejection, as it's
 // likely that a server error rejection should be returned if trying to take
 // the body more than once.
-pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Never> + Copy {
+pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
     filter_fn_one(|route| {
-        Ok::<_, Never>(route.take_body())
+        route
+            .take_body()
+            .map(Ok)
+            .unwrap_or_else(|| {
+                warn!("request body already taken in previous filter");
+                Err(reject::server_error())
+            })
     })
 }
 
@@ -61,8 +66,7 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
 pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
-    filter_fn_one(move |route| {
-        let body = route.take_body();
+    body().and_then(|body: ::hyper::Body| {
         Concat {
             fut: body.concat2(),
         }

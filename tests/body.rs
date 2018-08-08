@@ -23,6 +23,21 @@ fn matches() {
 }
 
 #[test]
+fn server_error_if_taking_body_multiple_times() {
+    let _ = pretty_env_logger::try_init();
+
+    let concat = warp::body::concat();
+    let double = concat
+        .and(concat)
+        .map(|_, _| warp::reply());
+
+    let res = warp::test::request()
+        .reply(&double);
+
+    assert_eq!(res.status(), 500);
+}
+
+#[test]
 fn content_length_limit() {
     let _ = pretty_env_logger::try_init();
 
