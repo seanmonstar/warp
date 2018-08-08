@@ -16,12 +16,9 @@ use ::reject::{self, Rejection};
 
 use self::sealed::ImplStream;
 
-/// Extracts the `Body` Stream from the route.
-///
-/// Does not consume any of it.
-// XXX: Before making public, error should be changeed to Rejection, as it's
-// likely that a server error rejection should be returned if trying to take
-// the body more than once.
+// Extracts the `Body` Stream from the route.
+//
+// Does not consume any of it.
 pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
     filter_fn_one(|route| {
         route
@@ -65,6 +62,16 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
         .unit()
 }
 
+/// Create a `Filter` that extracts the request body as a `futures::Stream`.
+///
+/// If other filters have already extracted the body, this filter will reject
+/// with a `500 Internal Server Error`.
+///
+/// # Note
+///
+/// The `ImplStream` type is essentially
+/// `impl Stream<Item = impl Buf, Error = warp::Error>`, but since nested
+/// `impl Trait`s aren't valid yet, the type acts as one.
 pub fn stream() -> impl Filter<Extract=(ImplStream,), Error=Rejection> + Copy {
     body().map(|body: Body| ImplStream {
         body,
@@ -184,13 +191,20 @@ impl Future for Concat {
 }
 
 mod sealed {
-    use futures::{Async, Poll, Stream};
+    use bytes::Buf;
+    use futures::{Poll, Stream};
     use hyper::{Body, Chunk};
 
+    // It'd be preferable if `warp::body::stream()` could return
+    // an `impl Filter<Extract = impl Stream>`, but nested impl Traits
+    // aren't yet legal. So, this pretends to be one, by implementing
+    // the necessary traits, but not being nameable outside of warp.
+    #[derive(Debug)]
     pub struct ImplStream {
         pub(super) body: Body,
     }
 
+    #[derive(Debug)]
     pub struct ImplBuf {
         chunk: Chunk,
     }
@@ -203,10 +217,24 @@ mod sealed {
             let opt_item = try_ready!(self
                 .body
                 .poll()
-                .map_err(|e| ::error::Kind::Hyper(e).into())
+                .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
             );
 
             Ok(opt_item.map(|chunk| ImplBuf { chunk }).into())
+        }
+    }
+
+    impl Buf for ImplBuf {
+        fn remaining(&self) -> usize {
+            self.chunk.remaining()
+        }
+
+        fn bytes(&self) -> &[u8] {
+            self.chunk.bytes()
+        }
+
+        fn advance(&mut self, cnt: usize) {
+            self.chunk.advance(cnt);
         }
     }
 }

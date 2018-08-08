@@ -1,7 +1,11 @@
 #![deny(warnings)]
+extern crate bytes;
+extern crate futures;
 extern crate pretty_env_logger;
 extern crate warp;
 
+use bytes::Buf;
+use futures::{Future, Stream};
 use warp::Filter;
 
 #[test]
@@ -140,5 +144,24 @@ fn form_rejects_bad_content_type() {
         415,
         "bad content-type should be 415 Unsupported Media Type"
     );
+}
+
+#[test]
+fn stream() {
+    let _ = pretty_env_logger::try_init();
+
+    let stream = warp::body::stream();
+
+    let body = warp::test::request()
+        .body("foo=bar")
+        .filter(&stream)
+        .expect("filter() stream");
+
+    let bufs = futures::future::lazy(move || {
+        body.collect()
+    }).wait().expect("lazy");
+
+    assert_eq!(bufs.len(), 1);
+    assert_eq!(bufs[0].bytes(), b"foo=bar");
 }
 
