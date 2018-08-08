@@ -17,7 +17,7 @@ fn query() {
 
 #[test]
 fn raw_query() {
-    let as_raw = warp::raw_query();
+    let as_raw = warp::query::raw();
 
     let req = warp::test::request()
         .path("/?foo=bar&baz=quux");

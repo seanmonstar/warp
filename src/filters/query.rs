@@ -23,7 +23,7 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=
 }
 
 /// Creates a `Filter` that returns the raw query string as type String.
-pub fn raw_query() -> impl Filter<Extract=One<String>, Error=Rejection> + Copy {
+pub fn raw() -> impl Filter<Extract=One<String>, Error=Rejection> + Copy {
     filter_fn_one(|route| {
         route
             .query()
