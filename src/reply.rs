@@ -8,7 +8,7 @@
 //! Besides them, you can return a type that implement [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
-//! - [`http::Response<impl Into<hyper::Chunk>`](https://docs.rs/http)
+//! - [`http::Response<impl Into<hyper::Body>`](https://docs.rs/http)
 //! - `String`
 //! - `&'static str`
 //! - `http::StatusCode`
@@ -133,7 +133,7 @@ impl ReplySealed for Json {
 /// warp), but it is implemented for the following:
 ///
 /// - `http::StatusCode`
-/// - `http::Response<impl Into<hyper::Chunk>>`
+/// - `http::Response<impl Into<hyper::Body>>`
 /// - `String`
 /// - `&'static str`
 //NOTE: This list is duplicated in the module documentation.
@@ -205,7 +205,7 @@ fn _assert_object_safe() {
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
-    use hyper::{Body, Chunk};
+    use hyper::Body;
 
     use ::generic::{Either, One};
     use ::reject::Reject;
@@ -240,15 +240,13 @@ mod sealed {
         }
     }
 
-    // For now, only allow `Into<Chunk>` types, since we may want to
-    // change how streaming bodies work, instead of commiting to hyper::Body
     impl<T: Send> ReplySealed for ::http::Response<T>
     where
-        Chunk: From<T>,
+        Body: From<T>,
     {
         #[inline]
         fn into_response(self) -> Response {
-            self.map(|t| Chunk::from(t).into())
+            self.map(Body::from)
         }
     }
 
