@@ -18,6 +18,7 @@ use std::io::{self, Cursor, Write};
 use std::str;
 use warp::Filter;
 
+/// Based on: https://github.com/abonander/multipart/blob/master/examples/rocket.rs
 ///
 /// curl -v -F "FileUpload=@Cargo.toml" http://127.0.0.1:3030/upload
 ///
