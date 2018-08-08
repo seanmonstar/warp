@@ -14,6 +14,8 @@ use serde_urlencoded;
 use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
 use ::reject::{self, Rejection};
 
+use self::sealed::ImplStream;
+
 /// Extracts the `Body` Stream from the route.
 ///
 /// Does not consume any of it.
@@ -61,6 +63,12 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
             }
         })
         .unit()
+}
+
+pub fn stream() -> impl Filter<Extract=(ImplStream,), Error=Rejection> + Copy {
+    body().map(|body: Body| ImplStream {
+        body,
+    })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
@@ -171,6 +179,34 @@ impl Future for Concat {
                 debug!("concat error: {}", e);
                 Err(reject::bad_request())
             }
+        }
+    }
+}
+
+mod sealed {
+    use futures::{Async, Poll, Stream};
+    use hyper::{Body, Chunk};
+
+    pub struct ImplStream {
+        pub(super) body: Body,
+    }
+
+    pub struct ImplBuf {
+        chunk: Chunk,
+    }
+
+    impl Stream for ImplStream {
+        type Item = ImplBuf;
+        type Error = ::Error;
+
+        fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+            let opt_item = try_ready!(self
+                .body
+                .poll()
+                .map_err(|e| ::error::Kind::Hyper(e).into())
+            );
+
+            Ok(opt_item.map(|chunk| ImplBuf { chunk }).into())
         }
     }
 }
