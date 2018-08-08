@@ -130,6 +130,8 @@ pub use self::filters::{
     query,
     // query() function
     query::query,
+    // raw_query() function
+    query::raw_query,
     ws,
     // ws() function
     ws::ws,

@@ -21,3 +21,16 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=
             .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
+
+/// Creates a `Filter` that returns the raw query string as type String.
+pub fn raw_query() -> impl Filter<Extract=One<String>, Error=Rejection> + Copy {
+    filter_fn_one(|route| {
+        route
+            .query()
+            .map(|q| {
+                q.to_owned()
+            })
+            .map(Ok)
+            .unwrap_or_else(|| Err(reject::bad_request()))
+    })
+}
