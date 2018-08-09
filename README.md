@@ -10,6 +10,15 @@ A super-easy, composable, web framework for warp speeds.
 The fundamental building block of `warp` is the `Filter`: they can be combined
 and composed to express rich requirements on requests.
 
+Thanks to its `Filter` system, warp provides these out of the box:
+* Path routing and parameter extraction
+* Header requirements and extraction
+* Query string deserialization
+* JSON and Form bodies
+* Static Files and Directories
+* Websockets
+* Access logging
+
 ## Example
 
 ```rust
@@ -27,3 +36,5 @@ fn main() {
         .run(([127, 0, 0, 1], 3030));
 }
 ```
+
+For more information you can check the [docs](https://docs.rs/warp) or the [examples](https://github.com/seanmonstar/warp/tree/master/examples).
