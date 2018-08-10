@@ -7,14 +7,16 @@ mod or;
 mod or_else;
 mod recover;
 mod service;
+mod unify;
 mod unit;
 mod wrap;
 
 use futures::{future, Future, IntoFuture};
 
-pub(crate) use ::generic::{Combine, One, one, Func, HList, Tuple};
+pub(crate) use ::generic::{Combine, Either, Func, HList, One, one, Tuple};
 use ::reject::{CombineRejection, Reject, Rejection};
 use ::route::{self, Route};
+
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
@@ -23,6 +25,7 @@ pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
+use self::unify::Unify;
 use self::unit::Unit;
 pub(crate) use self::wrap::{WrapSealed, Wrap};
 
@@ -58,18 +61,6 @@ pub trait FilterBase {
         }
     }
 }
-
-/* This may not actually make any sense...
-impl<'a, T: FilterBase + 'a> FilterBase for &'a T {
-    type Extract = T::Extract;
-    type Error = T::Error;
-    type Future = T::Future;
-
-    fn filter(&self) -> Self::Future {
-        (**self).filter()
-    }
-}
-*/
 
 /// This just makes use of rustdoc's ability to make compile_fail tests.
 /// This is specifically testing to make sure `Filter::filter` isn't
@@ -284,6 +275,38 @@ pub trait Filter: FilterBase {
         Recover {
             filter: self,
             callback: fun,
+        }
+    }
+
+    /// Unifies the extracted value of `Filter`s composed with `or`.
+    ///
+    /// When a `Filter` extracts some `Either<T, T>`, where both sides
+    /// are the same type, this combinator can be used to grab the
+    /// inner value, regardless of which side of `Either` it was. This
+    /// is useful for values that could be extracted from multiple parts
+    /// of a request, and the exact place isn't important.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::net::SocketAddr;
+    /// use warp::Filter;
+    ///
+    /// let client_ip = warp::header("x-real-ip")
+    ///     .or(warp::header("x-forwarded-for"))
+    ///     .unify()
+    ///     .map(|ip: SocketAddr| {
+    ///         // Get the IP from either header,
+    ///         // and unify into the inner type.
+    ///     });
+    /// ```
+    fn unify<T>(self) -> Unify<Self>
+    where
+        Self: Filter<Extract=(Either<T, T>,)> + Sized,
+        T: Tuple,
+    {
+        Unify {
+            filter: self,
         }
     }
 
