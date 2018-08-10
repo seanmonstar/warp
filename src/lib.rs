@@ -75,14 +75,18 @@
 //! [Filter]: trait.Filter.html
 
 extern crate base64;
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
 extern crate bytes;
-#[macro_use] extern crate futures;
+#[macro_use]
+extern crate futures;
 #[doc(hidden)]
 pub extern crate http;
 extern crate hyper;
-#[macro_use] extern crate log as logcrate;
-#[macro_use] extern crate scoped_tls;
+#[macro_use]
+extern crate log as logcrate;
+#[macro_use]
+extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
@@ -95,6 +99,7 @@ mod error;
 mod filter;
 pub mod filters;
 mod generic;
+mod macros;
 mod never;
 pub mod reject;
 pub mod reply;
@@ -103,7 +108,7 @@ mod server;
 pub mod test;
 
 pub use self::error::Error;
-pub use self::filter::{Filter};
+pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
@@ -123,7 +128,7 @@ pub use self::filters::{
     log,
     // log() function
     log::log,
-    method::{get, method, post, put, delete},
+    method::{delete, get, method, post, put},
     path,
     // the index() function
     path::index,
