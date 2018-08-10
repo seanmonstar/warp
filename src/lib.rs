@@ -82,6 +82,7 @@ extern crate bytes;
 pub extern crate http;
 extern crate hyper;
 #[macro_use] extern crate log as logcrate;
+extern crate mime_guess;
 #[macro_use] extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;

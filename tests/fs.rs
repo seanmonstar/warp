@@ -17,6 +17,7 @@ fn file() {
 
     let contents = fs::read("README.md").expect("fs::read README.md");
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.headers()["content-type"], "text/x-markdown");
 
     assert_eq!(res.body(), &*contents);
 }
@@ -35,6 +36,7 @@ fn dir() {
 
     let contents = fs::read("examples/todos.rs").expect("fs::read");
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.headers()["content-type"], "text/x-rust");
 
     assert_eq!(res.body(), &*contents);
 }
