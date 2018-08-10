@@ -29,8 +29,8 @@
 //! });
 //!
 //! // GET requests return the empty 200, POST return the custom.
-//! let routes = warp::get(empty_200)
-//!     .or(warp::post(custom));
+//! let routes = warp::get2().and(empty_200)
+//!     .or(warp::post2().and(custom));
 //! ```
 
 use http::header::{CONTENT_TYPE, HeaderValue};

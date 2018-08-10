@@ -62,34 +62,30 @@ fn main() {
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
-    let list = warp::get(
-        todos_index
-            .and(db.clone())
-            .map(list_todos)
-    );
+    let list = warp::get2()
+        .and(todos_index)
+        .and(db.clone())
+        .map(list_todos);
 
     // `POST /todos`
-    let create = warp::post(
-        todos_index
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(create_todo)
-    );
+    let create = warp::post2()
+        .and(todos_index)
+        .and(warp::body::json())
+        .and(db.clone())
+        .and_then(create_todo);
 
     // `PUT /todos/:id`
-    let update = warp::put(
-        todos_id
-            .and(warp::body::json())
-            .and(db.clone())
-            .and_then(update_todo)
-    );
+    let update = warp::put2()
+        .and(todos_id)
+        .and(warp::body::json())
+        .and(db.clone())
+        .and_then(update_todo);
 
     // `DELETE /todos/:id`
-    let delete = warp::delete(
-        todos_id
-            .and(db.clone())
-            .and_then(delete_todo)
-    );
+    let delete = warp::delete2()
+        .and(todos_id)
+        .and(db.clone())
+        .and_then(delete_todo);
 
 
     // Combine our endpoints, since we want requests to match any of them:

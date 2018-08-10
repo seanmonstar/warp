@@ -14,7 +14,8 @@ fn main() {
             Err::<StatusCode, _>(reject::server_error())
         });
 
-    let routes = warp::get(hello.or(err500))
+    let routes = warp::get2()
+        .and(hello.or(err500))
         .recover(customize_error);
 
     warp::serve(routes)

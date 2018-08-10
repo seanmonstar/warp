@@ -79,7 +79,7 @@ fn main() {
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
 
-    let routes = warp::get(
+    let routes = warp::get2().and(
         hi
             .or(hello_from_warp)
             .or(bye)

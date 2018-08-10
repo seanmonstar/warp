@@ -80,34 +80,36 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
-    ::get(::path::tail().and_then(move |tail: ::path::Tail| {
-        let mut buf = PathBuf::from(base.as_ref());
-        let p = match decode(tail.as_str()) {
-            Ok(p) => p,
-            Err(e) => {
-                debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), e);
-                return Either::A(future::err(reject::bad_request()));
+    ::get2()
+        .and(::path::tail())
+        .and_then(move |tail: ::path::Tail| {
+            let mut buf = PathBuf::from(base.as_ref());
+            let p = match decode(tail.as_str()) {
+                Ok(p) => p,
+                Err(e) => {
+                    debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), e);
+                    return Either::A(future::err(reject::bad_request()));
+                }
+            };
+            trace!("dir? base={:?}, route={:?}", base, p);
+            for seg in p.split('/') {
+                if seg.starts_with("..") {
+                    debug!("dir: rejecting segment starting with '..'");
+                    return Either::A(future::err(reject::bad_request()));
+                } else {
+                    buf.push(seg);
+                }
+
             }
-        };
-        trace!("dir? base={:?}, route={:?}", base, p);
-        for seg in p.split('/') {
-            if seg.starts_with("..") {
-                debug!("dir: rejecting segment starting with '..'");
-                return Either::A(future::err(reject::bad_request()));
-            } else {
-                buf.push(seg);
-            }
 
-        }
+            trace!("dir: {:?}", buf);
+            let path = Arc::new(buf);
 
-        trace!("dir: {:?}", buf);
-        let path = Arc::new(buf);
-
-        Either::B(file_reply(ArcPath(path.clone()))
-            .map(|resp| File {
-                resp,
-            }))
-    }))
+            Either::B(file_reply(ArcPath(path.clone()))
+                .map(|resp| File {
+                    resp,
+                }))
+        })
 }
 
 /// A file response.
