@@ -124,6 +124,7 @@ pub use self::filters::{
     // log() function
     log::log,
     method::{get, method, post, put, delete},
+    method::{get2, post2, put2, delete2},
     path,
     // the index() function
     path::index,

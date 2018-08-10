@@ -58,7 +58,8 @@ where
 /// - Header `upgrade: websocket`
 /// - Header `sec-websocket-accept` with the hash value of the received key.
 pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
-    ::get(header::if_value(&http::header::CONNECTION, connection_has_upgrade)
+    ::get2()
+        .and(header::if_value(&http::header::CONNECTION, connection_has_upgrade))
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
         .and(header::header::<Accept>("sec-websocket-key"))
@@ -69,7 +70,6 @@ pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
                 body,
             }
         })
-    )
 }
 
 #[allow(deprecated)]
@@ -78,7 +78,8 @@ where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,
 {
-    ::get(header::if_value(&http::header::CONNECTION, connection_has_upgrade)
+    ::get2()
+        .and(header::if_value(&http::header::CONNECTION, connection_has_upgrade))
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
         .and(header::header::<Accept>("sec-websocket-key"))
@@ -101,7 +102,7 @@ where
             Ws {
                 accept,
             }
-        }))
+        })
 }
 
 fn connection_has_upgrade(value: &HeaderValue) -> Option<()> {

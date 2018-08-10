@@ -7,13 +7,17 @@ use warp::Filter;
 fn main() {
     pretty_env_logger::init();
 
-    let readme = warp::fs::file("./README.md");
-    let examples = warp::fs::dir("./examples/");
+    let readme = warp::get2()
+        .and(warp::index())
+        .and(warp::fs::file("./README.md"));
 
-    let routes = warp::get(
-        warp::index().and(readme)
-            .or(warp::path("ex").and(examples))
-    );
+    // dir already requires GET...
+    let examples = warp::path("ex")
+        .and(warp::fs::dir("./examples/"));
+
+    // GET / => README.md
+    // GET /ex/... => ./examples/..
+    let routes = readme.or(examples);
 
     warp::serve(routes)
         .run(([127, 0, 0, 1], 3030));

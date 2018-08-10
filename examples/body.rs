@@ -15,7 +15,9 @@ struct Employee {
 fn main() {
     pretty_env_logger::init();
 
-    let promote = warp::path("employees")
+    // POST /employees/:rate  {"name":"Sean","rate":2}
+    let promote = warp::post2()
+        .and(warp::path("employees"))
         .and(warp::path::param::<u32>())
         .and(warp::body::json())
         .map(|rate, mut employee: Employee| {
@@ -23,9 +25,6 @@ fn main() {
             warp::reply::json(&employee)
         });
 
-    // POST /employees/:rate  {"name":"Sean","rate":2}
-    let routes = warp::post(promote);
-
-    warp::serve(routes)
+    warp::serve(promote)
         .run(([127, 0, 0, 1], 3030));
 }

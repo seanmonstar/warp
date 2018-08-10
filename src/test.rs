@@ -167,8 +167,8 @@ impl RequestBuilder {
     /// # Example
     ///
     /// ```no_run
-    /// let get = warp::get(warp::any());
-    /// let post = warp::post(warp::any());
+    /// let get = warp::get2();
+    /// let post = warp::post2();
     ///
     /// assert!(
     ///     warp::test::request()
