@@ -7,7 +7,7 @@
 //! the request.
 //!
 //! Many of the built-in [`filters`](../filters) will automatically reject
-//! the request with a appropriate rejection. However, you can also build
+//! the request with an appropriate rejection. However, you can also build
 //! new custom [`Filter`](../trait.Filter.html)s and still want other routes to be
 //! matchable in the case a predicate doesn't hold.
 //!
