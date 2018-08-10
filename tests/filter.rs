@@ -94,3 +94,17 @@ fn map() {
     let resp = req.reply(&ok);
     assert_eq!(resp.status(), 200);
 }
+
+#[test]
+fn unify() {
+    let _ = pretty_env_logger::try_init();
+
+    let a = warp::any().map(|| 1);
+    let b = warp::any().map(|| 2);
+    let f = a.or(b).unify();
+
+    let ex = warp::test::request()
+        .filter(&f)
+        .unwrap();
+    assert_eq!(ex, 1);
+}
