@@ -5,7 +5,7 @@
 //! counterpart to a [rejection](../reject).
 //!
 //! The functions in this module are helpers for quickly creating a reply.
-//! Besides them, you can return a type that implement [`Reply`](./trait.Reply.html). This
+//! Besides them, you can return a type that implements [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
 //! - [`http::Response<impl Into<hyper::Body>`](https://docs.rs/http)
