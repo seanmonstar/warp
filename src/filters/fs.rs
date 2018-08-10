@@ -8,6 +8,7 @@ use bytes::{BufMut, BytesMut};
 use futures::{future, Future};
 use futures::future::Either;
 use http;
+use mime_guess;
 use tokio::fs;
 use tokio::io::AsyncRead;
 use urlencoding::decode;
@@ -119,7 +120,7 @@ pub struct File {
 }
 
 // Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct ArcPath(Arc<PathBuf>);
 
 impl AsRef<Path> for ArcPath {
@@ -135,9 +136,9 @@ impl ReplySealed for File {
 }
 
 fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
-    fs::File::open(path)
-        .then(|res| match res {
-            Ok(f) => Either::A(file_metadata(f)),
+    fs::File::open(path.clone())
+        .then(move |res| match res {
+            Ok(f) => Either::A(file_metadata(f, path)),
             Err(err) => {
                 let rej = match err.kind() {
                     io::ErrorKind::NotFound => {
@@ -160,7 +161,7 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
         })
 }
 
-fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=Rejection> + Send {
+fn file_metadata(f: fs::File, path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
     let mut f = Some(f);
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
@@ -170,9 +171,12 @@ fn file_metadata(f: fs::File) -> impl Future<Item=Response, Error=Rejection> + S
 
         ::hyper::rt::spawn(copy_to_body(f.take().unwrap(), tx, len));
 
+        let content_type = mime_guess::guess_mime_type(path.as_ref());
+
         Ok(http::Response::builder()
             .status(200)
             .header("content-length", len)
+            .header("content-type", content_type.as_ref())
             .body(body)
             .unwrap().into())
     })
