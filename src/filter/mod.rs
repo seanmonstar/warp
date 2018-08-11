@@ -362,7 +362,7 @@ pub trait Filter: FilterBase {
     where
         Self: Sized + Send + Sync + 'static,
         Self::Extract: Send,
-        Rejection: From<Self::Error>,
+        Self::Error: Into<Rejection>,
     {
         BoxedFilter::new(self)
     }
