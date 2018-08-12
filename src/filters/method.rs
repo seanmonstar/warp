@@ -17,6 +17,9 @@ pub use self::v2::{
     post as post2,
     put as put2,
     delete as delete2,
+    head,
+    options,
+    patch,
 };
 
 #[doc(hidden)]
@@ -181,5 +184,43 @@ pub mod v2 {
     pub fn delete() -> impl Filter<Extract=(), Error=Rejection> + Copy {
         method_is(|| &Method::DELETE)
     }
-}
 
+    /// Create a `Filter` that requires the request method to be `HEAD`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let head_only = warp::head().map(warp::reply);
+    /// ```
+    pub fn head() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+        method_is(|| &Method::HEAD)
+    }
+
+    /// Create a `Filter` that requires the request method to be `OPTIONS`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let options_only = warp::options().map(warp::reply);
+    /// ```
+    pub fn options() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+        method_is(|| &Method::OPTIONS)
+    }
+
+    /// Create a `Filter` that requires the request method to be `PATCH`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let patch_only = warp::patch().map(warp::reply);
+    /// ```
+    pub fn patch() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+        method_is(|| &Method::PATCH)
+    }
+}
