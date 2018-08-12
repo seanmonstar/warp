@@ -5,7 +5,7 @@
 
 //! # warp
 //!
-//! warp is a super-easy, composable, web framework for warp speeds.
+//! warp is a super-easy, composable, web server framework for warp speeds.
 //!
 //! Thanks to its [`Filter`][Filter] system, warp provides these out of the box:
 //!
@@ -17,6 +17,14 @@
 //! - Websockets
 //! - Access logging
 //! - Etc
+//!
+//! Since it builds on top of [hyper](https://hyper.rs), you automatically get:
+//!
+//! - HTTP/1
+//! - HTTP/2
+//! - Asynchronous
+//! - One of the fastest HTTP implementations
+//! - Tested and **correct**
 //!
 //! ## Filters
 //!
