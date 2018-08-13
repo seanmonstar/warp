@@ -7,10 +7,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bytes::{BufMut, BytesMut};
-use futures::{future, Future};
+use futures::{future, Future, stream, Stream};
 use futures::future::Either;
 use http;
-use hyper::{body::{Body, Sender}, rt};
+use hyper::{Body, Chunk};
 use mime_guess;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
@@ -171,9 +171,8 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
         let len = meta.len();
         let buf_size = optimal_buf_size(&meta);
 
-        let (tx, body) = Body::channel();
-
-        rt::spawn(copy_to_body(f.take().unwrap(), tx, buf_size, len));
+        let stream = file_stream(f.take().unwrap(), buf_size, len);
+        let body = Body::wrap_stream(stream);
 
         let content_type = mime_guess::guess_mime_type(path.as_ref());
 
@@ -185,28 +184,28 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
             .unwrap().into())
     })
         .map_err(|err: ::std::io::Error| {
-            trace!("file metadata error: {}", err);
+            debug!("file metadata error: {}", err);
             reject::server_error()
         })
 }
 
-fn copy_to_body(mut f: TkFile, mut tx: Sender, buf_size: usize, mut len: u64) -> impl Future<Item=(), Error=()> + Send {
+fn file_stream(mut f: TkFile, buf_size: usize, mut len: u64) -> impl Stream<Item=Chunk, Error=io::Error> + Send {
     let mut buf = BytesMut::new();
-    future::poll_fn(move || loop {
+    stream::poll_fn(move || {
         if len == 0 {
-            return Ok(().into());
+            return Ok(None.into());
         }
-        try_ready!(tx.poll_ready().map_err(|err| {
-            trace!("body channel error while writing file: {}", err);
-        }));
         if buf.remaining_mut() < buf_size {
             buf.reserve(buf_size);
         }
         let n = try_ready!(f.read_buf(&mut buf).map_err(|err| {
-            trace!("file read error: {}", err);
+            debug!("file read error: {}", err);
+            err
         })) as u64;
+
         if n == 0 {
-            return Ok(().into());
+            debug!("file read found EOF before expected length");
+            return Ok(None.into());
         }
 
         let mut chunk = buf.take().freeze();
@@ -217,9 +216,7 @@ fn copy_to_body(mut f: TkFile, mut tx: Sender, buf_size: usize, mut len: u64) ->
             len -= n;
         }
 
-        tx.send_data(chunk.into()).map_err(|_| {
-            trace!("body channel error, rejected send_data");
-        })?;
+        Ok(Some(Chunk::from(chunk)).into())
     })
 }
 
