@@ -7,7 +7,7 @@ use tungstenite::Error as WsError;
 use never::Never;
 
 /// Errors that can happen inside warp.
-pub struct Error(Kind);
+pub struct Error(Box<Kind>);
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -18,7 +18,7 @@ impl fmt::Debug for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0 {
+        match self.0.as_ref() {
             Kind::Hyper(ref e) => fmt::Display::fmt(e, f),
             Kind::Ws(ref e) => fmt::Display::fmt(e, f),
         }
@@ -27,14 +27,14 @@ impl fmt::Display for Error {
 
 impl StdError for Error {
     fn description(&self) -> &str {
-        match self.0 {
+        match self.0.as_ref() {
             Kind::Hyper(ref e) => e.description(),
             Kind::Ws(ref e) => e.description(),
         }
     }
 
     fn cause(&self) -> Option<&StdError> {
-        match self.0 {
+        match self.0.as_ref() {
             Kind::Hyper(ref e) => e.cause(),
             Kind::Ws(ref e) => e.cause(),
         }
@@ -58,7 +58,7 @@ impl fmt::Debug for Kind {
 #[doc(hidden)]
 impl From<Kind> for Error {
     fn from(kind: Kind) -> Error {
-        Error(kind)
+        Error(Box::new(kind))
     }
 }
 
@@ -68,3 +68,7 @@ impl From<Never> for Error {
     }
 }
 
+#[test]
+fn error_size_of() {
+    assert_eq!(::std::mem::size_of::<Error>(), ::std::mem::size_of::<usize>());
+}
