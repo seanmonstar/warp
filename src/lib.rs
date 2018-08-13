@@ -110,6 +110,7 @@ pub mod reply;
 mod route;
 mod server;
 pub mod test;
+mod service;
 
 pub use self::error::Error;
 pub use self::filter::{Filter};
@@ -152,6 +153,7 @@ pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
+pub use self::service::new_service;
 pub use hyper::rt::spawn;
 
 #[doc(hidden)]
