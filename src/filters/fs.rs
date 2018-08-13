@@ -1,6 +1,8 @@
 //! File System Filters
 
+use std::cmp;
 use std::io;
+use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -8,8 +10,9 @@ use bytes::{BufMut, BytesMut};
 use futures::{future, Future};
 use futures::future::Either;
 use http;
+use hyper::{body::{Body, Sender}, rt};
 use mime_guess;
-use tokio::fs;
+use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
 use urlencoding::decode;
 
@@ -136,7 +139,7 @@ impl ReplySealed for File {
 }
 
 fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
-    fs::File::open(path.clone())
+    TkFile::open(path.clone())
         .then(move |res| match res {
             Ok(f) => Either::A(file_metadata(f, path)),
             Err(err) => {
@@ -161,15 +164,16 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
         })
 }
 
-fn file_metadata(f: fs::File, path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
+fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
     let mut f = Some(f);
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
         let len = meta.len();
+        let buf_size = optimal_buf_size(&meta);
 
-        let (tx, body) = ::hyper::Body::channel();
+        let (tx, body) = Body::channel();
 
-        ::hyper::rt::spawn(copy_to_body(f.take().unwrap(), tx, len));
+        rt::spawn(copy_to_body(f.take().unwrap(), tx, buf_size, len));
 
         let content_type = mime_guess::guess_mime_type(path.as_ref());
 
@@ -186,7 +190,7 @@ fn file_metadata(f: fs::File, path: ArcPath) -> impl Future<Item=Response, Error
         })
 }
 
-fn copy_to_body(mut f: fs::File, mut tx: ::hyper::body::Sender, mut len: u64) -> impl Future<Item=(), Error=()> + Send {
+fn copy_to_body(mut f: TkFile, mut tx: Sender, buf_size: usize, mut len: u64) -> impl Future<Item=(), Error=()> + Send {
     let mut buf = BytesMut::new();
     future::poll_fn(move || loop {
         if len == 0 {
@@ -195,8 +199,8 @@ fn copy_to_body(mut f: fs::File, mut tx: ::hyper::body::Sender, mut len: u64) ->
         try_ready!(tx.poll_ready().map_err(|err| {
             trace!("body channel error while writing file: {}", err);
         }));
-        if buf.remaining_mut() < 4096 {
-            buf.reserve(4096 * 4);
+        if buf.remaining_mut() < buf_size {
+            buf.reserve(buf_size);
         }
         let n = try_ready!(f.read_buf(&mut buf).map_err(|err| {
             trace!("file read error: {}", err);
@@ -218,3 +222,25 @@ fn copy_to_body(mut f: fs::File, mut tx: ::hyper::body::Sender, mut len: u64) ->
         })?;
     })
 }
+
+fn optimal_buf_size(metadata: &Metadata) -> usize {
+    let block_size = get_block_size(metadata);
+
+    // If file length is smaller than block size, don't waste space
+    // reserving a bigger-than-needed buffer.
+    cmp::min(block_size as u64, metadata.len()) as usize
+}
+
+#[cfg(unix)]
+fn get_block_size(metadata: &Metadata) -> usize {
+    use std::os::unix::fs::MetadataExt;
+    //TODO: blksize() returns u64, should handle bad cast...
+    //(really, a block size bigger than 4gb?)
+    metadata.blksize() as usize
+}
+
+#[cfg(not(unix))]
+fn get_block_size(metadata: &Metadata) -> usize {
+    8_192
+}
+
