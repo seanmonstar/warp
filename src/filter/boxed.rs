@@ -12,6 +12,19 @@ use super::{FilterBase, Filter, Tuple};
 /// to ease returning `Filter`s from other functions.
 ///
 /// To create one, call `Filter::boxed` on any filter.
+/// 
+/// # Examples
+///
+/// ```
+/// use warp::{Filter, filters::BoxedFilter, Reply};
+/// 
+/// pub fn assets_filter() -> BoxedFilter<(impl Reply,)> {
+///     warp::path("assets")
+///         .and(warp::fs::dir("./assets"))
+///         .boxed()
+/// }
+/// ```
+///
 pub struct BoxedFilter<T: Tuple> {
     filter: Arc<Filter<
         Extract = T,
