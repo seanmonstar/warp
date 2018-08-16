@@ -27,7 +27,12 @@
 //!     });
 //! ```
 
+use std::error::Error as StdError;
+use std::cmp::{Ordering, PartialOrd, PartialEq};
+
 use http;
+use serde_json;
+use serde;
 
 use ::never::Never;
 
@@ -84,10 +89,14 @@ pub fn server_error() -> Rejection {
     Reason::SERVER_ERROR.into()
 }
 
+/// Error cause for a rejection.
+pub type Cause = Box<StdError + Send + Sync>;
+
 /// Rejection of a request by a [`Filter`](::Filter).
 #[derive(Debug)]
 pub struct Rejection {
     reason: Reason,
+    cause: Option<Cause>,
 }
 
 bitflags! {
@@ -107,7 +116,39 @@ impl Rejection {
     pub fn status(&self) -> http::StatusCode {
         Reject::status(self)
     }
+
+    /// Add given `err` into `Rejection`.
+    pub fn with<E>(self, err: E) -> Self
+    where E: Into<Cause> + Sized
+    {
+        let cause = Some(err.into());
+        Self {
+            cause,
+            .. self
+        }
+    }
 }
+
+impl PartialOrd for Rejection {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&self.reason, &other.reason)
+    }
+}
+
+impl PartialEq for Rejection {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&self.reason, &other.reason)
+    }
+}
+
+impl Eq for Rejection {}
+
+impl Ord for Rejection {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&self.reason, &other.reason)
+    }
+}
+
 
 #[doc(hidden)]
 impl From<Reason> for Rejection {
@@ -115,6 +156,7 @@ impl From<Reason> for Rejection {
     fn from(reason: Reason) -> Rejection {
         Rejection {
             reason,
+            cause: None,
         }
     }
 }
@@ -133,6 +175,10 @@ impl Reject for Never {
 
     fn into_response(self) -> ::reply::Response {
         match self {}
+    }
+
+    fn cause(&self) -> Option<&Cause> {
+        None
     }
 }
 
@@ -157,23 +203,62 @@ impl Reject for Rejection {
     }
 
     fn into_response(self) -> ::reply::Response {
-        let code = self.status();
+        use http::header::{CONTENT_TYPE, HeaderValue};
+        use hyper::Body;
 
+        let code = self.status();
         let mut res = http::Response::default();
         *res.status_mut() = code;
+
+        match serde_json::to_vec(&self) {
+            Ok(bytes) => {
+                *res.body_mut() = Body::from(bytes);
+                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+            },
+            Err(err) => {
+                warn!("json error {}", err);
+            }
+        };
+
         res
+    }
+
+    fn cause(&self) -> Option<&Cause> {
+        if let Some(ref err) = self.cause {
+            return Some(&err)
+        }
+        None
     }
 }
 
+impl serde::Serialize for Rejection {
 
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        use serde::ser::SerializeMap;
+
+        let mut map = serializer.serialize_map(None)?;
+        let err = match self.cause {
+            Some(ref err) => err,
+            None => return map.end()
+        };
+
+        map.serialize_key("description").and_then(|_| map.serialize_value(err.description()))?;
+        map.serialize_key("message").and_then(|_| map.serialize_value(&err.to_string()))?;
+        map.end()
+    }
+}
 
 mod sealed {
     use ::never::Never;
-    use super::Rejection;
+    use super::{Rejection, Cause};
 
     pub trait Reject: ::std::fmt::Debug + Send {
         fn status(&self) -> ::http::StatusCode;
         fn into_response(self) -> ::reply::Response;
+        fn cause(&self) -> Option<&Cause>;
     }
 
     fn _assert_object_safe() {
@@ -190,8 +275,14 @@ mod sealed {
         type Rejection = Rejection;
 
         fn combine(self, other: Rejection) -> Self::Rejection {
+            use std::cmp::max;
+
+            let reason = self.reason | other.reason;
+            let cause = max(self, other).cause;
+
             Rejection {
-                reason: self.reason | other.reason,
+                reason,
+                cause
             }
         }
     }
@@ -217,6 +308,78 @@ mod sealed {
 
         fn combine(self, _: Never) -> Self::Rejection {
             match self {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn combine_rejections() {
+        let left = bad_request().with("left");
+        let right = server_error().with("right");
+        let reject = left.combine(right);
+
+        assert_eq!(Reason::BAD_REQUEST | Reason::SERVER_ERROR, reject.reason);
+        match reject.cause {
+            Some(err) => assert_eq!("right", err.description()),
+            err => unreachable!("{:?}", err)
+        }
+    }
+
+    #[test]
+    fn combine_rejection_causes_with_some_left_and_none_right() {
+        let left = bad_request().with("left");
+        let right = server_error();
+
+        match left.combine(right).cause {
+            None => {},
+            err => unreachable!("{:?}", err)
+        }
+    }
+
+    #[test]
+    fn combine_rejection_causes_with_none_left_and_some_right() {
+        let left = bad_request();
+        let right = server_error().with("right");
+
+        match left.combine(right).cause {
+            Some(err) => assert_eq!("right", err.description()),
+            err => unreachable!("{:?}", err)
+        }
+    }
+
+    #[test]
+    fn into_response_with_none_cause() {
+        use http::header::{CONTENT_TYPE};
+
+        let resp = bad_request().into_response();
+        assert_eq!(400, resp.status());
+        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!("{}", response_body_string(resp))
+    }
+
+    #[test]
+    fn into_response_with_some_cause() {
+        use http::header::{CONTENT_TYPE};
+
+        let resp = server_error().with("boom").into_response();
+        assert_eq!(500, resp.status());
+        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!(r#"{"description":"boom","message":"boom"}"#, response_body_string(resp))
+    }
+
+    fn response_body_string(resp: ::reply::Response) -> String {
+        use futures::{Future, Stream, Async};
+
+        let (_, body) = resp.into_parts();
+        match body.concat2().poll() {
+            Ok(Async::Ready(chunk)) => {
+                String::from_utf8_lossy(&chunk).to_string()
+            },
+            err => unreachable!("{:?}", err)
         }
     }
 }
