@@ -186,7 +186,11 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn param<T>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy
+where
+    T: FromStr + Send,
+    T::Err: Into<::reject::Cause>
+{
     segment(|seg| {
         trace!("param?: {:?}", seg);
         if seg.is_empty() {
@@ -194,7 +198,7 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection
         }
         T::from_str(seg)
             .map(one)
-            .map_err(|_| reject::not_found())
+            .map_err(|err| reject::not_found().with(err.into()))
     })
 }
 
