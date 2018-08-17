@@ -28,7 +28,6 @@
 //! ```
 
 use std::error::Error as StdError;
-use std::cmp::{Ordering, PartialOrd, PartialEq};
 
 use http;
 use serde_json;
@@ -128,27 +127,6 @@ impl Rejection {
         }
     }
 }
-
-impl PartialOrd for Rejection {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        PartialOrd::partial_cmp(&self.reason, &other.reason)
-    }
-}
-
-impl PartialEq for Rejection {
-    fn eq(&self, other: &Self) -> bool {
-        PartialEq::eq(&self.reason, &other.reason)
-    }
-}
-
-impl Eq for Rejection {}
-
-impl Ord for Rejection {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Ord::cmp(&self.reason, &other.reason)
-    }
-}
-
 
 #[doc(hidden)]
 impl From<Reason> for Rejection {
@@ -275,10 +253,12 @@ mod sealed {
         type Rejection = Rejection;
 
         fn combine(self, other: Rejection) -> Self::Rejection {
-            use std::cmp::max;
-
             let reason = self.reason | other.reason;
-            let cause = max(self, other).cause;
+            let cause = if self.reason > other.reason {
+                self.cause
+            } else {
+                other.cause
+            };
 
             Rejection {
                 reason,
