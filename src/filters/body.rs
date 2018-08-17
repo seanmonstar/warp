@@ -25,8 +25,9 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
             .take_body()
             .map(Ok)
             .unwrap_or_else(|| {
-                warn!("request body already taken in previous filter");
-                Err(reject::server_error())
+                let err = "request body already taken in previous filter";
+                warn!("{}", err);
+                Err(reject::server_error().with(err))
             })
     })
 }
@@ -55,8 +56,9 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
             if length <= limit {
                 Ok(())
             } else {
-                debug!("content-length: {} is over limit {}", length, limit);
-                Err(reject::payload_too_large())
+                let err = format!("content-length: {} is over limit {}", length, limit);
+                debug!("{}", err);
+                Err(reject::payload_too_large().with(err))
             }
         })
         .unit()
@@ -117,7 +119,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
             serde_json::from_slice(&buf.chunk)
                 .map_err(|err| {
                     debug!("request json body error: {}", err);
-                    reject::bad_request()
+                    reject::bad_request().with(err)
                 })
         })
 }
@@ -136,7 +138,7 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
             serde_urlencoded::from_bytes(&buf.chunk)
                 .map_err(|err| {
                     debug!("request form body error: {}", err);
-                    reject::bad_request()
+                    reject::bad_request().with(err)
                 })
         })
 }
@@ -182,9 +184,9 @@ impl Future for Concat {
         match self.fut.poll() {
             Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk, })),
             Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => {
-                debug!("concat error: {}", e);
-                Err(reject::bad_request())
+            Err(err) => {
+                debug!("concat error: {}", err);
+                Err(reject::bad_request().with(err))
             }
         }
     }

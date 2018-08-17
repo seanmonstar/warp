@@ -90,16 +90,17 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
             let mut buf = PathBuf::from(base.as_ref());
             let p = match decode(tail.as_str()) {
                 Ok(p) => p,
-                Err(e) => {
-                    debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), e);
-                    return Either::A(future::err(reject::bad_request()));
+                Err(err) => {
+                    debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), err);
+                    // FromUrlEncodingError doesn't implement StdError
+                    return Either::A(future::err(reject::bad_request().with("dir: failed to decode route")));
                 }
             };
             trace!("dir? base={:?}, route={:?}", base, p);
             for seg in p.split('/') {
                 if seg.starts_with("..") {
                     debug!("dir: rejecting segment starting with '..'");
-                    return Either::A(future::err(reject::bad_request()));
+                    return Either::A(future::err(reject::bad_request().with("dir: rejecting segment")));
                 } else {
                     buf.push(seg);
                 }
@@ -146,7 +147,7 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
                 let rej = match err.kind() {
                     io::ErrorKind::NotFound => {
                         debug!("file open error: {} ", err);
-                        reject::not_found()
+                        reject::not_found().with(err)
                     },
                     // There are actually other errors that could
                     // occur that really mean a 404, but the kind
@@ -156,7 +157,7 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
                     // using `tokio_threadpool::blocking` around it...
                     _ => {
                         warn!("file open error: {} ", err);
-                        reject::server_error()
+                        reject::server_error().with(err)
                     },
                 };
                 Either::B(future::err(rej))
@@ -185,7 +186,7 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
     })
         .map_err(|err: ::std::io::Error| {
             debug!("file metadata error: {}", err);
-            reject::server_error()
+            reject::server_error().with(err)
         })
 }
 
