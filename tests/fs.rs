@@ -83,7 +83,7 @@ fn dir_bad_path() {
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), r#"{"description":"dir: rejecting segment","message":"dir: rejecting segment"}"#);
+    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
 }
 
 #[test]
@@ -97,5 +97,5 @@ fn dir_bad_encoded_path() {
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), r#"{"description":"dir: rejecting segment","message":"dir: rejecting segment"}"#);
+    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
 }

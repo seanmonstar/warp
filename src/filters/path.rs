@@ -186,7 +186,6 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-#[deprecated(note="warp::path::param2() is meant to replace warp::path::param()")]
 pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);

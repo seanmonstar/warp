@@ -30,7 +30,6 @@
 use std::error::Error as StdError;
 
 use http;
-use serde_json;
 use serde;
 
 use ::never::Never;
@@ -188,15 +187,14 @@ impl Reject for Rejection {
         let mut res = http::Response::default();
         *res.status_mut() = code;
 
-        match serde_json::to_vec(&self) {
-            Ok(bytes) => {
+        match self.cause {
+            Some(err) => {
+                let bytes = format!("{}", err);
+                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
                 *res.body_mut() = Body::from(bytes);
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
             },
-            Err(err) => {
-                warn!("json error {}", err);
-            }
-        };
+            None => {}
+        }
 
         res
     }
@@ -333,12 +331,12 @@ mod tests {
 
     #[test]
     fn into_response_with_none_cause() {
-        use http::header::{CONTENT_TYPE};
+        use http::header::CONTENT_TYPE;
 
         let resp = bad_request().into_response();
         assert_eq!(400, resp.status());
-        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
-        assert_eq!("{}", response_body_string(resp))
+        assert!(resp.headers().get(CONTENT_TYPE).is_none());
+        assert_eq!("", response_body_string(resp))
     }
 
     #[test]
@@ -347,8 +345,8 @@ mod tests {
 
         let resp = server_error().with("boom").into_response();
         assert_eq!(500, resp.status());
-        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
-        assert_eq!(r#"{"description":"boom","message":"boom"}"#, response_body_string(resp))
+        assert_eq!("text/plain", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!("boom", response_body_string(resp))
     }
 
     fn response_body_string(resp: ::reply::Response) -> String {
