@@ -34,6 +34,10 @@ urlencoding = "1.0.0"
 pretty_env_logger = "0.2"
 serde_derive = "1.0"
 handlebars = "1.0.0"
+bytes = "0.4.9"
+multipart = "0.15.2"
+regex = "1.0.2"
+
 
 [profile.release]
 codegen-units = 1
