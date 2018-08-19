@@ -4,10 +4,25 @@ extern crate hyper;
 extern crate handlebars;
 #[macro_use]
 extern crate serde_json;
+extern crate serde;
+
+use std::error::Error;
+use std::sync::Arc;
 
 use warp::Filter;
 use handlebars::Handlebars;
-use std::sync::Arc;
+use serde::Serialize;
+
+struct WithTemplate<T: Serialize> {
+    name: &'static str,
+    value: T,
+}
+
+fn handlebars<T>(template: WithTemplate<T>, hbs: Arc<Handlebars>) -> impl warp::Reply where T: Serialize {
+    hbs.render(template.name, &template.value).unwrap_or_else(|err| {
+        err.description().to_owned()
+    })
+}
 
 fn main() {
     let template = "<!DOCTYPE html>
@@ -19,7 +34,7 @@ fn main() {
                         <h1>Hello {{user}}!</h1>
                       </body>
                     </html>";
-    
+
     let mut hb = Handlebars::new();
     // register the template
     hb.register_template_string("template.html", template).unwrap();
@@ -32,13 +47,14 @@ fn main() {
     //GET /
     let route = warp::get2()
         .and(warp::index())
+        .map(|| {
+            WithTemplate {
+                name: "template.html",
+                value: json!({"user" : "Warp"})
+            }
+        })
         .and(hb)
-        .map(render_index);
+        .map(handlebars);
 
     warp::serve(route).run(([127, 0, 0, 1], 3030));
-}
-
-//GET / handler
-fn render_index(hb: Arc<Handlebars>) -> impl warp::Reply {
-    hb.render("template.html", &json!({"user": "Warp"})).unwrap()
 }
