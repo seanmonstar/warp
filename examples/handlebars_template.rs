@@ -18,7 +18,7 @@ struct WithTemplate<T: Serialize> {
     value: T,
 }
 
-fn handlebars<T>(template: WithTemplate<T>, hbs: Arc<Handlebars>) -> impl warp::Reply where T: Serialize {
+fn render<T>(template: WithTemplate<T>, hbs: Arc<Handlebars>) -> impl warp::Reply where T: Serialize {
     hbs.render(template.name, &template.value).unwrap_or_else(|err| {
         err.description().to_owned()
     })
@@ -42,7 +42,11 @@ fn main() {
     // Turn Handlebars instance into a Filter so we can combine it
     // easily with others...
     let hb = Arc::new(hb);
-    let hb = warp::any().map(move || hb.clone());
+
+    // Create a reusable closure to render template
+    let handlebars = move |with_template| {
+        render(with_template, hb.clone())
+    };
 
     //GET /
     let route = warp::get2()
@@ -53,7 +57,6 @@ fn main() {
                 value: json!({"user" : "Warp"})
             }
         })
-        .and(hb)
         .map(handlebars);
 
     warp::serve(route).run(([127, 0, 0, 1], 3030));
