@@ -238,7 +238,7 @@ fn get_block_size(metadata: &Metadata) -> usize {
 }
 
 #[cfg(not(unix))]
-fn get_block_size(metadata: &Metadata) -> usize {
+fn get_block_size(_metadata: &Metadata) -> usize {
     8_192
 }
 
