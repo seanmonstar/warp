@@ -22,7 +22,7 @@ mime_guess = "2.0.0-alpha.6"
 scoped-tls = "0.1.2"
 serde = "1.0"
 serde_json = "1.0"
-serde_urlencoded = "0.5.2"
+serde_urlencoded = "0.5.3"
 sha-1 = "0.7"
 tokio = "0.1.7"
 # tls is enabled by default, we don't want that yet
