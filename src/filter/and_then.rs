@@ -2,8 +2,8 @@ use std::mem;
 
 use futures::{Async, Future, IntoFuture, Poll};
 
-use ::reject::CombineRejection;
-use super::{FilterBase, Filter, Func};
+use super::{Filter, FilterBase, Func};
+use reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AndThen<T, F> {
@@ -68,13 +68,11 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex1 = match self.state {
-            State::First(ref mut first, _) => {
-                try_ready!(first.poll())
-            },
+            State::First(ref mut first, _) => try_ready!(first.poll()),
             State::Second(ref mut second) => {
                 let item = try_ready!(second.poll());
                 return Ok(Async::Ready((item,)));
-            },
+            }
             State::Done => panic!("polled after complete"),
         };
 
@@ -84,15 +82,11 @@ where
         };
 
         match second.poll()? {
-            Async::Ready(item) => {
-                Ok(Async::Ready((item,)))
-            },
+            Async::Ready(item) => Ok(Async::Ready((item,))),
             Async::NotReady => {
                 self.state = State::Second(second);
                 Ok(Async::NotReady)
-            },
+            }
         }
-
     }
 }
-

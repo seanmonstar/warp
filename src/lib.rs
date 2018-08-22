@@ -83,15 +83,19 @@
 //! [Filter]: trait.Filter.html
 
 extern crate base64;
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
 extern crate bytes;
-#[macro_use] extern crate futures;
+#[macro_use]
+extern crate futures;
 #[doc(hidden)]
 pub extern crate http;
 extern crate hyper;
-#[macro_use] extern crate log as logcrate;
+#[macro_use]
+extern crate log as logcrate;
 extern crate mime_guess;
-#[macro_use] extern crate scoped_tls;
+#[macro_use]
+extern crate scoped_tls;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
@@ -112,39 +116,29 @@ mod server;
 pub mod test;
 
 pub use self::error::Error;
-pub use self::filter::{Filter};
+pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::filters::{
-    // any() function
     any::any,
-    body,
-    cookie,
-    // cookie() function
+    body, cookie,
     cookie::cookie,
-    fs,
-    header,
-    // header() function
+    fs, header,
     header::header,
     log,
-    // log() function
     log::log,
-    method::{get, method, post, put, delete},
+    method::{delete, get, method, post, put},
+    method::{delete2, get2, post2, put2},
     method::{head, options, patch},
-    method::{get2, post2, put2, delete2},
     path,
-    // the index() function
     path::index,
-    // path() function
     path::path,
     query,
-    // query() function
     query::query,
     ws,
-    // ws() function
     ws::{ws, ws2},
 };
 #[doc(hidden)]

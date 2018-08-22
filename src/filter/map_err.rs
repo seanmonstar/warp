@@ -1,7 +1,7 @@
 use futures::{Future, Poll};
 
-use ::reject::Reject;
-use super::{FilterBase, Filter};
+use super::{Filter, FilterBase};
+use reject::Reject;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapErr<T, F> {
@@ -43,9 +43,6 @@ where
 
     #[inline]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.extract.poll().map_err(|err| {
-            (self.callback)(err)
-        })
+        self.extract.poll().map_err(|err| (self.callback)(err))
     }
 }
-

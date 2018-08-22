@@ -21,12 +21,9 @@ fn main() {
     // Match when we get `accept: */*` exactly.
     let accept_stars = warp::header::exact("accept", "*/*");
 
-    let routes = host.and(accept_stars)
-        .map(|addr| {
-            format!("accepting stars on {}", addr)
-        });
+    let routes = host
+        .and(accept_stars)
+        .map(|addr| format!("accepting stars on {}", addr));
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
-

@@ -13,9 +13,9 @@ mod wrap;
 
 use futures::{future, Future, IntoFuture};
 
-pub(crate) use ::generic::{Combine, Either, Func, HList, One, one, Tuple};
-use ::reject::{CombineRejection, Reject, Rejection};
-use ::route::{self, Route};
+pub(crate) use generic::{one, Combine, Either, Func, HList, One, Tuple};
+use reject::{CombineRejection, Reject, Rejection};
+use route::{self, Route};
 
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
@@ -27,14 +27,14 @@ use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
 use self::unit::Unit;
-pub(crate) use self::wrap::{WrapSealed, Wrap};
+pub(crate) use self::wrap::{Wrap, WrapSealed};
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
 pub trait FilterBase {
     type Extract: Tuple; // + Send;
     type Error: Reject;
-    type Future: Future<Item=Self::Extract, Error=Self::Error> + Send;
+    type Future: Future<Item = Self::Extract, Error = Self::Error> + Send;
 
     fn filter(&self) -> Self::Future;
 
@@ -54,11 +54,9 @@ pub trait FilterBase {
 
     fn unit(self) -> Unit<Self>
     where
-        Self: Filter<Extract=((),)> + Sized,
+        Self: Filter<Extract = ((),)> + Sized,
     {
-        Unit {
-            filter: self,
-        }
+        Unit { filter: self }
     }
 }
 
@@ -208,7 +206,6 @@ pub trait Filter: FilterBase {
         }
     }
 
-
     /// Composes this `Filter` with a function receiving the extracted value.
     ///
     /// The function should return some `IntoFuture` type.
@@ -249,7 +246,7 @@ pub trait Filter: FilterBase {
     where
         Self: Sized,
         F: Func<Self::Error>,
-        F::Output: IntoFuture<Item=Self::Extract, Error=Self::Error> + Send,
+        F::Output: IntoFuture<Item = Self::Extract, Error = Self::Error> + Send,
         <F::Output as IntoFuture>::Future: Send,
     {
         OrElse {
@@ -269,7 +266,7 @@ pub trait Filter: FilterBase {
     where
         Self: Sized,
         F: Func<Self::Error>,
-        F::Output: IntoFuture<Error=Self::Error> + Send,
+        F::Output: IntoFuture<Error = Self::Error> + Send,
         <F::Output as IntoFuture>::Future: Send,
     {
         Recover {
@@ -302,12 +299,10 @@ pub trait Filter: FilterBase {
     /// ```
     fn unify<T>(self) -> Unify<Self>
     where
-        Self: Filter<Extract=(Either<T, T>,)> + Sized,
+        Self: Filter<Extract = (Either<T, T>,)> + Sized,
         T: Tuple,
     {
-        Unify {
-            filter: self,
-        }
+        Unify { filter: self }
     }
 
     /// Wraps the current filter with some wrapper.
@@ -375,11 +370,7 @@ pub trait FilterClone: Filter + Clone {}
 impl<T: Filter + Clone> FilterClone for T {}
 
 fn _assert_object_safe() {
-    fn _assert(_f: &Filter<
-        Extract=(),
-        Error=(),
-        Future=future::FutureResult<(), ()>
-    >) {}
+    fn _assert(_f: &Filter<Extract = (), Error = (), Future = future::FutureResult<(), ()>>) {}
 }
 
 // ===== FilterFn =====
@@ -391,23 +382,18 @@ where
     U::Item: Tuple,
     U::Error: Reject,
 {
-    FilterFn {
-        func,
-    }
+    FilterFn { func }
 }
 
-pub(crate) fn filter_fn_one<F, U>(func: F)
-    -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> (U::Item,)> + Copy>
+pub(crate) fn filter_fn_one<F, U>(
+    func: F,
+) -> FilterFn<impl Fn(&mut Route) -> future::Map<U::Future, fn(U::Item) -> (U::Item,)> + Copy>
 where
     F: Fn(&mut Route) -> U + Copy,
     U: IntoFuture,
     U::Error: Reject,
 {
-    filter_fn(move |route| {
-        func(route)
-            .into_future()
-            .map(tup_one as _)
-    })
+    filter_fn(move |route| func(route).into_future().map(tup_one as _))
 }
 
 fn tup_one<T>(item: T) -> (T,) {
@@ -435,9 +421,6 @@ where
 
     #[inline]
     fn filter(&self) -> Self::Future {
-        route::with(|route| {
-            (self.func)(route).into_future()
-        })
+        route::with(|route| (self.func)(route).into_future())
     }
 }
-

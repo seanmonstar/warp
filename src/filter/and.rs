@@ -2,8 +2,8 @@ use std::mem;
 
 use futures::{Async, Future, Poll};
 
-use ::reject::CombineRejection;
-use super::{Combine, FilterBase, Filter, HList, Tuple};
+use super::{Combine, Filter, FilterBase, HList, Tuple};
+use reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {
@@ -56,14 +56,12 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex1 = match self.state {
-            State::First(ref mut first, _) => {
-                try_ready!(first.poll())
-            },
+            State::First(ref mut first, _) => try_ready!(first.poll()),
             State::Second(ref mut ex1, ref mut second) => {
                 let ex2 = try_ready!(second.poll());
                 let ex3 = ex1.take().unwrap().hlist().combine(ex2.hlist()).flatten();
                 return Ok(Async::Ready(ex3));
-            },
+            }
             State::Done => panic!("polled after complete"),
         };
 
@@ -73,14 +71,11 @@ where
         };
 
         match second.poll()? {
-            Async::Ready(ex2) => {
-                Ok(Async::Ready(ex1.hlist().combine(ex2.hlist()).flatten()))
-            },
+            Async::Ready(ex2) => Ok(Async::Ready(ex1.hlist().combine(ex2.hlist()).flatten())),
             Async::NotReady => {
                 self.state = State::Second(Some(ex1), second);
                 Ok(Async::NotReady)
-            },
+            }
         }
     }
 }
-

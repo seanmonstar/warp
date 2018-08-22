@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{FilterBase, Filter};
+use super::{Filter, FilterBase};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unit<T> {
@@ -9,7 +9,7 @@ pub struct Unit<T> {
 
 impl<T> FilterBase for Unit<T>
 where
-    T: Filter<Extract=((),)>,
+    T: Filter<Extract = ((),)>,
 {
     type Extract = ();
     type Error = T::Error;
@@ -29,7 +29,7 @@ pub struct UnitFuture<T: Filter> {
 
 impl<T> Future for UnitFuture<T>
 where
-    T: Filter<Extract=((),)>,
+    T: Filter<Extract = ((),)>,
 {
     type Item = ();
     type Error = T::Error;
@@ -40,4 +40,3 @@ where
         Ok(Async::Ready(()))
     }
 }
-

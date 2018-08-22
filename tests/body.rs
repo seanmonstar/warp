@@ -14,14 +14,12 @@ fn matches() {
 
     let concat = warp::body::concat();
 
-    let req = warp::test::request()
-        .path("/nothing-matches-me");
+    let req = warp::test::request().path("/nothing-matches-me");
 
     assert!(req.matches(&concat));
 
     let p = warp::path("body");
-    let req = warp::test::request()
-        .path("/body");
+    let req = warp::test::request().path("/body");
 
     assert!(req.matches(&p.and(concat)));
 }
@@ -31,12 +29,9 @@ fn server_error_if_taking_body_multiple_times() {
     let _ = pretty_env_logger::try_init();
 
     let concat = warp::body::concat();
-    let double = concat
-        .and(concat)
-        .map(|_, _| warp::reply());
+    let double = concat.and(concat).map(|_, _| warp::reply());
 
-    let res = warp::test::request()
-        .reply(&double);
+    let res = warp::test::request().reply(&double);
 
     assert_eq!(res.status(), 500);
 }
@@ -45,11 +40,9 @@ fn server_error_if_taking_body_multiple_times() {
 fn content_length_limit() {
     let _ = pretty_env_logger::try_init();
 
-    let limit = warp::body::content_length_limit(30)
-        .map(warp::reply);
+    let limit = warp::body::content_length_limit(30).map(warp::reply);
 
-    let res = warp::test::request()
-        .reply(&limit);
+    let res = warp::test::request().reply(&limit);
     assert_eq!(res.status(), 411, "missing content-length returns 411");
 
     let res = warp::test::request()
@@ -69,12 +62,10 @@ fn json() {
 
     let json = warp::body::json::<Vec<i32>>();
 
-    let req = warp::test::request()
-        .body("[1, 2, 3]");
+    let req = warp::test::request().body("[1, 2, 3]");
 
     let vec = req.filter(&json).unwrap();
     assert_eq!(vec, &[1, 2, 3]);
-
 
     let req = warp::test::request()
         .header("content-type", "application/json")
@@ -88,8 +79,7 @@ fn json() {
 fn json_rejects_bad_content_type() {
     let _ = pretty_env_logger::try_init();
 
-    let json = warp::body::json::<Vec<i32>>()
-        .map(|_| warp::reply());
+    let json = warp::body::json::<Vec<i32>>().map(|_| warp::reply());
 
     let req = warp::test::request()
         .header("content-type", "text/xml")
@@ -109,8 +99,7 @@ fn form() {
 
     let form = warp::body::form::<Vec<(String, String)>>();
 
-    let req = warp::test::request()
-        .body("foo=bar&baz=quux");
+    let req = warp::test::request().body("foo=bar&baz=quux");
 
     let vec = req.filter(&form).unwrap();
     let expected = vec![
@@ -124,8 +113,7 @@ fn form() {
 fn form_rejects_bad_content_type() {
     let _ = pretty_env_logger::try_init();
 
-    let form = warp::body::form::<Vec<(String, String)>>()
-        .map(|_| warp::reply());
+    let form = warp::body::form::<Vec<(String, String)>>().map(|_| warp::reply());
 
     let req = warp::test::request()
         .header("content-type", "application/x-www-form-urlencoded")
@@ -133,7 +121,6 @@ fn form_rejects_bad_content_type() {
 
     let res = req.reply(&form);
     assert_eq!(res.status(), 200);
-
 
     let req = warp::test::request()
         .header("content-type", "text/xml")
@@ -157,11 +144,10 @@ fn stream() {
         .filter(&stream)
         .expect("filter() stream");
 
-    let bufs = futures::future::lazy(move || {
-        body.collect()
-    }).wait().expect("lazy");
+    let bufs = futures::future::lazy(move || body.collect())
+        .wait()
+        .expect("lazy");
 
     assert_eq!(bufs.len(), 1);
     assert_eq!(bufs[0].bytes(), b"foo=bar");
 }
-

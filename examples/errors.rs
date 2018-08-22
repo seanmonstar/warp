@@ -2,24 +2,17 @@
 extern crate pretty_env_logger;
 extern crate warp;
 
-use warp::{Filter, reject, Rejection, Reply};
 use warp::http::{Response, StatusCode};
+use warp::{reject, Filter, Rejection, Reply};
 
 fn main() {
-    let hello = warp::path::index()
-        .map(warp::reply);
+    let hello = warp::path::index().map(warp::reply);
 
-    let err500 = warp::path("500")
-        .and_then(|| {
-            Err::<StatusCode, _>(reject::server_error())
-        });
+    let err500 = warp::path("500").and_then(|| Err::<StatusCode, _>(reject::server_error()));
 
-    let routes = warp::get2()
-        .and(hello.or(err500))
-        .recover(customize_error);
+    let routes = warp::get2().and(hello.or(err500)).recover(customize_error);
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
 
 // This function receives a `Rejection` and tries to return a custom
@@ -34,7 +27,7 @@ fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
             Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body("you get a 404, and *you* get a 404..."))
-        },
+        }
         StatusCode::INTERNAL_SERVER_ERROR => {
             // Oh no, something is on fire!
             eprintln!("quick, page someone! fire!");

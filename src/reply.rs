@@ -33,17 +33,16 @@
 //!     .or(warp::post2().and(custom));
 //! ```
 
-use http::header::{CONTENT_TYPE, HeaderValue};
+use http::header::{HeaderValue, CONTENT_TYPE};
 use http::StatusCode;
 use serde::Serialize;
 use serde_json;
 
-
-use ::reject::Reject;
+use reject::Reject;
 // This re-export just looks weird in docs...
+pub(crate) use self::sealed::{ReplySealed, Reply_, Response};
 #[doc(hidden)]
-pub use ::filters::reply as with;
-pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
+pub use filters::reply as with;
 
 /// Returns an empty `Reply` with status code `200 OK`.
 ///
@@ -60,9 +59,8 @@ pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 ///     });
 /// ```
 #[inline]
-pub fn reply() -> impl Reply
-{
-   StatusCode::OK
+pub fn reply() -> impl Reply {
+    StatusCode::OK
 }
 
 /// Convert the value into a `Reply` with the value encoded as JSON.
@@ -113,16 +111,11 @@ impl ReplySealed for Json {
         match self.inner {
             Ok(body) => {
                 let mut res = Response::new(body.into());
-                res.headers_mut().insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_static("application/json")
-                );
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
                 res
-            },
-            Err(()) => {
-                ::reject::server_error()
-                    .into_response()
             }
+            Err(()) => ::reject::server_error().into_response(),
         }
     }
 }
@@ -207,8 +200,8 @@ fn _assert_object_safe() {
 mod sealed {
     use hyper::Body;
 
-    use ::generic::{Either, One};
-    use ::reject::Reject;
+    use generic::{Either, One};
+    use reject::Reject;
 
     use super::Reply;
 
@@ -269,8 +262,7 @@ mod sealed {
                 Ok(t) => t.into_response(),
                 Err(e) => {
                     warn!("reply error: {:?}", e);
-                    ::reject::server_error()
-                        .into_response()
+                    ::reject::server_error().into_response()
                 }
             }
         }
@@ -321,4 +313,3 @@ mod sealed {
         }
     }
 }
-
