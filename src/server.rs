@@ -8,7 +8,6 @@ use ::filter::Filter;
 use ::never::Never;
 use ::reject::Reject;
 use ::reply::Reply;
-use ::Request;
 
 /// Create a `Server` with the provided service.
 pub fn serve<F>(filter: F) -> Server<F>
@@ -75,14 +74,3 @@ where
         self
     }
 }
-
-pub trait IntoWarpService {
-    type Service: WarpService + Send + Sync + 'static;
-    fn into_warp_service(self) -> Self::Service;
-}
-
-pub trait WarpService {
-    type Reply: Future + Send;
-    fn call(&self, req: Request) -> Self::Reply;
-}
-

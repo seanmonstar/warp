@@ -6,7 +6,6 @@ mod map_err;
 mod or;
 mod or_else;
 mod recover;
-mod service;
 mod unify;
 mod unit;
 mod wrap;
