@@ -99,6 +99,7 @@ extern crate sha1;
 extern crate tokio;
 extern crate tungstenite;
 extern crate urlencoding;
+extern crate tower_service;
 
 mod error;
 mod filter;
