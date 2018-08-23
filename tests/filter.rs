@@ -1,6 +1,9 @@
 #![deny(warnings)]
 extern crate pretty_env_logger;
 extern crate warp;
+extern crate hyper;
+extern crate tower_service;
+extern crate futures;
 
 use warp::Filter;
 
@@ -107,4 +110,69 @@ fn unify() {
         .filter(&f)
         .unwrap();
     assert_eq!(ex, 1);
+}
+
+#[test]
+fn lift_to_tower_service() {
+    use tower_service::Service;
+    use futures::{Future, Async};
+    use hyper::{Request, Body, StatusCode};
+
+    let _ = pretty_env_logger::try_init();
+
+    // 200 OK
+    {
+        let mut it = warp::any().map(|| "ok").lift();
+        let req = Request::new(Body::empty());
+        match it.call(req).poll() {
+            Ok(Async::Ready(res)) => assert_eq!(200, res.status()),
+            err => unreachable!("{:?}", err)
+        }
+    }
+
+    // 500 Server Error
+    {
+        let mut it = warp::any()
+          .and_then(|| {
+              Err::<StatusCode, _>(warp::reject::server_error())
+          })
+          .lift();
+        let req = Request::new(Body::empty());
+        match it.call(req).poll() {
+            Ok(Async::Ready(res)) => assert_eq!(500, res.status()),
+            err => unreachable!("{:?}", err)
+        }
+    }
+}
+
+#[test]
+fn lift_to_hyper_service() {
+    use futures::{Future, Async};
+    use hyper::{Request, Body, StatusCode, service::Service};
+
+    let _ = pretty_env_logger::try_init();
+
+    // 200 OK
+    {
+        let mut it = warp::any().map(|| "ok").lift();
+        let req = Request::new(Body::empty());
+        match it.call(req).poll() {
+            Ok(Async::Ready(res)) => assert_eq!(200, res.status()),
+            err => unreachable!("{:?}", err)
+        }
+    }
+
+    // 500 Server Error
+    {
+        let mut it = warp::any()
+          .and_then(|| {
+              Err::<StatusCode, _>(warp::reject::server_error())
+          })
+          .lift();
+        let req = Request::new(Body::empty());
+        match it.call(req).poll() {
+            Ok(Async::Ready(res)) => assert_eq!(500, res.status()),
+            err => unreachable!("{:?}", err)
+        }
+    }
 }
