@@ -113,6 +113,14 @@ fn unify() {
 }
 
 #[test]
+fn lift() {
+    let it = warp::any().map(|| 1);
+    let _lift = it.lift();
+    let _lift = ::std::rc::Rc::new(it).lift();
+    let _lift = ::std::sync::Arc::new(it).lift();
+}
+
+#[test]
 fn lift_to_tower_service() {
     use tower_service::Service;
     use futures::{Future, Async};

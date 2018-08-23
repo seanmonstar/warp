@@ -379,6 +379,28 @@ pub trait Filter: FilterBase {
 
 impl<T: FilterBase> Filter for T {}
 
+impl <T: FilterBase> FilterBase for ::std::sync::Arc<T> {
+    type Extract = T::Extract;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    #[inline]
+    fn filter(&self) -> Self::Future {
+        (**self).filter()
+    }
+}
+
+impl <T: FilterBase> FilterBase for ::std::rc::Rc<T> {
+    type Extract = T::Extract;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    #[inline]
+    fn filter(&self) -> Self::Future {
+        (**self).filter()
+    }
+}
+
 pub trait FilterClone: Filter + Clone {}
 
 impl<T: Filter + Clone> FilterClone for T {}
