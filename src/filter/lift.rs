@@ -111,3 +111,33 @@ where
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use tokio::prelude::Async;
+    use hyper::StatusCode;
+
+    use ::filters::any::any;
+    use ::reject;
+
+    #[test]
+    fn handle_reply() {
+        let filter = any().map(|| "ok");
+        let ret = match response_future(Default::default(), &filter).poll() {
+            Ok(Async::Ready(ok)) => ok,
+            _ => unreachable!()
+        };
+        assert_eq!(200, ret.status());
+    }
+
+    #[test]
+    fn handle_reject() {
+        let filter = any().and_then(|| Err::<StatusCode, _>(reject::server_error()));
+        let ret = match response_future(Default::default(), &filter).poll() {
+            Ok(Async::Ready(ok)) => ok,
+            _ => unreachable!()
+        };
+        assert_eq!(500, ret.status());
+    }
+}
