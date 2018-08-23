@@ -10,6 +10,7 @@ mod service;
 mod unify;
 mod unit;
 mod wrap;
+mod lift;
 
 use futures::{future, Future, IntoFuture};
 
@@ -365,6 +366,14 @@ pub trait Filter: FilterBase {
         Rejection: From<Self::Error>,
     {
         BoxedFilter::new(self)
+    }
+
+    /// Wrap the `Filter` so that it implements `tower_service::Service` directly.
+    fn lift(self) -> lift::LiftService<Self>
+    where
+        Self: Sized
+    {
+        lift::lift(self)
     }
 }
 

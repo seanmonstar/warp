@@ -16,6 +16,7 @@ pub struct LiftService<F> {
   filter: F
 }
 
+/// Wraps a `Filter` instance, implementing `tower_service::Service`.
 pub fn lift<F: Filter>(filter: F) -> LiftService<F> {
   LiftService { filter }
 }
