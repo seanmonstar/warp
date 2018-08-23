@@ -4,7 +4,7 @@ use std::mem;
 use http;
 use hyper::Body;
 
-use ::Request;
+use Request;
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
 
@@ -23,10 +23,7 @@ pub(crate) fn with<F, R>(func: F) -> R
 where
     F: Fn(&mut Route) -> R,
 {
-    ROUTE.with(move |route| {
-        func(&mut *route
-            .borrow_mut())
-    })
+    ROUTE.with(move |route| func(&mut *route.borrow_mut()))
 }
 
 #[derive(Debug)]
@@ -90,10 +87,7 @@ impl Route {
         if path.len() == index {
             self.segments_index = index;
         } else {
-            debug_assert_eq!(
-                path.as_bytes()[index],
-                b'/',
-            );
+            debug_assert_eq!(path.as_bytes()[index], b'/',);
 
             self.segments_index = index + 1;
         }
@@ -123,9 +117,8 @@ impl Route {
                 let body = mem::replace(self.req.body_mut(), Body::empty());
                 self.body = BodyState::Taken;
                 Some(body)
-            },
+            }
             BodyState::Taken => None,
         }
     }
 }
-

@@ -1,14 +1,14 @@
 //! File System Filters
 
 use std::cmp;
-use std::io;
 use std::fs::Metadata;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bytes::{BufMut, BytesMut};
-use futures::{future, Future, stream, Stream};
 use futures::future::Either;
+use futures::{future, stream, Future, Stream};
 use http;
 use hyper::{Body, Chunk};
 use mime_guess;
@@ -16,9 +16,9 @@ use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
 use urlencoding::decode;
 
-use ::filter::{Filter, FilterClone, filter_fn, One, one};
-use ::reject::{self, Rejection};
-use ::reply::{ReplySealed, Response};
+use filter::{filter_fn, one, Filter, FilterClone, One};
+use reject::{self, Rejection};
+use reply::{ReplySealed, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 ///
@@ -42,15 +42,12 @@ use ::reply::{ReplySealed, Response};
 /// This filter uses `tokio-fs` to serve files, which requires the server
 /// to be run in the threadpool runtime. This is only important to remember
 /// if starting a runtime manually.
-pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
+pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let path = Arc::new(path.into());
     filter_fn(move |_| {
         trace!("file: {:?}", path);
 
-        file_reply(ArcPath(path.clone()))
-            .map(|resp| one(File {
-                resp,
-            }))
+        file_reply(ArcPath(path.clone())).map(|resp| one(File { resp }))
     })
 }
 
@@ -82,7 +79,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// This filter uses `tokio-fs` to serve files, which requires the server
 /// to be run in the threadpool runtime. This is only important to remember
 /// if starting a runtime manually.
-pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
+pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     ::get2()
         .and(::path::tail())
@@ -93,27 +90,27 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
                 Err(err) => {
                     debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), err);
                     // FromUrlEncodingError doesn't implement StdError
-                    return Either::A(future::err(reject::bad_request().with("dir: failed to decode route")));
+                    return Either::A(future::err(
+                        reject::bad_request().with("dir: failed to decode route"),
+                    ));
                 }
             };
             trace!("dir? base={:?}, route={:?}", base, p);
             for seg in p.split('/') {
                 if seg.starts_with("..") {
                     debug!("dir: rejecting segment starting with '..'");
-                    return Either::A(future::err(reject::bad_request().with("dir: rejecting segment")));
+                    return Either::A(future::err(
+                        reject::bad_request().with("dir: rejecting segment"),
+                    ));
                 } else {
                     buf.push(seg);
                 }
-
             }
 
             trace!("dir: {:?}", buf);
             let path = Arc::new(buf);
 
-            Either::B(file_reply(ArcPath(path.clone()))
-                .map(|resp| File {
-                    resp,
-                }))
+            Either::B(file_reply(ArcPath(path.clone())).map(|resp| File { resp }))
         })
 }
 
@@ -139,33 +136,35 @@ impl ReplySealed for File {
     }
 }
 
-fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
-    TkFile::open(path.clone())
-        .then(move |res| match res {
-            Ok(f) => Either::A(file_metadata(f, path)),
-            Err(err) => {
-                let rej = match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        debug!("file open error: {} ", err);
-                        reject::not_found().with(err)
-                    },
-                    // There are actually other errors that could
-                    // occur that really mean a 404, but the kind
-                    // return is Other, making it hard to tell.
-                    //
-                    // A fix would be to check `Path::is_file` first,
-                    // using `tokio_threadpool::blocking` around it...
-                    _ => {
-                        warn!("file open error: {} ", err);
-                        reject::server_error().with(err)
-                    },
-                };
-                Either::B(future::err(rej))
-            }
-        })
+fn file_reply(path: ArcPath) -> impl Future<Item = Response, Error = Rejection> + Send {
+    TkFile::open(path.clone()).then(move |res| match res {
+        Ok(f) => Either::A(file_metadata(f, path)),
+        Err(err) => {
+            let rej = match err.kind() {
+                io::ErrorKind::NotFound => {
+                    debug!("file open error: {} ", err);
+                    reject::not_found().with(err)
+                }
+                // There are actually other errors that could
+                // occur that really mean a 404, but the kind
+                // return is Other, making it hard to tell.
+                //
+                // A fix would be to check `Path::is_file` first,
+                // using `tokio_threadpool::blocking` around it...
+                _ => {
+                    warn!("file open error: {} ", err);
+                    reject::server_error().with(err)
+                }
+            };
+            Either::B(future::err(rej))
+        }
+    })
 }
 
-fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Send {
+fn file_metadata(
+    f: TkFile,
+    path: ArcPath,
+) -> impl Future<Item = Response, Error = Rejection> + Send {
     let mut f = Some(f);
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
@@ -182,15 +181,19 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
             .header("content-length", len)
             .header("content-type", content_type.as_ref())
             .body(body)
-            .unwrap().into())
+            .unwrap()
+            .into())
+    }).map_err(|err: ::std::io::Error| {
+        debug!("file metadata error: {}", err);
+        reject::server_error().with(err)
     })
-        .map_err(|err: ::std::io::Error| {
-            debug!("file metadata error: {}", err);
-            reject::server_error().with(err)
-        })
 }
 
-fn file_stream(mut f: TkFile, buf_size: usize, mut len: u64) -> impl Stream<Item=Chunk, Error=io::Error> + Send {
+fn file_stream(
+    mut f: TkFile,
+    buf_size: usize,
+    mut len: u64,
+) -> impl Stream<Item = Chunk, Error = io::Error> + Send {
     let mut buf = BytesMut::new();
     stream::poll_fn(move || {
         if len == 0 {
@@ -241,4 +244,3 @@ fn get_block_size(metadata: &Metadata) -> usize {
 fn get_block_size(_metadata: &Metadata) -> usize {
     8_192
 }
-

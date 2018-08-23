@@ -5,12 +5,12 @@ use std::time::Instant;
 
 use http::StatusCode;
 
-use ::filter::{Filter, WrapSealed};
-use ::reject::Reject;
-use ::reply::Reply;
-use ::route;
+use filter::{Filter, WrapSealed};
+use reject::Reject;
+use reply::Reply;
+use route;
 
-use self::internal::{WithLog};
+use self::internal::WithLog;
 
 /// Create a wrapping filter with the specified `name` as the `target`.
 ///
@@ -47,9 +47,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
             );
         });
     };
-    Log {
-        func,
-    }
+    Log { func }
 }
 
 // TODO:
@@ -94,10 +92,10 @@ mod internal {
 
     use futures::{Async, Future, Poll};
 
-    use ::filter::{FilterBase, Filter};
-    use ::reject::Reject;
-    use ::reply::{Reply, ReplySealed, Response};
     use super::{Info, Log};
+    use filter::{Filter, FilterBase};
+    use reject::Reject;
+    use reply::{Reply, ReplySealed, Response};
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);
@@ -135,7 +133,6 @@ mod internal {
                 started,
             }
         }
-
     }
 
     #[allow(missing_debug_implementations)]
@@ -160,12 +157,12 @@ mod internal {
                     let resp = reply.into_response();
                     let status = resp.status();
                     (Ok(Async::Ready((Logged(resp),))), status)
-                },
+                }
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(reject) => {
                     let status = reject.status();
                     (Err(reject), status)
-                },
+                }
             };
 
             (self.log.func)(Info {
@@ -178,4 +175,3 @@ mod internal {
         }
     }
 }
-

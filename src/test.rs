@@ -12,11 +12,11 @@ use serde_json;
 use tokio::executor::thread_pool::Builder as ThreadPoolBuilder;
 use tokio::runtime::Builder as RtBuilder;
 
-use ::filter::{Filter};
-use ::reject::Reject;
-use ::reply::{Reply, ReplySealed};
-use ::route::{self, Route};
-use ::Request;
+use filter::Filter;
+use reject::Reject;
+use reply::{Reply, ReplySealed};
+use route::{self, Route};
+use Request;
 
 use self::inner::OneOrTuple;
 
@@ -73,8 +73,7 @@ impl RequestBuilder {
     /// This panics if the passed string is not able to be parsed as a valid
     /// `Uri`.
     pub fn path(mut self, p: &str) -> Self {
-        let uri = p.parse()
-            .expect("test request path invalid");
+        let uri = p.parse().expect("test request path invalid");
         *self.req.uri_mut() = uri;
         self
     }
@@ -124,8 +123,7 @@ impl RequestBuilder {
     ///     .json(&true);
     /// ```
     pub fn json(mut self, val: &impl Serialize) -> Self {
-        let vec = serde_json::to_vec(val)
-            .expect("json() must serialize to JSON");
+        let vec = serde_json::to_vec(val).expect("json() must serialize to JSON");
         *self.req.body_mut() = vec.into();
         self
     }
@@ -158,8 +156,7 @@ impl RequestBuilder {
         F::Extract: OneOrTuple + Send + 'static,
         F::Error: Send + 'static,
     {
-        self.apply_filter(f)
-            .map(|ex| ex.one_or_tuple())
+        self.apply_filter(f).map(|ex| ex.one_or_tuple())
     }
 
     /// Returns whether the `Filter` matches this request, or rejects it.
@@ -210,16 +207,10 @@ impl RequestBuilder {
             .or_else(|rej| Ok(rej.into_response()))
             .and_then(|res| {
                 let (parts, body) = res.into_parts();
-                body
-                    .concat2()
-                    .map(|chunk| {
-                        Response::from_parts(parts, chunk.into())
-                    })
-
+                body.concat2()
+                    .map(|chunk| Response::from_parts(parts, chunk.into()))
             });
-        let fut = future::poll_fn(move || {
-            route::set(&route, || fut.poll())
-        });
+        let fut = future::poll_fn(move || route::set(&route, || fut.poll()));
 
         block_on(fut).expect("reply shouldn't fail")
     }
@@ -235,9 +226,7 @@ impl RequestBuilder {
 
         let route = Route::new(self.req);
         let mut fut = route::set(&route, move || f.filter());
-        let fut = future::poll_fn(move || {
-            route::set(&route, || fut.poll())
-        });
+        let fut = future::poll_fn(move || route::set(&route, || fut.poll()));
 
         block_on(fut)
     }

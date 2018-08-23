@@ -28,8 +28,7 @@ fn dir() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/todos.rs");
+    let req = warp::test::request().path("/todos.rs");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
@@ -47,8 +46,7 @@ fn dir_encoded() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/todos%2ers");
+    let req = warp::test::request().path("/todos%2ers");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
@@ -65,8 +63,7 @@ fn dir_not_found() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/definitely-not-found");
+    let req = warp::test::request().path("/definitely-not-found");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 404);
@@ -78,12 +75,14 @@ fn dir_bad_path() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/../README.md");
+    let req = warp::test::request().path("/../README.md");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
+    assert_eq!(
+        String::from_utf8_lossy(res.body()),
+        "dir: rejecting segment"
+    );
 }
 
 #[test]
@@ -92,10 +91,12 @@ fn dir_bad_encoded_path() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/%2E%2e/README.md");
+    let req = warp::test::request().path("/%2E%2e/README.md");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
+    assert_eq!(
+        String::from_utf8_lossy(res.body()),
+        "dir: rejecting segment"
+    );
 }

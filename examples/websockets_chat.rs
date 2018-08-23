@@ -4,12 +4,15 @@ extern crate pretty_env_logger;
 extern crate warp;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 
-use futures::{Future, Sink, Stream};
 use futures::stream::SplitSink;
-use warp::Filter;
+use futures::{Future, Sink, Stream};
 use warp::ws::{Message, WebSocket};
+use warp::Filter;
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -29,7 +32,6 @@ fn main() {
     // Turn our "state" into a new Filter...
     let users = warp::any().map(move || users.clone());
 
-
     // GET /chat -> websocket upgrade
     let chat = warp::path("chat")
         // The `ws2()` filter will prepare Websocket handshake...
@@ -43,17 +45,15 @@ fn main() {
         });
 
     // GET / -> index html
-    let index = warp::path::index()
-        .map(|| {
-            warp::http::Response::builder()
-                .header("content-type", "text/html; charset=utf-8")
-                .body(INDEX_HTML)
-        });
+    let index = warp::path::index().map(|| {
+        warp::http::Response::builder()
+            .header("content-type", "text/html; charset=utf-8")
+            .body(INDEX_HTML)
+    });
 
     let routes = index.or(chat);
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
 
 fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error = ()> {
@@ -66,10 +66,7 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error =
     let (tx, user_ws_rx) = ws.split();
 
     // Save the sender in our list of connected users.
-    users
-        .lock()
-        .unwrap()
-        .insert(my_id, tx);
+    users.lock().unwrap().insert(my_id, tx);
 
     // Return a `Future` that is basically a state machine managing
     // this specific user's connection.
@@ -100,7 +97,7 @@ fn user_message(my_id: usize, msg: Message, users: &Users) {
     // Skip any non-Text messages...
     let msg = if let Ok(s) = msg.to_str() {
         s
-    } else{
+    } else {
         return;
     };
 
@@ -119,10 +116,7 @@ fn user_disconnected(my_id: usize, users: &Users) {
     eprintln!("good bye user: {}", my_id);
 
     // Stream closed up, so remove from the user list
-    users
-        .lock()
-        .unwrap()
-        .remove(&my_id);
+    users.lock().unwrap().remove(&my_id);
 }
 
 static INDEX_HTML: &str = r#"

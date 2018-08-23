@@ -15,4 +15,4 @@ pub mod query;
 pub mod reply;
 pub mod ws;
 
-pub use ::filter::BoxedFilter;
+pub use filter::BoxedFilter;

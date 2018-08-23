@@ -2,13 +2,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::{Async, Future, Poll};
+use hyper::service::service_fn;
 use hyper::{rt, Server as HyperServer};
-use hyper::service::{service_fn};
 
-use ::never::Never;
-use ::reject::Reject;
-use ::reply::{ReplySealed, Reply};
-use ::Request;
+use never::Never;
+use reject::Reject;
+use reply::{Reply, ReplySealed};
+use Request;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
@@ -45,7 +45,10 @@ where
 
     /// Bind to a socket address, returning a `Future` that can be
     /// executed on any runtime.
-    pub fn bind(self, addr: impl Into<SocketAddr> + 'static) -> impl Future<Item=(), Error=()> + 'static {
+    pub fn bind(
+        self,
+        addr: impl Into<SocketAddr> + 'static,
+    ) -> impl Future<Item = (), Error = ()> + 'static {
         let (_, fut) = self.bind_ephemeral(addr);
         fut
     }
@@ -54,14 +57,15 @@ where
     ///
     /// Returns the bound address and a `Future` that can be executed on
     /// any runtime.
-    pub fn bind_ephemeral(self, addr: impl Into<SocketAddr> + 'static) -> (SocketAddr, impl Future<Item=(), Error=()> + 'static) {
+    pub fn bind_ephemeral(
+        self,
+        addr: impl Into<SocketAddr> + 'static,
+    ) -> (SocketAddr, impl Future<Item = (), Error = ()> + 'static) {
         let inner = Arc::new(self.service.into_warp_service());
         let service = move || {
             let inner = inner.clone();
-            service_fn(move |req| {
-                ReplyFuture {
-                    inner: inner.call(req)
-                }
+            service_fn(move |req| ReplyFuture {
+                inner: inner.call(req),
             })
         };
         let srv = HyperServer::bind(&addr.into())
@@ -91,7 +95,6 @@ pub trait WarpService {
     fn call(&self, req: Request) -> Self::Reply;
 }
 
-
 // Optimizes better than using Future::then, since it doesn't
 // have to return an IntoFuture.
 #[derive(Debug)]
@@ -117,4 +120,3 @@ where
         }
     }
 }
-

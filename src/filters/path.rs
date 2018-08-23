@@ -131,10 +131,9 @@ use std::str::FromStr;
 
 use http::uri::PathAndQuery;
 
-use ::filter::{Filter, filter_fn, Tuple, One, one};
-use ::never::Never;
-use ::reject::{self, Rejection};
-
+use filter::{filter_fn, one, Filter, One, Tuple};
+use never::Never;
+use reject::{self, Rejection};
 
 /// Create an exact match path segment `Filter`.
 ///
@@ -143,9 +142,13 @@ use ::reject::{self, Rejection};
 /// # Panics
 ///
 /// Exact path filters cannot be empty, or contain slashes.
-pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     assert!(!p.is_empty(), "exact path segments should not be empty");
-    assert!(!p.contains('/'), "exact path segments should not contain a slash: {:?}", p);
+    assert!(
+        !p.contains('/'),
+        "exact path segments should not contain a slash: {:?}",
+        p
+    );
 
     segment(move |seg| {
         trace!("{:?}?: {:?}", p, seg);
@@ -158,7 +161,7 @@ pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy 
 }
 
 /// Matches the end of a route.
-pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn index() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if route.path().is_empty() {
             Ok(())
@@ -186,15 +189,13 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn param<T: FromStr + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg)
-            .map(one)
-            .map_err(|_| reject::not_found())
+        T::from_str(seg).map(one).map_err(|_| reject::not_found())
     })
 }
 
@@ -217,10 +218,10 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param2<T>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy
+pub fn param2<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send,
-    T::Err: Into<::reject::Cause>
+    T::Err: Into<::reject::Cause>,
 {
     segment(|seg| {
         trace!("param?: {:?}", seg);
@@ -250,7 +251,7 @@ where
 ///         format!("The tail after foo is {:?}", tail)
 ///     });
 /// ```
-pub fn tail() -> impl Filter<Extract=One<Tail>, Error=Never> + Copy {
+pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Never> + Copy {
     filter_fn(move |route| {
         let path = route
             .uri()
@@ -290,14 +291,15 @@ impl fmt::Debug for Tail {
     }
 }
 
-fn segment<F, U>(func: F) -> impl Filter<Extract=U, Error=Rejection> + Copy
+fn segment<F, U>(func: F) -> impl Filter<Extract = U, Error = Rejection> + Copy
 where
     F: Fn(&str) -> Result<U, Rejection> + Copy,
     U: Tuple + Send,
 {
     filter_fn(move |route| {
         let (u, idx) = {
-            let seg = route.path()
+            let seg = route
+                .path()
                 .splitn(2, '/')
                 .next()
                 .expect("split always has at least 1");
@@ -362,4 +364,3 @@ macro_rules! path {
         path!(@start $($pieces)*)
     );
 }
-

@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{FilterBase, Filter, Func};
+use super::{Filter, FilterBase, Func};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
@@ -46,4 +46,3 @@ where
         Ok(Async::Ready(ex))
     }
 }
-

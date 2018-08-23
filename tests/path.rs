@@ -14,21 +14,14 @@ fn path() {
     let foo_bar = foo.and(bar);
 
     // /foo
-    let foo_req = || {
-        warp::test::request()
-            .path("/foo")
-    };
+    let foo_req = || warp::test::request().path("/foo");
 
     assert!(foo_req().matches(&foo));
     assert!(!foo_req().matches(&bar));
     assert!(!foo_req().matches(&foo_bar));
 
-
     // /foo/bar
-    let foo_bar_req = || {
-        warp::test::request()
-            .path("/foo/bar")
-    };
+    let foo_bar_req = || warp::test::request().path("/foo/bar");
 
     assert!(foo_bar_req().matches(&foo));
     assert!(!foo_bar_req().matches(&bar));
@@ -41,30 +34,29 @@ fn param() {
 
     let num = warp::path::param::<u32>();
 
-    let req = warp::test::request()
-        .path("/321");
+    let req = warp::test::request().path("/321");
     assert_eq!(req.filter(&num).unwrap(), 321);
 
     let s = warp::path::param::<String>();
 
-    let req = warp::test::request()
-        .path("/warp");
+    let req = warp::test::request().path("/warp");
     assert_eq!(req.filter(&s).unwrap(), "warp");
 
     // u32 doesn't extract a non-int
-    let req = warp::test::request()
-        .path("/warp");
+    let req = warp::test::request().path("/warp");
     assert!(!req.matches(&num));
 
     let combo = num.map(|n| n + 5).and(s);
 
-    let req = warp::test::request()
-        .path("/42/vroom");
+    let req = warp::test::request().path("/42/vroom");
     assert_eq!(req.filter(&combo).unwrap(), (47, "vroom".to_string()));
 
     // empty segments never match
     let req = warp::test::request();
-    assert!(!req.matches(&s), "param should never match an empty segment");
+    assert!(
+        !req.matches(&s),
+        "param should never match an empty segment"
+    );
 }
 
 #[test]
@@ -79,10 +71,7 @@ fn tail() {
     assert_eq!(ex.as_str(), "42/vroom");
 
     // matches index
-    let ex = warp::test::request()
-        .path("/")
-        .filter(&tail)
-        .unwrap();
+    let ex = warp::test::request().path("/").filter(&tail).unwrap();
     assert_eq!(ex.as_str(), "");
 
     // doesn't include query
@@ -100,13 +89,17 @@ fn tail() {
     assert_eq!(ex.as_str(), "bar");
 
     // sets unmatched path index to end
-    assert!(!warp::test::request()
-        .path("/foo/bar")
-        .matches(&tail.and(warp::path("foo"))));
+    assert!(
+        !warp::test::request()
+            .path("/foo/bar")
+            .matches(&tail.and(warp::path("foo")))
+    );
 
-    assert!(warp::test::request()
-        .path("/foo/bar")
-        .matches(&tail.and(warp::path::index())));
+    assert!(
+        warp::test::request()
+            .path("/foo/bar")
+            .matches(&tail.and(warp::path::index()))
+    );
 }
 
 #[test]
@@ -120,32 +113,28 @@ fn or() {
     let p = foo.and(bar.or(baz));
 
     // /foo/bar
-    let req = warp::test::request()
-        .path("/foo/bar");
+    let req = warp::test::request().path("/foo/bar");
 
     assert!(req.matches(&p));
 
     // /foo/baz
-    let req = warp::test::request()
-        .path("/foo/baz");
+    let req = warp::test::request().path("/foo/baz");
 
     assert!(req.matches(&p));
 
     // deeper nested ORs
     // /foo/bar/baz OR /foo/baz/bar OR /foo/bar/bar
-    let p = foo.and(bar.and(baz).map(|| panic!("shouldn't match")))
+    let p = foo
+        .and(bar.and(baz).map(|| panic!("shouldn't match")))
         .or(foo.and(baz.and(bar)).map(|| panic!("shouldn't match")))
         .or(foo.and(bar.and(bar)));
 
     // /foo/baz
-    let req = warp::test::request()
-        .path("/foo/baz/baz");
+    let req = warp::test::request().path("/foo/baz/baz");
     assert!(!req.matches(&p));
 
-
     // /foo/bar/bar
-    let req = warp::test::request()
-        .path("/foo/bar/bar");
+    let req = warp::test::request().path("/foo/bar/bar");
     assert!(req.matches(&p));
 }
 
@@ -159,8 +148,7 @@ fn or_else() {
     let p = foo.and(bar.or_else(|_| Ok(())));
 
     // /foo/bar
-    let req = warp::test::request()
-        .path("/foo/nope");
+    let req = warp::test::request().path("/foo/nope");
 
     assert!(req.matches(&p));
 }
@@ -169,19 +157,15 @@ fn or_else() {
 fn path_macro() {
     let _ = pretty_env_logger::try_init();
 
-    let req = warp::test::request()
-        .path("/foo/bar");
+    let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / "bar");
     assert!(req.matches(&p));
 
-    let req = warp::test::request()
-        .path("/foo/bar");
+    let req = warp::test::request().path("/foo/bar");
     let p = path!(String / "bar");
     assert_eq!(req.filter(&p).unwrap(), "foo");
 
-    let req = warp::test::request()
-        .path("/foo/bar");
+    let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / String);
     assert_eq!(req.filter(&p).unwrap(), "bar");
 }
-

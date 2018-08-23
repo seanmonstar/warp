@@ -32,7 +32,7 @@ use std::error::Error as StdError;
 use http;
 use serde;
 
-use ::never::Never;
+use never::Never;
 
 pub(crate) use self::sealed::{CombineRejection, Reject};
 
@@ -117,13 +117,11 @@ impl Rejection {
 
     /// Add given `err` into `Rejection`.
     pub fn with<E>(self, err: E) -> Self
-    where E: Into<Cause> + Sized
+    where
+        E: Into<Cause> + Sized,
     {
         let cause = Some(err.into());
-        Self {
-            cause,
-            .. self
-        }
+        Self { cause, ..self }
     }
 }
 
@@ -180,7 +178,7 @@ impl Reject for Rejection {
     }
 
     fn into_response(self) -> ::reply::Response {
-        use http::header::{CONTENT_TYPE, HeaderValue};
+        use http::header::{HeaderValue, CONTENT_TYPE};
         use hyper::Body;
 
         let code = self.status();
@@ -190,9 +188,10 @@ impl Reject for Rejection {
         match self.cause {
             Some(err) => {
                 let bytes = format!("{}", err);
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
                 *res.body_mut() = Body::from(bytes);
-            },
+            }
             None => {}
         }
 
@@ -201,35 +200,36 @@ impl Reject for Rejection {
 
     fn cause(&self) -> Option<&Cause> {
         if let Some(ref err) = self.cause {
-            return Some(&err)
+            return Some(&err);
         }
         None
     }
 }
 
 impl serde::Serialize for Rejection {
-
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer
+        S: serde::Serializer,
     {
         use serde::ser::SerializeMap;
 
         let mut map = serializer.serialize_map(None)?;
         let err = match self.cause {
             Some(ref err) => err,
-            None => return map.end()
+            None => return map.end(),
         };
 
-        map.serialize_key("description").and_then(|_| map.serialize_value(err.description()))?;
-        map.serialize_key("message").and_then(|_| map.serialize_value(&err.to_string()))?;
+        map.serialize_key("description")
+            .and_then(|_| map.serialize_value(err.description()))?;
+        map.serialize_key("message")
+            .and_then(|_| map.serialize_value(&err.to_string()))?;
         map.end()
     }
 }
 
 mod sealed {
-    use ::never::Never;
-    use super::{Rejection, Cause};
+    use super::{Cause, Rejection};
+    use never::Never;
 
     pub trait Reject: ::std::fmt::Debug + Send {
         fn status(&self) -> ::http::StatusCode;
@@ -258,10 +258,7 @@ mod sealed {
                 other.cause
             };
 
-            Rejection {
-                reason,
-                cause
-            }
+            Rejection { reason, cause }
         }
     }
 
@@ -303,7 +300,7 @@ mod tests {
         assert_eq!(Reason::BAD_REQUEST | Reason::SERVER_ERROR, reject.reason);
         match reject.cause {
             Some(err) => assert_eq!("right", err.description()),
-            err => unreachable!("{:?}", err)
+            err => unreachable!("{:?}", err),
         }
     }
 
@@ -313,8 +310,8 @@ mod tests {
         let right = server_error();
 
         match left.combine(right).cause {
-            None => {},
-            err => unreachable!("{:?}", err)
+            None => {}
+            err => unreachable!("{:?}", err),
         }
     }
 
@@ -325,7 +322,7 @@ mod tests {
 
         match left.combine(right).cause {
             Some(err) => assert_eq!("right", err.description()),
-            err => unreachable!("{:?}", err)
+            err => unreachable!("{:?}", err),
         }
     }
 
@@ -341,7 +338,7 @@ mod tests {
 
     #[test]
     fn into_response_with_some_cause() {
-        use http::header::{CONTENT_TYPE};
+        use http::header::CONTENT_TYPE;
 
         let resp = server_error().with("boom").into_response();
         assert_eq!(500, resp.status());
@@ -350,14 +347,12 @@ mod tests {
     }
 
     fn response_body_string(resp: ::reply::Response) -> String {
-        use futures::{Future, Stream, Async};
+        use futures::{Async, Future, Stream};
 
         let (_, body) = resp.into_parts();
         match body.concat2().poll() {
-            Ok(Async::Ready(chunk)) => {
-                String::from_utf8_lossy(&chunk).to_string()
-            },
-            err => unreachable!("{:?}", err)
+            Ok(Async::Ready(chunk)) => String::from_utf8_lossy(&chunk).to_string(),
+            err => unreachable!("{:?}", err),
         }
     }
 }

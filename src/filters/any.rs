@@ -2,8 +2,8 @@
 
 use futures::{Future, Poll};
 
-use ::never::Never;
-use ::filter::{FilterBase, Filter};
+use filter::{Filter, FilterBase};
+use never::Never;
 
 /// A filter that matches any route.
 ///
@@ -43,7 +43,7 @@ use ::filter::{FilterBase, Filter};
 ///         db.contains(&param_id)
 ///     });
 /// ```
-pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
+pub fn any() -> impl Filter<Extract = (), Error = Never> + Copy {
     Any
 }
 
@@ -74,4 +74,3 @@ impl Future for AnyFut {
         Ok(().into())
     }
 }
-

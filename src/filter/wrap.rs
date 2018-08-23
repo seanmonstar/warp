@@ -23,4 +23,5 @@ impl<T, F> Wrap<F> for T
 where
     T: WrapSealed<F>,
     F: Filter,
-{}
+{
+}

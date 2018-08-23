@@ -3,32 +3,29 @@
 //! Filters that extract a body for a route.
 
 use bytes::Buf;
-use futures::{Async, Future, Poll, Stream};
 use futures::stream::Concat2;
+use futures::{Async, Future, Poll, Stream};
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
 use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
-use ::reject::{self, Rejection};
+use filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use reject::{self, Rejection};
 
 use self::sealed::ImplStream;
 
 // Extracts the `Body` Stream from the route.
 //
 // Does not consume any of it.
-pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
+pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
-        route
-            .take_body()
-            .map(Ok)
-            .unwrap_or_else(|| {
-                let err = "request body already taken in previous filter";
-                warn!("{}", err);
-                Err(reject::server_error().with(err))
-            })
+        route.take_body().map(Ok).unwrap_or_else(|| {
+            let err = "request body already taken in previous filter";
+            warn!("{}", err);
+            Err(reject::server_error().with(err))
+        })
     })
 }
 
@@ -46,7 +43,7 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
 /// let upload = warp::body::content_length_limit(4096)
 ///     .and(warp::body::concat());
 /// ```
-pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     ::filters::header::header("content-length")
         .map_err(|_| {
             debug!("content-length missing");
@@ -74,25 +71,21 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
 /// The `ImplStream` type is essentially
 /// `impl Stream<Item = impl Buf, Error = warp::Error>`, but since nested
 /// `impl Trait`s aren't valid yet, the type acts as one.
-pub fn stream() -> impl Filter<Extract=(ImplStream,), Error=Rejection> + Copy {
-    body().map(|body: Body| ImplStream {
-        body,
-    })
+pub fn stream() -> impl Filter<Extract = (ImplStream,), Error = Rejection> + Copy {
+    body().map(|body: Body| ImplStream { body })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a concatenated body.
-pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| {
-        Concat {
-            fut: body.concat2(),
-        }
+pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
+    body().and_then(|body: ::hyper::Body| Concat {
+        fut: body.concat2(),
     })
 }
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
 // header at all, optimistically hope it's the right type).
-fn is_content_type(ct: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+fn is_content_type(ct: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
             trace!("is_content_type {:?}? {:?}", ct, value);
@@ -112,15 +105,14 @@ fn is_content_type(ct: &'static str) -> impl Filter<Extract=(), Error=Rejection>
 
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a JSON-decoded body.
-pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
+pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type("application/json")
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_json::from_slice(&buf.chunk)
-                .map_err(|err| {
-                    debug!("request json body error: {}", err);
-                    reject::bad_request().with(err)
-                })
+            serde_json::from_slice(&buf.chunk).map_err(|err| {
+                debug!("request json body error: {}", err);
+                reject::bad_request().with(err)
+            })
         })
 }
 
@@ -131,15 +123,14 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
 ///
 /// This filter is for the simpler `application/x-www-form-urlencoded` format,
 /// not `multipart/form-data`.
-pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
+pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type("application/x-www-form-urlencoded")
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_urlencoded::from_bytes(&buf.chunk)
-                .map_err(|err| {
-                    debug!("request form body error: {}", err);
-                    reject::bad_request().with(err)
-                })
+            serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
+                debug!("request form body error: {}", err);
+                reject::bad_request().with(err)
+            })
         })
 }
 
@@ -182,7 +173,7 @@ impl Future for Concat {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.fut.poll() {
-            Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk, })),
+            Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk })),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
                 debug!("concat error: {}", err);
@@ -216,10 +207,10 @@ mod sealed {
         type Error = ::Error;
 
         fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-            let opt_item = try_ready!(self
-                .body
-                .poll()
-                .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
+            let opt_item = try_ready!(
+                self.body
+                    .poll()
+                    .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
             );
 
             Ok(opt_item.map(|chunk| ImplBuf { chunk }).into())
@@ -240,4 +231,3 @@ mod sealed {
         }
     }
 }
-

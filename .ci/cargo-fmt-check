@@ -1,0 +1,12 @@
+#!/bin/bash
+
+cargo -q fmt --version > /dev/null || (
+  echo "rustup component add rustfmt-preview"
+  rustup component add rustfmt-preview
+)
+
+echo "cargo fmt --version"
+cargo fmt --version
+
+echo "cargo fmt --check"
+cargo fmt -- --check

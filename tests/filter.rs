@@ -13,38 +13,26 @@ fn flattens_tuples() {
     let unit1 = warp::any();
 
     // just 1 value
-    let ext = warp::test::request()
-        .filter(&str1)
-        .unwrap();
+    let ext = warp::test::request().filter(&str1).unwrap();
     assert_eq!(ext, "warp");
 
     // just 1 unit
-    let ext = warp::test::request()
-        .filter(&unit1)
-        .unwrap();
+    let ext = warp::test::request().filter(&unit1).unwrap();
     assert_eq!(ext, ());
 
     // combine 2 values
-    let ext = warp::test::request()
-        .filter(&str1.and(true1))
-        .unwrap();
+    let ext = warp::test::request().filter(&str1.and(true1)).unwrap();
     assert_eq!(ext, ("warp", true));
 
     // combine 2 reversed
-    let ext = warp::test::request()
-        .filter(&true1.and(str1))
-        .unwrap();
+    let ext = warp::test::request().filter(&true1.and(str1)).unwrap();
     assert_eq!(ext, (true, "warp"));
 
     // combine 1 with unit
-    let ext = warp::test::request()
-        .filter(&str1.and(unit1))
-        .unwrap();
+    let ext = warp::test::request().filter(&str1.and(unit1)).unwrap();
     assert_eq!(ext, "warp");
 
-    let ext = warp::test::request()
-        .filter(&unit1.and(str1))
-        .unwrap();
+    let ext = warp::test::request().filter(&unit1.and(str1)).unwrap();
     assert_eq!(ext, "warp");
 
     // combine 3 values
@@ -103,8 +91,6 @@ fn unify() {
     let b = warp::any().map(|| 2);
     let f = a.or(b).unify();
 
-    let ex = warp::test::request()
-        .filter(&f)
-        .unwrap();
+    let ex = warp::test::request().filter(&f).unwrap();
     assert_eq!(ex, 1);
 }

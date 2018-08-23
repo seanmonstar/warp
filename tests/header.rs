@@ -8,16 +8,13 @@ fn exact() {
 
     let host = warp::header::exact("host", "localhost");
 
-    let req = warp::test::request()
-        .header("host", "localhost");
+    let req = warp::test::request().header("host", "localhost");
 
     assert!(req.matches(&host));
 
     let req = warp::test::request();
     assert!(!req.matches(&host), "header missing");
 
-
-    let req = warp::test::request()
-        .header("host", "hyper.rs");
+    let req = warp::test::request().header("host", "hyper.rs");
     assert!(!req.matches(&host), "header value different");
 }
