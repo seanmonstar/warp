@@ -368,10 +368,30 @@ pub trait Filter: FilterBase {
         BoxedFilter::new(self)
     }
 
-    /// Wrap the `Filter` so that it implements `tower_service::Service` directly.
+    /// Wrap the `Filter` so that it implements `tower_service::Service` and
+    /// `hyper::service::Service` directly.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate warp;
+    /// # extern crate hyper;
+    /// # extern crate tower_service;
+    /// use warp::Filter;
+    /// use hyper::service::Service as HyperService;
+    /// use tower_service::Service as TowerService;
+    ///
+    /// fn hyper_service() -> impl HyperService {
+    ///   warp::any().map(|| "ok").lift()
+    /// }
+    ///
+    /// fn tower_service() -> impl TowerService {
+    ///   warp::any().map(|| "ok").lift()
+    /// }
+    /// ```
     fn lift(self) -> lift::LiftService<Self>
     where
-        Self: Sized + Send + Sync + 'static,
+        Self: Sized
     {
         lift::lift(self)
     }

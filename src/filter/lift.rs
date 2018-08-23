@@ -21,14 +21,14 @@ pub struct LiftService<F> {
 /// Wraps a `Filter` instance, implementing `tower_service::Service` and `hyper::service::Service`.
 pub fn lift<F>(filter: F) -> LiftService<F>
 where
-    F: Filter + Send + Sync + 'static,
+    F: Filter + Sized
 {
     LiftService { filter }
 }
 
 impl<F> TowerService for LiftService<F>
 where
-    F: Filter + Send + Sync + 'static,
+    F: Filter + Sized,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reject,
 {
@@ -50,7 +50,7 @@ where
 
 impl<F> HyperService for LiftService<F>
 where
-    F: Filter + Send + Sync + 'static,
+    F: Filter + Sized,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reject,
 {
@@ -74,7 +74,7 @@ pub struct ResponseFuture<F> {
 #[inline]
 fn response_future<F>(req: Request, filter: &F) -> ResponseFuture<F::Future>
 where
-    F: Filter + Send + Sync + 'static,
+    F: Filter + Sized,
     <F::Future as Future>::Item: Reply,
     <F::Future as Future>::Error: Reject
 {

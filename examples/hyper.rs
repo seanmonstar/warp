@@ -7,7 +7,9 @@ use hyper::{Server, rt::Future};
 
 fn main() {
     let addr = ([0, 0, 0, 0], 3030).into();
-    let routes = Arc::new(warp::any().map(|| "ok"));
+
+    let routes = warp::any().map(|| "ok");
+    let routes = Arc::new(routes);
     let new_service = move || Ok::<_, hyper::Error>(routes.clone().lift());
 
     let done = Server::bind(&addr)
