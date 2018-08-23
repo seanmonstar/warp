@@ -19,7 +19,10 @@ pub struct LiftService<F> {
 }
 
 /// Wraps a `Filter` instance, implementing `tower_service::Service` and `hyper::service::Service`.
-pub fn lift<F: Filter>(filter: F) -> LiftService<F> {
+pub fn lift<F>(filter: F) -> LiftService<F>
+where
+    F: Filter + Send + Sync + 'static,
+{
     LiftService { filter }
 }
 

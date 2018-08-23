@@ -371,7 +371,7 @@ pub trait Filter: FilterBase {
     /// Wrap the `Filter` so that it implements `tower_service::Service` directly.
     fn lift(self) -> lift::LiftService<Self>
     where
-        Self: Sized
+        Self: Sized + Send + Sync + 'static,
     {
         lift::lift(self)
     }
