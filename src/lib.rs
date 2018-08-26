@@ -132,6 +132,9 @@ pub use self::filters::{
     log,
     // log() function
     log::log,
+    cors,
+    // cors() function
+    cors::cors,
     method::{get, method, post, put, delete},
     method::{head, options, patch},
     method::{get2, post2, put2, delete2},
