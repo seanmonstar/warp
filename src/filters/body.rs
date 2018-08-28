@@ -7,6 +7,7 @@ use futures::{Async, Future, Poll, Stream};
 use futures::stream::Concat2;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
+use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
@@ -92,19 +93,28 @@ pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
 // header at all, optimistically hope it's the right type).
-fn is_content_type(ct: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+fn is_content_type(type_: mime::Name<'static>, subtype: mime::Name<'static>)
+    -> impl Filter<Extract=(), Error=Rejection> + Copy
+{
     filter_fn(move |route| {
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            trace!("is_content_type {:?}? {:?}", ct, value);
-            if value == ct {
-                Ok(())
+            trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            let ct = value.to_str().ok()
+                .and_then(|s| s.parse::<mime::Mime>().ok());
+            if let Some(ct) = ct {
+                if ct.type_() == type_ && ct.subtype() == subtype {
+                    Ok(())
+                } else {
+                    debug!("content-type {:?} doesn't match {}/{}", value, type_, subtype);
+                    Err(reject::unsupported_media_type())
+                }
             } else {
-                debug!("content-type doesn't match {:?}", ct);
+                debug!("content-type {:?} couldn't be parsed", value);
                 Err(reject::unsupported_media_type())
             }
         } else {
             // Optimistically assume its correct!
-            trace!("no content-type header, assuming {:?}", ct);
+            trace!("no content-type header, assuming {}/{}", type_, subtype);
             Ok(())
         }
     })
@@ -113,7 +123,7 @@ fn is_content_type(ct: &'static str) -> impl Filter<Extract=(), Error=Rejection>
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a JSON-decoded body.
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
-    is_content_type("application/json")
+    is_content_type(mime::APPLICATION, mime::JSON)
         .and(concat())
         .and_then(|buf: FullBody| {
             serde_json::from_slice(&buf.chunk)
@@ -132,7 +142,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
 /// This filter is for the simpler `application/x-www-form-urlencoded` format,
 /// not `multipart/form-data`.
 pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
-    is_content_type("application/x-www-form-urlencoded")
+    is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
         .and(concat())
         .and_then(|buf: FullBody| {
             serde_urlencoded::from_bytes(&buf.chunk)
