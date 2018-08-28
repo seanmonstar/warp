@@ -1,3 +1,11 @@
+### v0.1.3 (August 28, 2018)
+
+- **Features**:
+  - Add `warp::reject::forbidden()` to represent `403 Forbidden` responses.
+  - Add `Rejection::with(cause)` to customize rejection messages.
+- **Fixes**:
+  - Fix `warp::body::form` to allow charsets in the `content-type` header.
+
 ### v0.1.2 (August 14, 2018)
 
 - **Features**:
