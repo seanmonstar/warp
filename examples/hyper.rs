@@ -10,7 +10,7 @@ fn main() {
 
     let routes = warp::any().map(|| "ok");
     let routes = Arc::new(routes);
-    let new_service = move || Ok::<_, hyper::Error>(routes.clone().lift());
+    let new_service = move || Ok::<_, hyper::Error>(routes.clone().into_service());
 
     let done = Server::bind(&addr)
         .serve(new_service)

@@ -9,7 +9,7 @@ mod recover;
 mod unify;
 mod unit;
 mod wrap;
-mod lift;
+mod service;
 
 use futures::{future, Future, IntoFuture};
 
@@ -381,18 +381,18 @@ pub trait Filter: FilterBase {
     /// use tower_service::Service as TowerService;
     ///
     /// fn hyper_service() -> impl HyperService {
-    ///   warp::any().map(|| "ok").lift()
+    ///   warp::any().map(|| "ok").into_service()
     /// }
     ///
     /// fn tower_service() -> impl TowerService {
-    ///   warp::any().map(|| "ok").lift()
+    ///   warp::any().map(|| "ok").into_service()
     /// }
     /// ```
-    fn lift(self) -> lift::LiftService<Self>
+    fn into_service(self) -> service::FilterService<Self>
     where
         Self: Sized
     {
-        lift::lift(self)
+        service::service(self)
     }
 }
 

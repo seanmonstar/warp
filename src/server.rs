@@ -57,7 +57,7 @@ where
     /// any runtime.
     pub fn bind_ephemeral(self, addr: impl Into<SocketAddr> + 'static) -> (SocketAddr, impl Future<Item=(), Error=()> + 'static) {
         let inner = Arc::new(self.filter);
-        let new_service = move || Ok::<_, Never>(inner.clone().lift());
+        let new_service = move || Ok::<_, Never>(inner.clone().into_service());
         let srv = HyperServer::bind(&addr.into())
             .http1_pipeline_flush(self.pipeline)
             .serve(new_service);

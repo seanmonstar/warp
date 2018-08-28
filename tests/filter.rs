@@ -115,8 +115,8 @@ fn unify() {
 #[test]
 fn lift() {
     let it = warp::any().map(|| 1);
-    let _lift = it.lift();
-    let _lift = ::std::rc::Rc::new(it).lift();
-    let _lift = ::std::sync::Arc::new(it).lift();
+    let _svc = it.into_service();
+    let _svc = ::std::rc::Rc::new(it).into_service();
+    let _svc = ::std::sync::Arc::new(it).into_service();
 }
 

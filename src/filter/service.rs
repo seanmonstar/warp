@@ -14,19 +14,19 @@ use ::route::{self, Route};
 
 /// Wraps a `Filter` instance, implementing `tower_service::Service` and `hyper::service::Service`.
 #[derive(Debug)]
-pub struct LiftService<F> {
+pub struct FilterService<F> {
     filter: F
 }
 
 /// Wraps a `Filter` instance, implementing `tower_service::Service` and `hyper::service::Service`.
-pub fn lift<F>(filter: F) -> LiftService<F>
+pub fn service<F>(filter: F) -> FilterService<F>
 where
     F: Filter + Sized
 {
-    LiftService { filter }
+    FilterService { filter }
 }
 
-impl<F> TowerService for LiftService<F>
+impl<F> TowerService for FilterService<F>
 where
     F: Filter + Sized,
     <F::Future as Future>::Item: Reply,
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<F> HyperService for LiftService<F>
+impl<F> HyperService for FilterService<F>
 where
     F: Filter + Sized,
     <F::Future as Future>::Item: Reply,
@@ -141,3 +141,4 @@ mod tests {
         assert_eq!(500, ret.status());
     }
 }
+
