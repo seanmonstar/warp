@@ -147,6 +147,24 @@ fn form_rejects_bad_content_type() {
 }
 
 #[test]
+fn form_allows_charset() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form::<Vec<(String, String)>>();
+
+    let req = warp::test::request()
+        .header("content-type", "application/x-www-form-urlencoded; charset=utf-8")
+        .body("foo=bar");
+
+    let vec = req.filter(&form).unwrap();
+    let expected = vec![
+        ("foo".to_owned(), "bar".to_owned()),
+    ];
+    assert_eq!(vec, expected);
+
+}
+
+#[test]
 fn stream() {
     let _ = pretty_env_logger::try_init();
 
