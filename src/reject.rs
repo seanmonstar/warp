@@ -48,6 +48,12 @@ pub fn bad_request() -> Rejection {
     Reason::BAD_REQUEST.into()
 }
 
+/// Rejects a request with `403 Forbidden`
+#[inline]
+pub fn forbidden() -> Rejection {
+    Reason::FORBIDDEN.into()
+}
+
 /// Rejects a request with `404 Not Found`.
 #[inline]
 pub fn not_found() -> Rejection {
@@ -105,6 +111,9 @@ bitflags! {
         const LENGTH_REQUIRED        = 0b00000100;
         const PAYLOAD_TOO_LARGE      = 0b00001000;
         const UNSUPPORTED_MEDIA_TYPE = 0b00010000;
+        const FORBIDDEN              = 0b00100000;
+
+        // SERVER_ERROR has to be the last reason, to avoid shadowing it when combining rejections
         const SERVER_ERROR           = 0b10000000;
     }
 }
@@ -163,6 +172,8 @@ impl Reject for Rejection {
     fn status(&self) -> http::StatusCode {
         if self.reason.contains(Reason::SERVER_ERROR) {
             http::StatusCode::INTERNAL_SERVER_ERROR
+        } else if self.reason.contains(Reason::FORBIDDEN) {
+            http::StatusCode::FORBIDDEN
         } else if self.reason.contains(Reason::UNSUPPORTED_MEDIA_TYPE) {
             http::StatusCode::UNSUPPORTED_MEDIA_TYPE
         } else if self.reason.contains(Reason::LENGTH_REQUIRED) {
@@ -293,6 +304,19 @@ mod sealed {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use http::StatusCode;
+
+    #[test]
+    fn rejection_status() {
+        assert_eq!(bad_request().status(), StatusCode::BAD_REQUEST);
+        assert_eq!(forbidden().status(), StatusCode::FORBIDDEN);
+        assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
+        assert_eq!(method_not_allowed().status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(length_required().status(), StatusCode::LENGTH_REQUIRED);
+        assert_eq!(payload_too_large().status(), StatusCode::PAYLOAD_TOO_LARGE);
+        assert_eq!(unsupported_media_type().status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(server_error().status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
 
     #[test]
     fn combine_rejections() {
