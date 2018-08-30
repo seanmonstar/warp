@@ -185,3 +185,58 @@ fn path_macro() {
     assert_eq!(req.filter(&p).unwrap(), "bar");
 }
 
+#[test]
+fn full_path() {
+    let full_path = warp::path::full();
+
+    let foo = warp::path("foo");
+    let bar = warp::path("bar");
+    let param = warp::path::param::<u32>();
+
+    // matches full request path
+    let ex = warp::test::request()
+        .path("/42/vroom")
+        .filter(&full_path)
+        .unwrap();
+    assert_eq!(ex.as_str(), "/42/vroom");
+
+    // matches index
+    let ex = warp::test::request()
+        .path("/")
+        .filter(&full_path)
+        .unwrap();
+    assert_eq!(ex.as_str(), "/");
+
+    // does not include query
+    let ex = warp::test::request()
+        .path("/foo/bar?baz=quux")
+        .filter(&full_path)
+        .unwrap();
+    assert_eq!(ex.as_str(), "/foo/bar");
+
+    // includes previously matched prefix
+    let ex = warp::test::request()
+        .path("/foo/bar")
+        .filter(&foo.and(full_path))
+        .unwrap();
+    assert_eq!(ex.as_str(), "/foo/bar");
+
+    // includes following matches
+    let ex = warp::test::request()
+        .path("/foo/bar")
+        .filter(&full_path.and(foo))
+        .unwrap();
+    assert_eq!(ex.as_str(), "/foo/bar");
+
+    // includes previously matched param
+    let (_, ex) = warp::test::request()
+        .path("/foo/123")
+        .filter(&foo.and(param).and(full_path))
+        .unwrap();
+    assert_eq!(ex.as_str(), "/foo/123");
+
+    // does not modify matching
+    assert!(warp::test::request()
+        .path("/foo/bar")
+        .matches(&full_path.and(foo).and(bar)));
+}
