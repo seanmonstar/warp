@@ -134,6 +134,7 @@ use http::uri::PathAndQuery;
 use ::filter::{Filter, filter_fn, Tuple, One, one};
 use ::never::Never;
 use ::reject::{self, Rejection};
+use ::route::Route;
 
 
 /// Create an exact match path segment `Filter`.
@@ -252,11 +253,7 @@ where
 /// ```
 pub fn tail() -> impl Filter<Extract=One<Tail>, Error=Never> + Copy {
     filter_fn(move |route| {
-        let path = route
-            .uri()
-            .path_and_query()
-            .expect("server URIs should always have path_and_query")
-            .clone();
+        let path = path_and_query(&route);
         let idx = route.matched_path_index();
 
         // Giving the user the full tail means we assume the full path
@@ -290,6 +287,59 @@ impl fmt::Debug for Tail {
     }
 }
 
+/// Returns the full request path, irrespective of other filters.
+///
+/// This will return a `FullPath`, which can be stringified to return the
+/// full path of the request.
+///
+/// This is more useful in generic pre/post-processing filters, and should
+/// probably not be used for request matching/routing.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, path::FullPath};
+/// use std::{collections::HashMap, sync::{Arc, Mutex}};
+///
+/// let counts = Arc::new(Mutex::new(HashMap::new()));
+/// let access_counter = warp::path::full()
+///     .map(move |path: FullPath| {
+///         let mut counts = counts.lock().unwrap();
+///
+///         *counts.entry(path.as_str().to_string())
+///             .and_modify(|c| *c += 1)
+///             .or_insert(0)
+///     });
+///
+/// let route = warp::path("foo")
+///     .and(warp::path("bar"))
+///     .and(access_counter)
+///     .map(|count| {
+///         format!("This is the {}th visit to this URL!", count)
+///     });
+/// ```
+pub fn full() -> impl Filter<Extract=One<FullPath>, Error=Never> + Copy {
+    filter_fn(move |route| {
+        Ok(one(FullPath(path_and_query(&route))))
+    })
+}
+
+/// Represents the full request path, returned by the `full()` filter.
+pub struct FullPath(PathAndQuery);
+
+impl FullPath {
+    /// Get the `&str` representation of the request path.
+    pub fn as_str(&self) -> &str {
+        &self.0.path()
+    }
+}
+
+impl fmt::Debug for FullPath {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
 fn segment<F, U>(func: F) -> impl Filter<Extract=U, Error=Rejection> + Copy
 where
     F: Fn(&str) -> Result<U, Rejection> + Copy,
@@ -306,6 +356,14 @@ where
         route.set_unmatched_path(idx);
         Ok(u)
     })
+}
+
+fn path_and_query(route: &Route) -> PathAndQuery {
+    route
+        .uri()
+        .path_and_query()
+        .expect("server URIs should always have path_and_query")
+        .clone()
 }
 
 /// Convenient way to chain multiple path filters together.
