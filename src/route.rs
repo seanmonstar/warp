@@ -21,7 +21,7 @@ pub(crate) fn is_set() -> bool {
 
 pub(crate) fn with<F, R>(func: F) -> R
 where
-    F: Fn(&mut Route) -> R,
+    F: FnOnce(&mut Route) -> R,
 {
     ROUTE.with(move |route| {
         func(&mut *route
