@@ -16,7 +16,7 @@
     - Deprecates `warp::ws()`, and `ws2()` will become `ws()` in 0.2.
   - Add `warp::get2()`, `warp::post2()`, `warp::put2()`, and `warp::delete2()` as more standard method filters that are used via chaining instead of nesting.
     - `get()`, `post()`, `put()`, and `delete()` are deprecated, and the new versions will become them in 0.2.
-  - Add `Filter::unity()` for when a filter returns `Either<T, T>`, converting the `Either` into the inner `T`, regardless of which variant it was.
+  - Add `Filter::unify()` for when a filter returns `Either<T, T>`, converting the `Either` into the inner `T`, regardless of which variant it was.
     - This requires that both sides of the `Either` be the same type.
     - This can be useful when extracting a value that might be present in different places of the request.
       

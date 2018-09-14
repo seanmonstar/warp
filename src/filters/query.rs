@@ -13,6 +13,7 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=
     filter_fn_one(|route| {
         route
             .query()
+            .or(Some(""))
             .and_then(|q| {
                 serde_urlencoded::from_str(q)
                     .ok()
