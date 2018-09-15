@@ -1,6 +1,7 @@
 mod and;
 mod and_then;
 mod boxed;
+mod flatten;
 mod map;
 mod map_err;
 mod or;
@@ -20,6 +21,7 @@ use ::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
+use self::flatten::Flatten;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
@@ -308,6 +310,18 @@ pub trait Filter: FilterBase {
         Unify {
             filter: self,
         }
+    }
+
+    /// Flattens a filter which returns another filter.
+    ///
+    /// When a `Filter` returns another `Filter`, this method will flatten the filter, in the same
+    /// way the `flatten()` method of `Future` operates.
+    fn flatten<F>(self) -> Flatten<Self>
+    where
+        Self: Filter<Extract = (F,)> + Sized,
+        F: Filter,
+    {
+        Flatten { filter: self }
     }
 
     /// Wraps the current filter with some wrapper.
