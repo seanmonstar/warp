@@ -26,6 +26,21 @@ pub fn optional(name: &'static str) -> impl Filter<Extract=One<Option<String>>, 
     })
 }
 
+/// Creates a `Filter` that looks for an optional cookie by name and maps the value.
+///
+/// If found, extracts the value of the cookie and applies the provided function to it,
+/// otherwise continues the request, extracting `None`.
+pub fn optional_value<U, F>(name: &'static str, func: F)
+    -> impl Filter<Extract=One<Option<U>>, Error=Never> + Copy
+where
+    F: Fn(&str) -> U + Copy,
+    U: Send,
+{
+    header::optional_value(&::http::header::COOKIE, move |val| {
+        find_cookie(name, val).map(|v| func(v.as_ref()))
+    })
+}
+
 //TODO: probably shouldn't extract a `String`, but rather a `Cookie`.
 //That would allow use to change from cloning a `String` to just shallow cloning
 //the `Bytes` of the header value...
