@@ -1,21 +1,56 @@
 #![deny(warnings)]
+
 extern crate pretty_env_logger;
 extern crate warp;
 
+use std::error::Error as StdError;
+use std::fmt::{self, Display};
+
 use warp::{Filter, reject, Rejection, Reply};
-use warp::http::{Response, StatusCode};
+use warp::http::StatusCode;
+
+#[derive(Debug)]
+enum Error {
+    Oops,
+    NotFound
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.description())
+    }
+}
+
+impl StdError for Error {
+    fn description(&self) -> &str {
+        match self {
+            Error::Oops => ":fire: this is fine",
+            Error::NotFound => "you get a 404, and *you* get a 404...",
+        }
+    }
+
+    fn cause(&self) -> Option<&StdError> {
+        None
+    }
+}
+
 
 fn main() {
     let hello = warp::path::index()
         .map(warp::reply);
 
-    let err500 = warp::path("500")
+    let oops = warp::path("oops")
         .and_then(|| {
-            Err::<StatusCode, _>(reject::server_error())
+            Err::<StatusCode, _>(reject().with(Error::Oops))
+        });
+
+    let not_found = warp::path("not_found")
+        .and_then(|| {
+            Err::<StatusCode, _>(reject().with(Error::NotFound))
         });
 
     let routes = warp::get2()
-        .and(hello.or(err500))
+        .and(hello.or(oops).or(not_found))
         .recover(customize_error);
 
     warp::serve(routes)
@@ -28,25 +63,17 @@ fn main() {
 // NOTE: We don't *need* to return an `impl Reply` here, it's just
 // convenient in this specific case.
 fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
-    match err.status() {
-        StatusCode::NOT_FOUND => {
-            // We have a custom 404 page!
-            Ok(Response::builder()
-                .status(StatusCode::NOT_FOUND)
-                .body("you get a 404, and *you* get a 404..."))
-        },
-        StatusCode::INTERNAL_SERVER_ERROR => {
-            // Oh no, something is on fire!
-            eprintln!("quick, page someone! fire!");
-            Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(":fire: this is fine"))
-        }
-        _ => {
-            // Don't customize these errors, just let warp do
-            // the default! (or optionally a later filter could
-            // customize these).
-            Err(err)
-        }
+    let mut resp = err.json();
+
+    let cause = match err.into_cause::<Error>() {
+        Ok(ok) => ok,
+        Err(err) => return Err(err)
+    };
+
+    match *cause {
+        Error::NotFound => *resp.status_mut() = StatusCode::NOT_FOUND,
+        Error::Oops => *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
     }
+
+    Ok(resp)
 }
