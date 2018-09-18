@@ -19,12 +19,14 @@
 //! Wrapping allows adding in conditional logic *before* the request enters
 //! the inner filter (though the `with::header` wrapper does not).
 
-use http::header::{HeaderName, HeaderValue};
+use std::sync::Arc;
+
+use http::header::{HeaderMap, HeaderName, HeaderValue};
 use http::HttpTryFrom;
 
 use ::filter::{Filter, Map, WrapSealed};
 use ::reply::Reply;
-use self::sealed::{WithHeader_, WithDefaultHeader_};
+use self::sealed::{WithHeader_, WithHeaders_, WithDefaultHeader_};
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply.
 ///
@@ -53,6 +55,35 @@ where
     WithHeader {
         name,
         value,
+    }
+}
+
+/// Wrap a [`Filter`](::Filter) that adds multiple headers to the reply.
+///
+/// # Note
+///
+/// This **only** adds a header if the underlying filter is successful, and
+/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// header is not added.
+///
+/// # Example
+///
+/// ```
+/// use warp::http::header::{HeaderMap, HeaderValue};
+/// use warp::Filter;
+///
+/// let mut headers = HeaderMap::new();
+/// headers.insert("server", HeaderValue::from_static("wee/0"));
+/// headers.insert("foo", HeaderValue::from_static("bar"));
+///
+/// // Always set `server: wee/0` and `foo: bar` headers.
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .with(warp::reply::with::headers(headers));
+/// ```
+pub fn headers(headers: HeaderMap) -> WithHeaders {
+    WithHeaders {
+        headers: Arc::new(headers),
     }
 }
 
@@ -111,6 +142,27 @@ where
     }
 }
 
+/// Wrap a `Filter` to always set multiple headers.
+#[derive(Clone, Debug)]
+pub struct WithHeaders {
+    headers: Arc<HeaderMap>,
+}
+
+impl<F, R> WrapSealed<F> for WithHeaders
+where
+    F: Filter<Extract=(R,)>,
+    R: Reply,
+{
+    type Wrapped = Map<F, WithHeaders_>;
+
+    fn wrap(&self, filter: F) -> Self::Wrapped {
+        let with = WithHeaders_ {
+            with: self.clone(),
+        };
+        filter.map(with)
+    }
+}
+
 
 /// Wrap a `Filter` to set a header if it is not already set.
 #[derive(Clone, Debug)]
@@ -153,7 +205,7 @@ where
 mod sealed {
     use ::generic::{Func, One};
     use ::reply::{Reply, Reply_};
-    use super::{WithHeader, WithDefaultHeader};
+    use super::{WithHeader, WithHeaders, WithDefaultHeader};
 
     #[derive(Clone)]
     #[allow(missing_debug_implementations)]
@@ -168,6 +220,24 @@ mod sealed {
             let mut resp = args.0.into_response();
             // Use "insert" to replace any set header...
             resp.headers_mut().insert(&self.with.name, self.with.value.clone());
+            Reply_(resp)
+        }
+    }
+
+    #[derive(Clone)]
+    #[allow(missing_debug_implementations)]
+    pub struct WithHeaders_ {
+        pub(super) with: WithHeaders,
+    }
+
+    impl<R: Reply> Func<One<R>> for WithHeaders_ {
+        type Output = Reply_;
+
+        fn call(&self, args: One<R>) -> Self::Output {
+            let mut resp = args.0.into_response();
+            for (name, value) in &*self.with.headers {
+                resp.headers_mut().insert(name, value.clone());
+            }
             Reply_(resp)
         }
     }
