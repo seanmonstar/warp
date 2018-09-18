@@ -39,11 +39,11 @@ impl<T: Tuple + Send> BoxedFilter<T> {
         F: Filter<
             Extract=T,
         > + Send + Sync + 'static,
-        Rejection: From<F::Error>,
+        F::Error : Into<Rejection>,
     {
         BoxedFilter {
             filter: Arc::new(BoxingFilter {
-                filter: filter.map_err(Rejection::from),
+                filter: filter.map_err(Into::into),
             }),
         }
     }
