@@ -127,7 +127,7 @@ impl Rejection {
         }
     }
 
-    /// Returns a json responder for this rejection.
+    /// Returns a json response for this rejection.
     pub fn json(&self) -> ::reply::Response {
         use http::header::{CONTENT_TYPE, HeaderValue};
         use hyper::Body;
@@ -136,11 +136,12 @@ impl Rejection {
         let mut res = http::Response::default();
         *res.status_mut() = code;
 
-        let empty = "{}".to_string();
-        let bytes = serde_json::to_string(&self).unwrap_or(empty);
-
         res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        *res.body_mut() = Body::from(bytes);
+
+        *res.body_mut() = match serde_json::to_string(&self) {
+            Ok(body) => Body::from(body),
+            Err(_) => Body::from("{}"),
+        };
 
         res
     }
