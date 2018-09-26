@@ -1,3 +1,12 @@
+### v0.1.4 (September 25, 2018)
+
+- **Features**:
+  - Add `warp::reply::with::headers(HeaderMap)` filter wrapper.
+  - Add `warp::cookie::optional()` to get an optional cookie value.
+  - Add `warp::path::full()` to be able to extract the full request path without affecting route matching.
+  - Add graceful shutdown support to the `Server`.
+  - Allow empty query strings to be treated as for `warp::query()`.
+
 ### v0.1.3 (August 28, 2018)
 
 - **Features**:
