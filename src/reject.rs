@@ -31,10 +31,14 @@ use std::error::Error as StdError;
 
 use http;
 use serde;
+use serde_json;
 
 use ::never::Never;
 
 pub(crate) use self::sealed::{CombineRejection, Reject};
+
+/// Error cause for a rejection.
+pub type Cause = Box<StdError + Send + Sync>;
 
 /// Rejects a request with a default `400 Bad Request`.
 #[inline]
@@ -93,9 +97,6 @@ pub fn server_error() -> Rejection {
     Reason::SERVER_ERROR.into()
 }
 
-/// Error cause for a rejection.
-pub type Cause = Box<StdError + Send + Sync>;
-
 /// Rejection of a request by a [`Filter`](::Filter).
 #[derive(Debug)]
 pub struct Rejection {
@@ -132,6 +133,52 @@ impl Rejection {
         Self {
             cause,
             .. self
+        }
+    }
+
+    /// Returns a json response for this rejection.
+    pub fn json(&self) -> ::reply::Response {
+        use http::header::{CONTENT_TYPE, HeaderValue};
+        use hyper::Body;
+
+        let code = self.status();
+        let mut res = http::Response::default();
+        *res.status_mut() = code;
+
+        res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        *res.body_mut() = match serde_json::to_string(&self) {
+            Ok(body) => Body::from(body),
+            Err(_) => Body::from("{}"),
+        };
+
+        res
+    }
+
+    /// Returns an error cause.
+    pub fn cause(&self) -> Option<&Cause> {
+        if let Some(ref err) = self.cause {
+            return Some(&err)
+        }
+        None
+    }
+
+    /// Turn into cause of type `T`.
+    pub fn into_cause<T>(self) -> Result<Box<T>, Self>
+    where
+        T: StdError + Send + Sync + 'static
+    {
+        let err = match self.cause {
+            Some(err) => err,
+            None => return Err(self)
+        };
+
+        match err.downcast::<T>() {
+            Ok(err) => Ok(err),
+            Err(other) => Err(Rejection {
+                reason: self.reason,
+                cause: Some(other)
+            })
         }
     }
 }
@@ -210,16 +257,13 @@ impl Reject for Rejection {
         res
     }
 
+    #[inline]
     fn cause(&self) -> Option<&Cause> {
-        if let Some(ref err) = self.cause {
-            return Some(&err)
-        }
-        None
+        Rejection::cause(&self)
     }
 }
 
 impl serde::Serialize for Rejection {
-
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer
@@ -240,7 +284,7 @@ impl serde::Serialize for Rejection {
 
 mod sealed {
     use ::never::Never;
-    use super::{Rejection, Cause};
+    use super::{Cause, Rejection};
 
     pub trait Reject: ::std::fmt::Debug + Send {
         fn status(&self) -> ::http::StatusCode;
@@ -303,6 +347,8 @@ mod sealed {
 
 #[cfg(test)]
 mod tests {
+    use http::header::{CONTENT_TYPE};
+
     use super::*;
     use http::StatusCode;
 
@@ -355,8 +401,6 @@ mod tests {
 
     #[test]
     fn into_response_with_none_cause() {
-        use http::header::CONTENT_TYPE;
-
         let resp = bad_request().into_response();
         assert_eq!(400, resp.status());
         assert!(resp.headers().get(CONTENT_TYPE).is_none());
@@ -365,12 +409,27 @@ mod tests {
 
     #[test]
     fn into_response_with_some_cause() {
-        use http::header::{CONTENT_TYPE};
-
         let resp = server_error().with("boom").into_response();
         assert_eq!(500, resp.status());
         assert_eq!("text/plain", resp.headers().get(CONTENT_TYPE).unwrap());
         assert_eq!("boom", response_body_string(resp))
+    }
+
+    #[test]
+    fn into_json_with_none_cause() {
+        let resp = bad_request().json();
+        assert_eq!(400, resp.status());
+        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!("{}", response_body_string(resp))
+    }
+
+    #[test]
+    fn into_json_with_some_cause() {
+        let resp = bad_request().with("boom").json();
+        assert_eq!(400, resp.status());
+        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        let expected = "{\"description\":\"boom\",\"message\":\"boom\"}";
+        assert_eq!(expected, response_body_string(resp))
     }
 
     fn response_body_string(resp: ::reply::Response) -> String {
