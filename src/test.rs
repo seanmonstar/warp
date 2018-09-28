@@ -9,7 +9,6 @@ use futures::{future, Future, Stream};
 use http::Response;
 use serde::Serialize;
 use serde_json;
-use tokio::executor::thread_pool::Builder as ThreadPoolBuilder;
 use tokio::runtime::Builder as RtBuilder;
 
 use ::filter::{Filter};
@@ -249,11 +248,10 @@ where
     F::Item: Send + 'static,
     F::Error: Send + 'static,
 {
-    let mut pool = ThreadPoolBuilder::new();
-    pool.pool_size(1);
-
     let mut rt = RtBuilder::new()
-        .threadpool_builder(pool)
+        .core_threads(1)
+        .blocking_threads(1)
+        .name_prefix("warp-test-runtime-")
         .build()
         .expect("new rt");
 
