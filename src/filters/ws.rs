@@ -4,17 +4,14 @@
 
 use std::fmt;
 use std::io::ErrorKind::WouldBlock;
-use std::str::FromStr;
 
-use base64;
-use futures::{ Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
+use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
+use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
-use http::header::HeaderValue;
-use sha1::{Digest, Sha1};
 use tungstenite::protocol;
 
 use ::error::Kind;
-use ::filter::{Filter, FilterClone, One};
+use ::filter::{Filter, FilterBase, FilterClone, One};
 use ::reject::{Rejection};
 use ::reply::{ReplySealed, Reply, Response};
 use super::{body, header};
@@ -58,16 +55,28 @@ where
 /// - Header `upgrade: websocket`
 /// - Header `sec-websocket-accept` with the hash value of the received key.
 pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
+    let connection_has_upgrade = header::header2()
+        .and_then(|conn: ::headers::Connection| {
+            if conn.contains("upgrade") {
+                Ok(())
+            } else {
+                Err(::reject::bad_request())
+            }
+        })
+        .unit();
+
     ::get2()
-        .and(header::if_value(&http::header::CONNECTION, connection_has_upgrade))
+        .and(connection_has_upgrade)
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
-        .and(header::header::<Accept>("sec-websocket-key"))
+        //.and(header::exact2(Upgrade::websocket()))
+        //.and(header::exact2(SecWebsocketVersion::V13))
+        .and(header::header2::<SecWebsocketKey>())
         .and(body::body())
-        .map(move |accept: Accept, body: ::hyper::Body| {
+        .map(move |key: SecWebsocketKey, body: ::hyper::Body| {
             Ws2 {
-                accept,
                 body,
+                key,
             }
         })
 }
@@ -79,7 +88,7 @@ where
     F2: Fn(WebSocket) + Send + 'static,
 {
     ws2()
-        .map(move |Ws2 { accept, body }| {
+        .map(move |Ws2 { key, body }| {
             let fun = factory();
             let fut = body.on_upgrade()
                 .map(move |upgraded| {
@@ -95,43 +104,29 @@ where
             ::hyper::rt::spawn(fut);
 
             Ws {
-                accept,
+                key,
             }
-        })
-}
-
-fn connection_has_upgrade(value: &HeaderValue) -> Option<()> {
-    trace!("header connection has upgrade? value={:?}", value);
-
-    value
-        .to_str()
-        .ok()
-        .and_then(|s| {
-            for opt in s.split(", ") {
-                if opt.eq_ignore_ascii_case("upgrade") {
-                    return Some(());
-                }
-            }
-            None
         })
 }
 
 #[doc(hidden)]
 #[deprecated(note="will be replaced with Ws2")]
 pub struct Ws {
-    accept: Accept,
+    key: SecWebsocketKey,
 }
 
 #[allow(deprecated)]
 impl ReplySealed for Ws {
     fn into_response(self) -> Response {
-        http::Response::builder()
-            .status(101)
-            .header("connection", "upgrade")
-            .header("upgrade", "websocket")
-            .header("sec-websocket-accept", self.accept.0.as_str())
-            .body(Default::default())
-            .unwrap()
+        let mut res = http::Response::default();
+
+        *res.status_mut() = http::StatusCode::SWITCHING_PROTOCOLS;
+
+        res.headers_mut().typed_insert(Connection::upgrade());
+        res.headers_mut().typed_insert(Upgrade::websocket());
+        res.headers_mut().typed_insert(SecWebsocketAccept::from(self.key));
+
+        res
     }
 }
 
@@ -145,8 +140,8 @@ impl fmt::Debug for Ws {
 
 /// Extracted by the [`ws2`](ws2) filter, and used to finish an upgrade.
 pub struct Ws2 {
-    accept: Accept,
     body: ::hyper::Body,
+    key: SecWebsocketKey,
 }
 
 impl Ws2 {
@@ -198,13 +193,15 @@ where
             });
         ::hyper::rt::spawn(fut);
 
-        http::Response::builder()
-            .status(101)
-            .header("connection", "upgrade")
-            .header("upgrade", "websocket")
-            .header("sec-websocket-accept", self.ws.accept.0.as_str())
-            .body(Default::default())
-            .unwrap()
+        let mut res = http::Response::default();
+
+        *res.status_mut() = http::StatusCode::SWITCHING_PROTOCOLS;
+
+        res.headers_mut().typed_insert(Connection::upgrade());
+        res.headers_mut().typed_insert(Upgrade::websocket());
+        res.headers_mut().typed_insert(SecWebsocketAccept::from(self.ws.key));
+
+        res
     }
 }
 
@@ -369,16 +366,3 @@ impl fmt::Debug for Message {
     }
 }
 
-#[derive(Debug)]
-struct Accept(String);
-
-impl FromStr for Accept {
-    type Err = ::never::Never;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut sha1 = Sha1::default();
-        sha1.input(s.as_bytes());
-        sha1.input(b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
-        Ok(Accept(base64::encode(&sha1.result())))
-    }
-}

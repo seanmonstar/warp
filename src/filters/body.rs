@@ -5,6 +5,7 @@
 use bytes::Buf;
 use futures::{Async, Future, Poll, Stream};
 use futures::stream::Concat2;
+use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
 use mime;
@@ -48,12 +49,12 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
 ///     .and(warp::body::concat());
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejection> + Copy {
-    ::filters::header::header("content-length")
+    ::filters::header::header2()
         .map_err(|_| {
             debug!("content-length missing");
             reject::length_required()
         })
-        .and_then(move |length: u64| {
+        .and_then(move |ContentLength(length)| {
             if length <= limit {
                 Ok(())
             } else {

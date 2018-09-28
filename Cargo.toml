@@ -11,10 +11,11 @@ categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
 
 [dependencies]
-base64 = "0.9.2"
 bitflags = "1"
 bytes = "0.4.8"
 futures = "0.1"
+#headers = { path = "../headers" }
+headers-ext = "0.0.1"
 http = "0.1"
 hyper = "0.12.10"
 log = "0.4"
@@ -24,14 +25,12 @@ scoped-tls = "0.1.2"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.5.3"
-sha-1 = "0.7"
 tokio = "0.1.11"
 tokio-io = "0.1"
 tokio-threadpool = "0.1.7"
 # tls is enabled by default, we don't want that yet
 tungstenite = { default-features = false, version = "0.6" }
 urlencoding = "1.0.0"
-httpdate = "0.3.2"
 
 
 [dev-dependencies]

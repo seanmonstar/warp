@@ -82,10 +82,10 @@
 //!
 //! [Filter]: trait.Filter.html
 
-extern crate base64;
 #[macro_use] extern crate bitflags;
 extern crate bytes;
 #[macro_use] extern crate futures;
+extern crate headers_ext as headers;
 #[doc(hidden)]
 pub extern crate http;
 extern crate hyper;
@@ -96,13 +96,11 @@ extern crate mime_guess;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
-extern crate sha1;
 extern crate tokio;
 extern crate tokio_io;
 extern crate tokio_threadpool;
 extern crate tungstenite;
 extern crate urlencoding;
-extern crate httpdate;
 
 mod error;
 mod filter;

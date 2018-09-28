@@ -9,6 +9,7 @@ use std::sync::Arc;
 use bytes::{BufMut, BytesMut};
 use futures::{future, Future, stream, Stream};
 use futures::future::Either;
+use headers::{AcceptRanges, ContentLength, ContentType, HeaderMapExt, LastModified};
 use http;
 use hyper::{Body, Chunk};
 use mime_guess;
@@ -115,9 +116,7 @@ fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, 
                 } else {
                     buf.push(seg);
                 }
-
             }
-
             Ok(buf)
         })
         .and_then(|buf: PathBuf| {
@@ -196,39 +195,29 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
         let len = meta.len();
+        let modified = meta.modified().ok();
         let buf_size = optimal_buf_size(&meta);
 
         let stream = file_stream(f.take().unwrap(), buf_size, len);
         let body = Body::wrap_stream(stream);
 
-        let content_type = mime_guess::guess_mime_type(path.as_ref());
+        let mime = mime_guess::guess_mime_type(path.as_ref());
 
-        let mut res = http::Response::builder();
-        res.status(200)
-           .header("content-length", len)
-           .header("content-type", content_type.as_ref());
+        let mut res = http::Response::new(body);
 
-        if let Some(modified) = last_modified(&meta) {
-            res.header("last-modified", modified);
+        res.headers_mut().typed_insert(ContentLength(len));
+        res.headers_mut().typed_insert(ContentType::from(mime));
+        res.headers_mut().typed_insert(AcceptRanges::bytes());
+        if let Some(time) = modified {
+            res.headers_mut().typed_insert(LastModified::from(time));
         }
 
-        Ok(res
-            .body(body)
-            .unwrap().into())
+        Ok(res.into())
     })
         .map_err(|err: ::std::io::Error| {
             debug!("file metadata error: {}", err);
             reject::server_error().with(err)
         })
-}
-
-fn last_modified(metadata: &Metadata) -> Option<String> {
-    use httpdate::fmt_http_date;
-
-    metadata
-        .modified()
-        .ok()
-        .map(fmt_http_date)
 }
 
 fn file_stream(mut f: TkFile, buf_size: usize, mut len: u64) -> impl Stream<Item=Chunk, Error=io::Error> + Send {
