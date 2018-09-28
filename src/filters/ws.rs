@@ -78,13 +78,8 @@ where
     F1: Fn() -> F2 + Clone + Send + 'static,
     F2: Fn(WebSocket) + Send + 'static,
 {
-    ::get2()
-        .and(header::if_value(&http::header::CONNECTION, connection_has_upgrade))
-        .and(header::exact_ignore_case("upgrade", "websocket"))
-        .and(header::exact("sec-websocket-version", "13"))
-        .and(header::header::<Accept>("sec-websocket-key"))
-        .and(body::body())
-        .map(move |accept: Accept, body: ::hyper::Body| {
+    ws2()
+        .map(move |Ws2 { accept, body }| {
             let fun = factory();
             let fut = body.on_upgrade()
                 .map(move |upgraded| {
