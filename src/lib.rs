@@ -98,6 +98,7 @@ extern crate serde_json;
 extern crate serde_urlencoded;
 extern crate sha1;
 extern crate tokio;
+extern crate tokio_io;
 extern crate tungstenite;
 extern crate urlencoding;
 

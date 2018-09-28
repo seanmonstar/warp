@@ -1,9 +1,10 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use futures::{Async, Future, Poll};
+use futures::{Async, Future, Poll, Stream};
 use hyper::{rt, Server as HyperServer};
 use hyper::service::{service_fn};
+use tokio_io::{AsyncRead, AsyncWrite};
 
 use ::never::Never;
 use ::reject::Reject;
@@ -30,17 +31,22 @@ pub struct Server<S> {
 
 // Getting all various generic bounds to make this a re-usable method is
 // very complicated, so instead this is just a macro.
-macro_rules! bind_inner {
-    ($this:ident, $addr:expr) => ({
+macro_rules! into_service {
+    ($this:ident) => ({
         let inner = Arc::new($this.service.into_warp_service());
-        let service = move || {
+        move || {
             let inner = inner.clone();
             service_fn(move |req| {
                 ReplyFuture {
                     inner: inner.call(req)
                 }
             })
-        };
+        }
+    });
+}
+macro_rules! bind_inner {
+    ($this:ident, $addr:expr) => ({
+        let service = into_service!($this);
         let srv = HyperServer::bind(&$addr.into())
             .http1_pipeline_flush($this.pipeline)
             .serve(service);
@@ -60,6 +66,23 @@ where
         let (addr, fut) = self.bind_ephemeral(addr);
 
         info!("warp drive engaged: listening on {}", addr);
+
+        rt::run(fut);
+    }
+
+    /// Run this `Server` forever on the current thread with a specific stream
+    /// of incoming connections.
+    ///
+    /// This can be used for Unix Domain Sockets, or TLS, etc.
+    pub fn run_incoming<I>(self, incoming: I)
+    where
+        I: Stream + Send + 'static,
+        I::Item: AsyncRead + AsyncWrite + Send + 'static,
+        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+    {
+        let fut = self.serve_incoming(incoming);
+
+        info!("warp drive engaged: listening with custom incoming");
 
         rt::run(fut);
     }
@@ -123,6 +146,25 @@ where
             .with_graceful_shutdown(signal)
             .map_err(|e| error!("server error: {}", e));
         (addr, fut)
+    }
+
+
+    /// Setup this `Server` with a specific stream of incoming connections.
+    ///
+    /// This can be used for Unix Domain Sockets, or TLS, etc.
+    ///
+    /// Returns a `Future` that can be executed on any runtime.
+    pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Item=(), Error=()> + 'static
+    where
+        I: Stream + Send + 'static,
+        I::Item: AsyncRead + AsyncWrite + Send + 'static,
+        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+    {
+        let service = into_service!(self);
+        HyperServer::builder(incoming)
+            .http1_pipeline_flush(self.pipeline)
+            .serve(service)
+            .map_err(|e| error!("server error: {}", e))
     }
 
     // Generally shouldn't be used, as it can slow down non-pipelined responses.
