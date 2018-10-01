@@ -120,7 +120,8 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
 /// A file response.
 #[derive(Debug)]
 pub struct File {
-    resp: Response,
+    /// A response, you might want to alter it
+    pub resp: Response,
 }
 
 // Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
