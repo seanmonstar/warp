@@ -177,10 +177,16 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
 
         let content_type = mime_guess::guess_mime_type(path.as_ref());
 
-        Ok(http::Response::builder()
-            .status(200)
-            .header("content-length", len)
-            .header("content-type", content_type.as_ref())
+        let mut res = http::Response::builder();
+        res.status(200)
+           .header("content-length", len)
+           .header("content-type", content_type.as_ref());
+
+        if let Some(modified) = last_modified(&meta) {
+            res.header("last-modified", modified);
+        }
+
+        Ok(res
             .body(body)
             .unwrap().into())
     })
@@ -188,6 +194,15 @@ fn file_metadata(f: TkFile, path: ArcPath) -> impl Future<Item=Response, Error=R
             debug!("file metadata error: {}", err);
             reject::server_error().with(err)
         })
+}
+
+fn last_modified(metadata: &Metadata) -> Option<String> {
+    use httpdate::fmt_http_date;
+
+    metadata
+        .modified()
+        .ok()
+        .map(fmt_http_date)
 }
 
 fn file_stream(mut f: TkFile, buf_size: usize, mut len: u64) -> impl Stream<Item=Chunk, Error=io::Error> + Send {
@@ -241,4 +256,3 @@ fn get_block_size(metadata: &Metadata) -> usize {
 fn get_block_size(_metadata: &Metadata) -> usize {
     8_192
 }
-
