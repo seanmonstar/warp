@@ -108,6 +108,7 @@ mod filter;
 pub mod filters;
 mod generic;
 mod never;
+pub mod redirect;
 pub mod reject;
 pub mod reply;
 mod route;
@@ -150,6 +151,8 @@ pub use self::filters::{
     // ws() function
     ws::{ws, ws2},
 };
+#[doc(hidden)]
+pub use self::redirect::{redirect};
 #[doc(hidden)]
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
