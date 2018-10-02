@@ -101,6 +101,7 @@ extern crate tokio;
 extern crate tokio_io;
 extern crate tungstenite;
 extern crate urlencoding;
+extern crate httpdate;
 
 mod error;
 mod filter;
