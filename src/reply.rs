@@ -33,8 +33,8 @@
 //!     .or(warp::post2().and(custom));
 //! ```
 
-use http::header::{CONTENT_TYPE, HeaderValue};
-use http::StatusCode;
+use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
+use http::{HttpTryFrom, StatusCode};
 use serde::Serialize;
 use serde_json;
 
@@ -201,6 +201,102 @@ impl<T: ReplySealed> Reply for T {}
 
 fn _assert_object_safe() {
     fn _assert(_: &Reply) {}
+}
+
+/// Wrap an `impl Reply` to add a header when rendering.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .map(|reply| {
+///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
+///     });
+/// ```
+pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
+    WithStatus {
+        reply,
+        status,
+    }
+}
+
+/// Wrap an `impl Reply` to change its `StatusCode`.
+///
+/// Returned by `warp::reply::with_status`.
+#[derive(Debug)]
+pub struct WithStatus<T> {
+    reply: T,
+    status: StatusCode,
+}
+
+impl<T: Reply> ReplySealed for WithStatus<T> {
+    fn into_response(self) -> Response {
+        let mut res = self.reply.into_response();
+        *res.status_mut() = self.status;
+        res
+    }
+}
+
+/// Wrap an `impl Reply` to add a header when rendering.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .map(|reply| {
+///         warp::reply::with_header(reply, "server", "warp")
+///     });
+/// ```
+pub fn with_header<T: Reply, K, V>(reply: T, name: K, value: V) -> WithHeader<T>
+where
+    HeaderName: HttpTryFrom<K>,
+    HeaderValue: HttpTryFrom<V>,
+{
+    let header = match <HeaderName as HttpTryFrom<K>>::try_from(name) {
+        Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
+            Ok(value) => {
+                Some((name, value))
+            },
+            Err(err) => {
+                warn!("with_header value error: {}", err.into());
+                None
+            }
+        },
+        Err(err) => {
+            warn!("with_header name error: {}", err.into());
+            None
+        }
+    };
+
+    WithHeader {
+        header,
+        reply,
+    }
+}
+
+/// Wraps an `impl Reply` and adds a header when rendering.
+///
+/// Returned by `warp::reply::with_header`.
+#[derive(Debug)]
+pub struct WithHeader<T> {
+    header: Option<(HeaderName, HeaderValue)>,
+    reply: T,
+}
+
+impl<T: Reply> ReplySealed for WithHeader<T> {
+    fn into_response(self) -> Response {
+        let mut res = self.reply.into_response();
+        if let Some((name, value)) = self.header {
+            res.headers_mut().insert(name, value);
+        }
+        res
+    }
 }
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
