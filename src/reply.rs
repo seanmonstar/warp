@@ -89,7 +89,7 @@ pub fn reply() -> impl Reply
 /// # Note
 ///
 /// If a type fails to be serialized into JSON, the error is logged at the
-/// `warn` level, and the returned `impl Reply` will be an empty
+/// `error` level, and the returned `impl Reply` will be an empty
 /// `500 Internal Server Error` response.
 pub fn json<T>(val: &T) -> impl Reply
 where
@@ -97,7 +97,7 @@ where
 {
     Json {
         inner: serde_json::to_vec(val).map_err(|err| {
-            warn!("reply::json error: {}", err);
+            error!("reply::json error: {}", err);
         }),
     }
 }
@@ -182,13 +182,13 @@ pub trait Reply: ReplySealed {
                     Reply_(res)
                 },
                 Err(err) => {
-                    warn!("with_header value error: {}", err.into());
+                    error!("with_header value error: {}", err.into());
                     Reply_(::reject::server_error()
                         .into_response())
                 }
             },
             Err(err) => {
-                warn!("with_header name error: {}", err.into());
+                error!("with_header name error: {}", err.into());
                 Reply_(::reject::server_error()
                     .into_response())
             }
@@ -264,12 +264,12 @@ where
                 Some((name, value))
             },
             Err(err) => {
-                warn!("with_header value error: {}", err.into());
+                error!("with_header value error: {}", err.into());
                 None
             }
         },
         Err(err) => {
-            warn!("with_header name error: {}", err.into());
+            error!("with_header name error: {}", err.into());
             None
         }
     };
@@ -364,7 +364,7 @@ mod sealed {
             match self {
                 Ok(t) => t.into_response(),
                 Err(e) => {
-                    warn!("reply error: {:?}", e);
+                    error!("reply error: {:?}", e);
                     ::reject::server_error()
                         .into_response()
                 }

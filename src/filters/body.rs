@@ -27,7 +27,7 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
             .map(Ok)
             .unwrap_or_else(|| {
                 let err = "request body already taken in previous filter";
-                warn!("{}", err);
+                error!("{}", err);
                 Err(reject::server_error().with(err))
             })
     })

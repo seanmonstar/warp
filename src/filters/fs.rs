@@ -182,7 +182,7 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
                         reject::not_found().with(err)
                     },
                     _ => {
-                        warn!("file open error: {} ", err);
+                        error!("file open error: {} ", err);
                         reject::server_error().with(err)
                     },
                 };
