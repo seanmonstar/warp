@@ -14,6 +14,7 @@ use hyper::{Body, Chunk};
 use mime_guess;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
+use tokio_threadpool;
 use urlencoding::decode;
 
 use ::filter::{Filter, FilterClone, filter_fn, One, one};
@@ -85,7 +86,17 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
     let base = Arc::new(path.into());
     ::get2()
-        .and(::path::tail())
+        .and(path_from_tail(base))
+        .and_then(|path| {
+            file_reply(path)
+                .map(|resp| File {
+                    resp,
+                })
+        })
+}
+
+fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, Error=Rejection> {
+    ::path::tail()
         .and_then(move |tail: ::path::Tail| {
             let mut buf = PathBuf::from(base.as_ref());
             let p = match decode(tail.as_str()) {
@@ -93,30 +104,48 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
                 Err(err) => {
                     debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), err);
                     // FromUrlEncodingError doesn't implement StdError
-                    return Either::A(future::err(reject::bad_request().with("dir: failed to decode route")));
+                    return Err(reject::bad_request().with("dir: failed to decode route"));
                 }
             };
             trace!("dir? base={:?}, route={:?}", base, p);
             for seg in p.split('/') {
                 if seg.starts_with("..") {
                     debug!("dir: rejecting segment starting with '..'");
-                    return Either::A(future::err(reject::bad_request().with("dir: rejecting segment")));
+                    return Err(reject::bad_request().with("dir: rejecting segment"));
                 } else {
                     buf.push(seg);
                 }
 
             }
-            if buf.is_dir() {
-                debug!("dir: appending index.html to directory path");
-                buf.push("index.html");
-            }
-            trace!("dir: {:?}", buf);
-            let path = Arc::new(buf);
 
-            Either::B(file_reply(ArcPath(path.clone()))
-                .map(|resp| File {
-                    resp,
-                }))
+            Ok(buf)
+        })
+        .and_then(|buf: PathBuf| {
+            // Checking Path::is_dir can block since it has to read from disk,
+            // so put it in a blocking() future
+            let mut buf = Some(buf);
+            future::poll_fn(move || {
+                let is_dir = try_ready!(tokio_threadpool::blocking(|| {
+                    buf.as_ref().unwrap().is_dir()
+                }));
+                let mut buf = buf.take().unwrap();
+                if is_dir {
+                    debug!("dir: appending index.html to directory path");
+                    buf.push("index.html");
+                }
+
+                trace!("dir: {:?}", buf);
+
+                Ok(ArcPath(Arc::new(buf)).into())
+            })
+                .map_err(|blocking_err: tokio_threadpool::BlockingError| {
+                    let err = format!(
+                        "threadpool blocking error checking buf.is_dir(): {}",
+                        blocking_err,
+                    );
+                    error!("{}", err);
+                    reject::server_error().with(err)
+                })
         })
 }
 
@@ -152,12 +181,6 @@ fn file_reply(path: ArcPath) -> impl Future<Item=Response, Error=Rejection> + Se
                         debug!("file open error: {} ", err);
                         reject::not_found().with(err)
                     },
-                    // There are actually other errors that could
-                    // occur that really mean a 404, but the kind
-                    // return is Other, making it hard to tell.
-                    //
-                    // A fix would be to check `Path::is_file` first,
-                    // using `tokio_threadpool::blocking` around it...
                     _ => {
                         warn!("file open error: {} ", err);
                         reject::server_error().with(err)
