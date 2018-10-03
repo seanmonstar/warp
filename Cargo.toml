@@ -15,7 +15,7 @@ bitflags = "1"
 bytes = "0.4.8"
 futures = "0.1"
 #headers = { path = "../headers" }
-headers-ext = "0.0.1"
+headers-ext = "0.0.2"
 http = "0.1"
 hyper = "0.12.10"
 log = "0.4"
