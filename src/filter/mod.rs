@@ -213,6 +213,9 @@ pub trait Filter: FilterBase {
     ///
     /// The function should return some `IntoFuture` type.
     ///
+    /// The `Error` type of the return `Future` needs be a `Rejection`, which
+    /// means most futures will need to have their error mapped into one.
+    ///
     /// # Example
     ///
     /// ```
