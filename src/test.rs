@@ -6,7 +6,7 @@
 
 use bytes::Bytes;
 use futures::{future, Future, Stream};
-use http::Response;
+use http::{header::{HeaderName, HeaderValue}, HttpTryFrom, Response};
 use serde::Serialize;
 use serde_json;
 use tokio::runtime::Builder as RtBuilder;
@@ -91,9 +91,13 @@ impl RequestBuilder {
     ///
     /// This panics if the passed strings are not able to be parsed as a valid
     /// `HeaderName` and `HeaderValue`.
-    pub fn header(mut self, key: &str, value: &str) -> Self {
-        let name: ::http::header::HeaderName = key.parse().expect("invalid header name");
-        let value = value.parse().expect("invalid header value");
+    pub fn header<K, V>(mut self, key: K, value: V) -> Self
+    where
+        HeaderName: HttpTryFrom<K>,
+        HeaderValue: HttpTryFrom<V>,
+    {
+        let name: HeaderName = HttpTryFrom::try_from(key).map_err(|_| ()).expect("invalid header name");
+        let value = HttpTryFrom::try_from(value).map_err(|_| ()).expect("invalid header value");
         self.req.headers_mut().insert(name, value);
         self
     }
