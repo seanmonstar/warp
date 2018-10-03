@@ -2,7 +2,7 @@
 
 [![Travis Build Status](https://travis-ci.org/seanmonstar/warp.svg?branch=master)](https://travis-ci.org/seanmonstar/warp)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![crates.io](https://img.shields.io/crates/v/warp)](https://crates.io/crates/warp)
+[![crates.io](https://img.shields.io/crates/v/warp.svg)](https://crates.io/crates/warp)
 [![Released API docs](https://docs.rs/warp/badge.svg)](https://docs.rs/warp)
 
 A super-easy, composable, web server framework for warp speeds.
