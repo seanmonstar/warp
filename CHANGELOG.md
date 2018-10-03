@@ -1,3 +1,21 @@
+### v0.1.5 (October 3, 2018)
+
+- **Features**:
+  - Serve `index.html` automatically with `warp::fs::dir` filter.
+  - Include `last-modified` header with `warp::fs` filters.
+  - Add `warp::redirect` to easily reply with redirections.
+  - Add `warp::reply::{with_status, with_header}` to wrap `impl Reply`s directly with a new status code or header.
+  - Add support for running a warp `Server` with a custom source of incoming connections.
+    - `Server::run_incoming` to have the runtime started automatically.
+    - `Server::serve_incoming` to get a future to run on existing runtime.
+    - These can be used to support Unix Domain Sockets, TLS, and other transports.
+  - Add `Rejection::into_cause()` to retrieve the original error of a rejection back.
+  - Add `Rejection::json()` to convert a rejection into a JSON response.
+
+- **Fixes**
+  - Internal errors in warp that result in rendering a `500 Internal Server Error` are now also logged at the `error` level.
+
+
 ### v0.1.4 (September 25, 2018)
 
 - **Features**:
