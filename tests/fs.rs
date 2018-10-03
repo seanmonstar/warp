@@ -99,3 +99,19 @@ fn dir_bad_encoded_path() {
     assert_eq!(res.status(), 400);
     assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
 }
+
+#[test]
+fn dir_fallback_index_on_dir() {
+    let _ = pretty_env_logger::try_init();
+
+    let file = warp::fs::dir("examples");
+    let req = warp::test::request().path("/dir");
+    let res = req.reply(&file);
+    let contents = fs::read("examples/dir/index.html").expect("fs::read");
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.status(), 200);
+    let req = warp::test::request().path("/dir/");
+    let res = req.reply(&file);
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.status(), 200);
+}

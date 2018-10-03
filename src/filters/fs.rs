@@ -106,7 +106,10 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
                 }
 
             }
-
+            if buf.is_dir() {
+                debug!("dir: appending index.html to directory path");
+                buf.push("index.html");
+            }
             trace!("dir: {:?}", buf);
             let path = Arc::new(buf);
 
