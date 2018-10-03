@@ -69,6 +69,14 @@ fn main() {
     let math = warp::path("math")
         .and(sum.or(times));
 
+    // Let's let people know that the `sum` and `times` routes are under `math`.
+    let sum = sum.map(|output| {
+        format!("(This route has moved to /math/sum/:u16/:u16) {}", output)
+    });
+    let times = times.map(|output| {
+        format!("(This route has moved to /math/:u16/times/:u16) {}", output)
+    });
+
     // It turns out, using `or` is how you combine everything together into
     // a single API. (We also actually haven't been enforcing the that the
     // method is GET, so we'll do that too!)
@@ -84,6 +92,8 @@ fn main() {
             .or(hello_from_warp)
             .or(bye)
             .or(math)
+            .or(sum)
+            .or(times)
     );
 
     warp::serve(routes)
