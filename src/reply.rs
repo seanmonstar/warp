@@ -203,7 +203,7 @@ fn _assert_object_safe() {
     fn _assert(_: &Reply) {}
 }
 
-/// Wrap an `impl Reply` to add a header when rendering.
+/// Wrap an `impl Reply` to change its `StatusCode`.
 ///
 /// # Example
 ///
