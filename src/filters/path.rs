@@ -144,6 +144,16 @@ use ::route::Route;
 /// # Panics
 ///
 /// Exact path filters cannot be empty, or contain slashes.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Matches '/hello'
+/// let hello = warp::path("hello")
+///     .map(|| "Hello, World!");
+/// ```
 pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     assert!(!p.is_empty(), "exact path segments should not be empty");
     assert!(!p.contains('/'), "exact path segments should not contain a slash: {:?}", p);
