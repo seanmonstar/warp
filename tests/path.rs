@@ -240,3 +240,81 @@ fn full_path() {
         .path("/foo/bar")
         .matches(&full_path.and(foo).and(bar)));
 }
+
+#[test]
+fn peek() {
+    let peek = warp::path::peek();
+
+    let foo = warp::path("foo");
+    let bar = warp::path("bar");
+    let param = warp::path::param::<u32>();
+
+    // matches full request path
+    let ex = warp::test::request()
+        .path("/42/vroom")
+        .filter(&peek)
+        .unwrap();
+    assert_eq!(ex.as_str(), "42/vroom");
+
+    // matches index
+    let ex = warp::test::request()
+        .path("/")
+        .filter(&peek)
+        .unwrap();
+    assert_eq!(ex.as_str(), "");
+
+    // does not include query
+    let ex = warp::test::request()
+        .path("/foo/bar?baz=quux")
+        .filter(&peek)
+        .unwrap();
+    assert_eq!(ex.as_str(), "foo/bar");
+
+    // does not include previously matched prefix
+    let ex = warp::test::request()
+        .path("/foo/bar")
+        .filter(&foo.and(peek))
+        .unwrap();
+    assert_eq!(ex.as_str(), "bar");
+
+    // includes following matches
+    let ex = warp::test::request()
+        .path("/foo/bar")
+        .filter(&peek.and(foo))
+        .unwrap();
+    assert_eq!(ex.as_str(), "foo/bar");
+
+    // does not include previously matched param
+    let (_, ex) = warp::test::request()
+        .path("/foo/123")
+        .filter(&foo.and(param).and(peek))
+        .unwrap();
+    assert_eq!(ex.as_str(), "");
+
+    // does not modify matching
+    assert!(warp::test::request()
+        .path("/foo/bar")
+        .matches(&peek.and(foo).and(bar)));
+}
+
+#[test]
+fn peek_segments() {
+    let peek = warp::path::peek();
+
+    // matches full request path
+    let ex = warp::test::request()
+        .path("/42/vroom")
+        .filter(&peek)
+        .unwrap();
+
+    assert_eq!(ex.segments().collect::<Vec<_>>(), &["42", "vroom"]);
+
+    // matches index
+    let ex = warp::test::request()
+        .path("/")
+        .filter(&peek)
+        .unwrap();
+
+    let segs = ex.segments().collect::<Vec<_>>();
+    assert_eq!(segs, Vec::<&str>::new());
+}

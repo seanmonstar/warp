@@ -287,6 +287,64 @@ impl fmt::Debug for Tail {
     }
 }
 
+
+/// Peek at the unmatched tail of the path, without affecting the matched path.
+///
+/// This will return a `Peek`, which allows access to the rest of the path
+/// that previous filters have not already matched. This differs from `tail`
+/// in that `peek` will **not** set the entire path as matched.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path("foo")
+///     .and(warp::path::peek())
+///     .map(|peek| {
+///         // GET /foo/bar/baz would return "bar/baz".
+///         format!("The path after foo is {:?}", peek)
+///     });
+/// ```
+pub fn peek() -> impl Filter<Extract=One<Peek>, Error=Never> + Copy {
+    filter_fn(move |route| {
+        let path = path_and_query(&route);
+        let idx = route.matched_path_index();
+
+        Ok(one(Peek {
+            path,
+            start_index: idx,
+        }))
+    })
+}
+
+/// Represents that tail part of a request path, returned by the `tail()` filter.
+pub struct Peek {
+    path: PathAndQuery,
+    start_index: usize,
+}
+
+impl Peek {
+    /// Get the `&str` representation of the remaining path.
+    pub fn as_str(&self) -> &str {
+        &self.path.path()[self.start_index..]
+    }
+
+    /// Get an iterator over the segments of the peeked path.
+    pub fn segments(&self) -> impl Iterator<Item = &str> {
+        self
+            .as_str()
+            .split('/')
+            .filter(|seg| !seg.is_empty())
+    }
+}
+
+impl fmt::Debug for Peek {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
+    }
+}
+
 /// Returns the full request path, irrespective of other filters.
 ///
 /// This will return a `FullPath`, which can be stringified to return the
