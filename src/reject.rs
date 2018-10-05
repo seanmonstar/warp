@@ -127,7 +127,8 @@ impl Rejection {
 
     /// Add given `err` into `Rejection`.
     pub fn with<E>(self, err: E) -> Self
-    where E: Into<Cause> + Sized
+    where
+        E: Into<Cause>,
     {
         let cause = Some(err.into());
         Self {
