@@ -1,3 +1,10 @@
+### v0.1.6 (October 5, 2018)
+
+- **Features**:
+  - Add Conditional and Range request support for `warp::fs` filters.
+  - Relaxed bounds on `Rejection::with` to no longer need to be `Sized`.
+  - Add `warp::path::peek()` which gets the unmatched tail without adjusting the currently matched path.
+
 ### v0.1.5 (October 3, 2018)
 
 - **Features**:
