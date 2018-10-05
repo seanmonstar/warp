@@ -85,6 +85,7 @@
 extern crate base64;
 #[macro_use] extern crate bitflags;
 extern crate bytes;
+extern crate flate2;
 #[macro_use] extern crate futures;
 #[doc(hidden)]
 pub extern crate http;
@@ -127,6 +128,7 @@ pub use self::filters::{
     // any() function
     any::any,
     body,
+    compress,
     cookie,
     // cookie() function
     cookie::cookie,
