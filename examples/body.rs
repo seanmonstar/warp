@@ -19,6 +19,8 @@ fn main() {
     let promote = warp::post2()
         .and(warp::path("employees"))
         .and(warp::path::param::<u32>())
+        // Only accept bodies smaller than 16kb...
+        .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::json())
         .map(|rate, mut employee: Employee| {
             employee.rate = rate;

@@ -159,6 +159,9 @@ pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
 
+
+#[doc(hidden)]
+pub use bytes::Buf;
 #[doc(hidden)]
 pub use futures::{Future, Sink, Stream};
 

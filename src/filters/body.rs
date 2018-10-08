@@ -70,14 +70,44 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
 ///
 /// If other filters have already extracted the body, this filter will reject
 /// with a `500 Internal Server Error`.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent a overly large request from using too much memory.
 pub fn stream() -> impl Filter<Extract=(BodyStream,), Error=Rejection> + Copy {
     body().map(|body: Body| BodyStream {
         body,
     })
 }
 
-/// Returns a `Filter` that matches any request and extracts a
-/// `Future` of a concatenated body.
+/// Returns a `Filter` that matches any request and extracts a `Future` of a
+/// concatenated body.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent a overly large request from using too much memory.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Buf, Filter};
+///
+/// let route = warp::body::content_length_limit(1024 * 32)
+///     .and(warp::body::concat())
+///     .map(|mut full_body: warp::body::FullBody| {
+///         // FullBody is a `Buf`, which could have several non-contiguous
+///         // slices of memory...
+///         let mut remaining = full_body.remaining();
+///         while remaining != 0 {
+///             println!("slice = {:?}", full_body.bytes());
+///             let cnt = full_body.bytes().len();
+///             full_body.advance(cnt);
+///             remaining -= cnt;
+///         }
+///     });
+/// ```
 pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
     body().and_then(|body: ::hyper::Body| {
         Concat {
@@ -115,8 +145,26 @@ fn is_content_type(type_: mime::Name<'static>, subtype: mime::Name<'static>)
     })
 }
 
-/// Returns a `Filter` that matches any request and extracts a
-/// `Future` of a JSON-decoded body.
+/// Returns a `Filter` that matches any request and extracts a `Future` of a
+/// JSON-decoded body.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent a overly large request from using too much memory.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+/// use warp::Filter;
+///
+/// let route = warp::body::content_length_limit(1024 * 32)
+///     .and(warp::body::json())
+///     .map(|simple_map: HashMap<String, String>| {
+///         "Got a JSON body!"
+///     });
+/// ```
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
     is_content_type(mime::APPLICATION, mime::JSON)
         .and(concat())
@@ -136,6 +184,23 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
 ///
 /// This filter is for the simpler `application/x-www-form-urlencoded` format,
 /// not `multipart/form-data`.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent a overly large request from using too much memory.
+///
+///
+/// ```
+/// use std::collections::HashMap;
+/// use warp::Filter;
+///
+/// let route = warp::body::content_length_limit(1024 * 32)
+///     .and(warp::body::form())
+///     .map(|simple_map: HashMap<String, String>| {
+///         "Got a urlencoded body!"
+///     });
+/// ```
 pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
     is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
         .and(concat())
@@ -151,6 +216,8 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
 /// The full contents of a request body.
 ///
 /// Extracted with the [`concat`](concat) filter.
+///
+/// As this is a `Buf`, it could have several non-contiguous slices of memory.
 #[derive(Debug)]
 pub struct FullBody {
     // By concealing how a full body (concat()) is represented, this can be
