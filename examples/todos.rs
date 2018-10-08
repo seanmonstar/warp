@@ -59,6 +59,11 @@ fn main() {
         .and(warp::path::param::<u64>())
         .and(warp::path::index());
 
+    // When accepting a body, we want a JSON body
+    // (and to reject huge payloads)...
+    let json_body = warp::body::content_length_limit(1024 * 16)
+        .and(warp::body::json());
+
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
@@ -70,14 +75,14 @@ fn main() {
     // `POST /todos`
     let create = warp::post2()
         .and(todos_index)
-        .and(warp::body::json())
+        .and(json_body)
         .and(db.clone())
         .and_then(create_todo);
 
     // `PUT /todos/:id`
     let update = warp::put2()
         .and(todos_id)
-        .and(warp::body::json())
+        .and(json_body)
         .and(db.clone())
         .and_then(update_todo);
 
