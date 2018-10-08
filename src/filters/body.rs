@@ -2,6 +2,8 @@
 //!
 //! Filters that extract a body for a route.
 
+use std::fmt;
+
 use bytes::Buf;
 use futures::{Async, Future, Poll, Stream};
 use futures::stream::Concat2;
@@ -15,8 +17,6 @@ use serde_urlencoded;
 
 use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
 use ::reject::{self, Rejection};
-
-use self::sealed::ImplStream;
 
 // Extracts the `Body` Stream from the route.
 //
@@ -70,14 +70,8 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
 ///
 /// If other filters have already extracted the body, this filter will reject
 /// with a `500 Internal Server Error`.
-///
-/// # Note
-///
-/// The `ImplStream` type is essentially
-/// `impl Stream<Item = impl Buf, Error = warp::Error>`, but since nested
-/// `impl Trait`s aren't valid yet, the type acts as one.
-pub fn stream() -> impl Filter<Extract=(ImplStream,), Error=Rejection> + Copy {
-    body().map(|body: Body| ImplStream {
+pub fn stream() -> impl Filter<Extract=(BodyStream,), Error=Rejection> + Copy {
+    body().map(|body: Body| BodyStream {
         body,
     })
 }
@@ -203,52 +197,59 @@ impl Future for Concat {
     }
 }
 
-mod sealed {
-    use bytes::Buf;
-    use futures::{Poll, Stream};
-    use hyper::{Body, Chunk};
+/// An `impl Stream` representing the request body.
+///
+/// Extracted via the `warp::body::stream` filter.
+pub struct BodyStream {
+    body: Body,
+}
 
-    // It'd be preferable if `warp::body::stream()` could return
-    // an `impl Filter<Extract = impl Stream>`, but nested impl Traits
-    // aren't yet legal. So, this pretends to be one, by implementing
-    // the necessary traits, but not being nameable outside of warp.
-    #[derive(Debug)]
-    pub struct ImplStream {
-        pub(super) body: Body,
+impl Stream for BodyStream {
+    type Item = StreamBuf;
+    type Error = ::Error;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        let opt_item = try_ready!(self
+            .body
+            .poll()
+            .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
+        );
+
+        Ok(opt_item.map(|chunk| StreamBuf { chunk }).into())
+    }
+}
+
+impl fmt::Debug for BodyStream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("BodyStream")
+            .finish()
+    }
+}
+
+/// An `impl Buf` representing a chunk in a request body.
+///
+/// Yielded by a `BodyStream`.
+pub struct StreamBuf {
+    chunk: Chunk,
+}
+
+impl Buf for StreamBuf {
+    fn remaining(&self) -> usize {
+        self.chunk.remaining()
     }
 
-    #[derive(Debug)]
-    pub struct ImplBuf {
-        chunk: Chunk,
+    fn bytes(&self) -> &[u8] {
+        self.chunk.bytes()
     }
 
-    impl Stream for ImplStream {
-        type Item = ImplBuf;
-        type Error = ::Error;
-
-        fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-            let opt_item = try_ready!(self
-                .body
-                .poll()
-                .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
-            );
-
-            Ok(opt_item.map(|chunk| ImplBuf { chunk }).into())
-        }
+    fn advance(&mut self, cnt: usize) {
+        self.chunk.advance(cnt);
     }
+}
 
-    impl Buf for ImplBuf {
-        fn remaining(&self) -> usize {
-            self.chunk.remaining()
-        }
-
-        fn bytes(&self) -> &[u8] {
-            self.chunk.bytes()
-        }
-
-        fn advance(&mut self, cnt: usize) {
-            self.chunk.advance(cnt);
-        }
+impl fmt::Debug for StreamBuf {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&self.chunk, f)
     }
 }
 
