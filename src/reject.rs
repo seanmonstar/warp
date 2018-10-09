@@ -64,6 +64,12 @@ pub fn not_found() -> Rejection {
     Reason::empty().into()
 }
 
+/// Rejects a request with `408 Request Timeout`
+#[inline]
+pub fn request_timeout() -> Rejection {
+    Reason::REQUEST_TIMEOUT.into()
+}
+
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
@@ -113,6 +119,7 @@ bitflags! {
         const PAYLOAD_TOO_LARGE      = 0b00001000;
         const UNSUPPORTED_MEDIA_TYPE = 0b00010000;
         const FORBIDDEN              = 0b00100000;
+        const REQUEST_TIMEOUT        = 0b01000000;
 
         // SERVER_ERROR has to be the last reason, to avoid shadowing it when combining rejections
         const SERVER_ERROR           = 0b10000000;
@@ -232,6 +239,8 @@ impl Reject for Rejection {
             http::StatusCode::BAD_REQUEST
         } else if self.reason.contains(Reason::METHOD_NOT_ALLOWED) {
             http::StatusCode::METHOD_NOT_ALLOWED
+        } else if self.reason.contains(Reason::REQUEST_TIMEOUT) {
+            http::StatusCode::REQUEST_TIMEOUT
         } else {
             debug_assert!(self.reason.is_empty());
             http::StatusCode::NOT_FOUND
