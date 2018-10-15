@@ -164,7 +164,8 @@ impl Rejection {
         None
     }
 
-    /// Turn into cause of type `T`.
+    #[doc(hidden)]
+    #[deprecated(note = "Upcoming Rejection refactor will make into_cause no longer possible to implement (it still works for now).")]
     pub fn into_cause<T>(self) -> Result<Box<T>, Self>
     where
         T: StdError + Send + Sync + 'static

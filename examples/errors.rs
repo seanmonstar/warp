@@ -65,15 +65,13 @@ fn main() {
 fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
     let mut resp = err.json();
 
-    let cause = match err.into_cause::<Error>() {
-        Ok(ok) => ok,
-        Err(err) => return Err(err)
+    let code = match err.cause().and_then(|cause| cause.downcast_ref::<Error>()) {
+        Some(&Error::NotFound) => StatusCode::NOT_FOUND,
+        Some(&Error::Oops) => StatusCode::INTERNAL_SERVER_ERROR,
+        None => return Err(err),
     };
 
-    match *cause {
-        Error::NotFound => *resp.status_mut() = StatusCode::NOT_FOUND,
-        Error::Oops => *resp.status_mut() = StatusCode::INTERNAL_SERVER_ERROR,
-    }
+    *resp.status_mut() = code;
 
     Ok(resp)
 }
