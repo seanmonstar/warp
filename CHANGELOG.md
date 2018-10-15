@@ -1,3 +1,12 @@
+### v0.1.7 (October 15, 2018)
+
+- **Features**:
+  - Export the types returned from the `warp::body::stream()` filter, `BodyStream` and `StreamBuf`.
+  - Deprecated `Rejection::into_cause`, since an upcoming Rejection refactor will make it impossible to support.
+
+- **Fixes**:
+  - Fix websocket filters to do a case-insensitive match of the `Connection` header.
+
 ### v0.1.6 (October 5, 2018)
 
 - **Features**:
