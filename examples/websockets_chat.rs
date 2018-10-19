@@ -6,8 +6,8 @@ extern crate warp;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
 
-use futures::{Future, Sink, Stream};
-use futures::stream::SplitSink;
+use futures::{Future, Stream};
+use futures::sync::mpsc;
 use warp::Filter;
 use warp::ws::{Message, WebSocket};
 
@@ -17,8 +17,9 @@ static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 /// Our state of currently connected users.
 ///
 /// - Key is their id
-/// - Value is a sender of `warp::ws::Message`s
-type Users = Arc<Mutex<HashMap<usize, SplitSink<WebSocket>>>>;
+/// - Value is a sender of `warp::ws::Message`
+type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
+
 
 fn main() {
     pretty_env_logger::init();
@@ -63,7 +64,19 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error =
     eprintln!("new chat user: {}", my_id);
 
     // Split the socket into a sender and receive of messages.
-    let (tx, user_ws_rx) = ws.split();
+    let (user_ws_tx, user_ws_rx) = ws.split();
+
+    // Use an unbounded channel to handle buffering and flushing of messages
+    // to the websocket...
+    let (tx, rx) = mpsc::unbounded();
+    warp::spawn(
+        rx
+            .map_err(|()| -> warp::Error { unreachable!("unbounded rx never errors") })
+            .forward(user_ws_tx)
+            .map(|_tx_rx| ())
+            .map_err(|ws_err| eprintln!("websocket send error: {}", ws_err))
+    );
+
 
     // Save the sender in our list of connected users.
     users
@@ -106,11 +119,20 @@ fn user_message(my_id: usize, msg: Message, users: &Users) {
 
     let new_msg = format!("<User#{}>: {}", my_id, msg);
 
-    // New message from this user, send it to
-    // everyone else (except same uid)...
-    for (&uid, tx) in users.lock().unwrap().iter_mut() {
+    // New message from this user, send it to everyone else (except same uid)...
+    //
+    // We use `retain` instead of a for loop so that we can reap any user that
+    // appears to have disconnected.
+    for (&uid, tx) in users.lock().unwrap().iter() {
         if my_id != uid {
-            let _ = tx.start_send(Message::text(new_msg.clone()));
+            match tx.unbounded_send(Message::text(new_msg.clone())) {
+                Ok(()) => (),
+                Err(_disconnected) => {
+                    // The tx is disconnected, our `user_disconnected` code
+                    // should be happening in another task, nothing more to
+                    // do here.
+                }
+            }
         }
     }
 }
