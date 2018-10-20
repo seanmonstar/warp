@@ -43,7 +43,7 @@ impl StdError for Error {
 
 
 fn main() {
-    let hello = warp::path::index()
+    let hello = warp::path::end()
         .map(warp::reply);
 
     let oops = warp::path("oops")

@@ -8,7 +8,7 @@ fn main() {
     pretty_env_logger::init();
 
     let readme = warp::get2()
-        .and(warp::index())
+        .and(warp::path::end())
         .and(warp::fs::file("./README.md"));
 
     // dir already requires GET...

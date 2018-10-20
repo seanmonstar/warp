@@ -106,7 +106,7 @@ fn tail() {
 
     assert!(warp::test::request()
         .path("/foo/bar")
-        .matches(&tail.and(warp::path::index())));
+        .matches(&tail.and(warp::path::end())));
 }
 
 #[test]

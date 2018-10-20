@@ -168,8 +168,24 @@ pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy 
     })
 }
 
-/// Matches the end of a route.
+#[doc(hidden)]
+#[deprecated(note = "renamed to warp::path::end")]
 pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    end()
+}
+
+/// Matches the end of a route.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Matches '/'
+/// let hello = warp::path::end()
+///     .map(|| "Hello, World!");
+/// ```
+pub fn end() -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
         if route.path().is_empty() {
             Ok(())
