@@ -240,7 +240,10 @@ where
         }
         T::from_str(seg)
             .map(one)
-            .map_err(|err| reject::not_found().with(err.into()))
+            .map_err(|err| {
+                #[allow(deprecated)]
+                reject::not_found().with(err.into())
+            })
     })
 }
 

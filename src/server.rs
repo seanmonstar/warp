@@ -209,7 +209,10 @@ where
         match self.inner.poll() {
             Ok(Async::Ready(ok)) => Ok(Async::Ready(ok.into_response())),
             Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(err) => Ok(Async::Ready(err.into_response())),
+            Err(err) => {
+                debug!("rejected: {:?}", err);
+                Ok(Async::Ready(err.into_response()))
+            }
         }
     }
 }

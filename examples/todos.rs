@@ -130,7 +130,7 @@ fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection
         if todo.id == create.id {
             debug!("    -> id already exists: {}", create.id);
             // Todo with id already exists, return `400 BadRequest`.
-            return Err(warp::reject::bad_request());
+            return Ok(StatusCode::BAD_REQUEST);
         }
     }
 

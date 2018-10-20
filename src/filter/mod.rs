@@ -226,7 +226,7 @@ pub trait Filter: FilterBase {
     ///     if id != 0 {
     ///         Ok(format!("Hello #{}", id))
     ///     } else {
-    ///         Err(warp::reject())
+    ///         Err(warp::reject::not_found())
     ///     }
     /// });
     /// ```

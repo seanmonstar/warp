@@ -210,7 +210,10 @@ impl RequestBuilder {
         let route = Route::new(self.req);
         let mut fut = route::set(&route, move || f.filter())
             .map(|rep| rep.into_response())
-            .or_else(|rej| Ok(rej.into_response()))
+            .or_else(|rej| {
+                debug!("rejected: {:?}", rej);
+                Ok(rej.into_response())
+            })
             .and_then(|res| {
                 let (parts, body) = res.into_parts();
                 body

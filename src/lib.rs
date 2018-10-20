@@ -82,7 +82,6 @@
 //!
 //! [Filter]: trait.Filter.html
 
-#[macro_use] extern crate bitflags;
 extern crate bytes;
 #[macro_use] extern crate futures;
 extern crate headers_ext as headers;
@@ -153,6 +152,7 @@ pub use self::filters::{
 #[doc(hidden)]
 pub use self::redirect::{redirect};
 #[doc(hidden)]
+#[allow(deprecated)]
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};

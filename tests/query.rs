@@ -4,6 +4,7 @@ extern crate warp;
 extern crate serde_derive;
 
 use std::collections::HashMap;
+use warp::Filter;
 
 #[test]
 fn query() {
@@ -80,13 +81,15 @@ fn missing_required_query_struct_partial() {
 
 #[test]
 fn missing_required_query_struct_no_query() {
-    let as_struct = warp::query::<MyRequiredArgs>();
+    let as_struct = warp::query::<MyRequiredArgs>()
+        .map(|_| warp::reply());
 
     let req = warp::test::request()
         .path("/");
 
-    let extracted = req.filter(&as_struct);
-    assert!(extracted.is_err())
+    let res = req.reply(&as_struct);
+    assert_eq!(res.status(), 400);
+    assert_eq!(res.body(), "Invalid query string");
 }
 
 #[derive(Deserialize, Debug, Eq, PartialEq)]

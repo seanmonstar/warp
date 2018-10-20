@@ -39,6 +39,7 @@ fn server_error_if_taking_body_multiple_times() {
         .reply(&double);
 
     assert_eq!(res.status(), 500);
+    assert_eq!(res.body(), "Request body consumed multiple times");
 }
 
 #[test]
@@ -104,6 +105,21 @@ fn json_rejects_bad_content_type() {
 }
 
 #[test]
+fn json_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let json = warp::body::json::<Vec<i32>>()
+        .map(|vec| warp::reply::json(&vec));
+
+    let res = warp::test::request()
+        .body("lol#wat")
+        .reply(&json);
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
+}
+
+#[test]
 fn form() {
     let _ = pretty_env_logger::try_init();
 
@@ -162,6 +178,21 @@ fn form_allows_charset() {
     ];
     assert_eq!(vec, expected);
 
+}
+
+#[test]
+fn form_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form::<Vec<i32>>()
+        .map(|vec| warp::reply::json(&vec));
+
+    let res = warp::test::request()
+        .body("nope")
+        .reply(&form);
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
 }
 
 #[test]

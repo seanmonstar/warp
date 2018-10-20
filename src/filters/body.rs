@@ -2,6 +2,7 @@
 //!
 //! Filters that extract a body for a route.
 
+use std::error::Error as StdError;
 use std::fmt;
 
 use bytes::Buf;
@@ -25,11 +26,9 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
     filter_fn_one(|route| {
         route
             .take_body()
-            .map(Ok)
-            .unwrap_or_else(|| {
-                let err = "request body already taken in previous filter";
-                error!("{}", err);
-                Err(reject::server_error().with(err))
+            .ok_or_else(|| {
+                error!("request body already taken in previous filter");
+                reject::known(BodyConsumedMultipleTimes(()))
             })
     })
 }
@@ -58,9 +57,8 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
             if length <= limit {
                 Ok(())
             } else {
-                let err = format!("content-length: {} is over limit {}", length, limit);
-                debug!("{}", err);
-                Err(reject::payload_too_large().with(err))
+                debug!("content-length: {} is over limit {}", length, limit);
+                Err(reject::payload_too_large())
             }
         })
         .unit()
@@ -172,7 +170,9 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
             serde_json::from_slice(&buf.chunk)
                 .map_err(|err| {
                     debug!("request json body error: {}", err);
-                    reject::bad_request().with(err)
+                    reject::known(BodyDeserializeError {
+                        cause: err.into(),
+                    })
                 })
         })
 }
@@ -208,7 +208,9 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
             serde_urlencoded::from_bytes(&buf.chunk)
                 .map_err(|err| {
                     debug!("request form body error: {}", err);
-                    reject::bad_request().with(err)
+                    reject::known(BodyDeserializeError {
+                        cause: err.into(),
+                    })
                 })
         })
 }
@@ -258,7 +260,7 @@ impl Future for Concat {
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
                 debug!("concat error: {}", err);
-                Err(reject::bad_request().with(err))
+                Err(reject::known(BodyReadError(err)))
             }
         }
     }
@@ -317,6 +319,57 @@ impl Buf for StreamBuf {
 impl fmt::Debug for StreamBuf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&self.chunk, f)
+    }
+}
+
+// ===== Rejections =====
+
+/// An error used in rejections when deserializing a request body fails.
+#[derive(Debug)]
+pub struct BodyDeserializeError {
+    cause: Box<StdError + Send + Sync>,
+}
+
+impl fmt::Display for BodyDeserializeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Request body deserialize error: {}", self.cause)
+    }
+}
+
+impl StdError for BodyDeserializeError {
+    fn description(&self) -> &str {
+        "Request body deserialize error"
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct BodyReadError(::hyper::Error);
+
+impl ::std::fmt::Display for BodyReadError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Request body read error: {}", self.0)
+    }
+}
+
+impl ::std::error::Error for BodyReadError {
+    fn description(&self) -> &str {
+        "Request body read error"
+    }
+}
+
+
+#[derive(Debug)]
+pub(crate) struct BodyConsumedMultipleTimes(());
+
+impl ::std::fmt::Display for BodyConsumedMultipleTimes {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.write_str("Request body consumed multiple times")
+    }
+}
+
+impl ::std::error::Error for BodyConsumedMultipleTimes {
+    fn description(&self) -> &str {
+        "Request body consumed multiple times"
     }
 }
 

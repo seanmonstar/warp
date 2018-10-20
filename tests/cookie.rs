@@ -1,4 +1,5 @@
 #![deny(warnings)]
+extern crate pretty_env_logger;
 extern crate warp;
 
 #[test]
@@ -41,4 +42,18 @@ fn optional() {
     let req = warp::test::request()
         .header("cookie", "foobar=quux");
     assert!(req.matches(&foo));
+}
+
+#[test]
+fn missing() {
+    let _ = pretty_env_logger::try_init();
+
+    let cookie = warp::cookie("foo");
+
+    let res = warp::test::request()
+        .header("cookie", "not=here")
+        .reply(&cookie);
+
+    assert_eq!(res.status(), 400);
+    assert_eq!(res.body(), "Missing request cookie 'foo'");
 }

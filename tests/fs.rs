@@ -84,8 +84,7 @@ fn dir_bad_path() {
         .path("/../README.md");
     let res = req.reply(&file);
 
-    assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
+    assert_eq!(res.status(), 404);
 }
 
 #[test]
@@ -98,8 +97,7 @@ fn dir_bad_encoded_path() {
         .path("/%2E%2e/README.md");
     let res = req.reply(&file);
 
-    assert_eq!(res.status(), 400);
-    assert_eq!(String::from_utf8_lossy(res.body()), "dir: rejecting segment");
+    assert_eq!(res.status(), 404);
 }
 
 #[test]

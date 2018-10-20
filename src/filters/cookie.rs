@@ -16,7 +16,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract=One<String>, Error=Reje
             cookie
                 .get(name)
                 .map(String::from)
-                .ok_or_else(|| ::reject::bad_request())
+                .ok_or_else(|| ::reject::known(MissingCookie(name)))
         })
 }
 
@@ -55,3 +55,20 @@ where
     })
 }
 
+
+// ===== Rejections =====
+
+#[derive(Debug)]
+pub(crate) struct MissingCookie(&'static str);
+
+impl ::std::fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request cookie '{}'", self.0)
+    }
+}
+
+impl ::std::error::Error for MissingCookie {
+    fn description(&self) -> &str {
+        "Missing request cookie"
+    }
+}
