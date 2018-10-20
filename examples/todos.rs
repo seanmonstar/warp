@@ -51,13 +51,13 @@ fn main() {
 
     // Combined with `index`, this means nothing comes after "todos".
     // So, for example: `GET /todos`, but not `GET /todos/32`.
-    let todos_index = todos.and(warp::path::index());
+    let todos_index = todos.and(warp::path::end());
 
     // Combined with an id path parameter, for refering to a specific Todo.
     // For example, `POST /todos/32`, but not `POST /todos/32/something-more`.
     let todos_id = todos
         .and(warp::path::param::<u64>())
-        .and(warp::path::index());
+        .and(warp::path::end());
 
     // When accepting a body, we want a JSON body
     // (and to reject huge payloads)...

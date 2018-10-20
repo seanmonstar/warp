@@ -11,7 +11,7 @@ pub fn assets_filter() -> BoxedFilter<(impl Reply,)> {
 
 // Option 2: impl Filter
 pub fn index_filter() -> impl Filter<Extract = (&'static str,), Error = Rejection> {
-    warp::index().map(|| "Index page")
+    warp::path::end().map(|| "Index page")
 }
 
 pub fn main() {

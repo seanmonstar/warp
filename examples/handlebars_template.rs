@@ -50,7 +50,7 @@ fn main() {
 
     //GET /
     let route = warp::get2()
-        .and(warp::index())
+        .and(warp::path::end())
         .map(|| {
             WithTemplate {
                 name: "template.html",
