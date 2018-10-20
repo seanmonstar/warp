@@ -33,6 +33,9 @@
 //!     .or(warp::post2().and(custom));
 //! ```
 
+use std::error::Error as StdError;
+use std::fmt;
+
 use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use http::{HttpTryFrom, StatusCode};
 use serde::Serialize;
@@ -43,7 +46,7 @@ use ::reject::Reject;
 // This re-export just looks weird in docs...
 #[doc(hidden)]
 pub use ::filters::reply as with;
-pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
+pub(crate) use self::sealed::{Reply_, ReplySealed, ReplyHttpError, Response};
 
 /// Returns an empty `Reply` with status code `200 OK`.
 ///
@@ -120,10 +123,25 @@ impl ReplySealed for Json {
                 res
             },
             Err(()) => {
-                ::reject::server_error()
+                ::reject::known(ReplyJsonError)
                     .into_response()
             }
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ReplyJsonError;
+
+impl fmt::Display for ReplyJsonError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(self.description())
+    }
+}
+
+impl StdError for ReplyJsonError {
+    fn description(&self) -> &str {
+        "warp::reply::json() failed"
     }
 }
 
@@ -365,10 +383,25 @@ mod sealed {
                 Ok(t) => t.into_response(),
                 Err(e) => {
                     error!("reply error: {:?}", e);
-                    ::reject::server_error()
+                    ::reject::known(ReplyHttpError(e))
                         .into_response()
                 }
             }
+        }
+    }
+
+    #[derive(Debug)]
+    pub(crate) struct ReplyHttpError(::http::Error);
+
+    impl ::std::fmt::Display for ReplyHttpError {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            write!(f, "http::Response::builder error: {}", self.0)
+        }
+    }
+
+    impl ::std::error::Error for ReplyHttpError {
+        fn description(&self) -> &str {
+            "http::Response::builder error"
         }
     }
 
@@ -416,5 +449,33 @@ mod sealed {
             match self {}
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn json_serde_error() {
+        // a HashMap<Vec, _> cannot be serialized to JSON
+        let mut map = HashMap::new();
+        map.insert(vec![1, 2], 45);
+
+        let res = json(&map).into_response();
+        assert_eq!(res.status(), 500);
+    }
+
+    #[test]
+    fn response_builder_error() {
+        let res = ::http::Response::builder()
+            .status(1337)
+            .body("woops")
+            .into_response();
+
+        assert_eq!(res.status(), 500);
+    }
+
 }
 

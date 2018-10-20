@@ -37,15 +37,16 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<
         trace!("header({:?})", name);
         route.headers()
             .get(name)
-            .and_then(|val| {
-                val.to_str().ok()
+            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .and_then(|value| {
+                value
+                    .to_str()
+                    .map_err(|_| reject::known(InvalidHeader(name)))
             })
             .and_then(|s| {
                 T::from_str(s)
-                    .ok()
+                    .map_err(|_| reject::known(InvalidHeader(name)))
             })
-            .map(Ok)
-            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
@@ -54,7 +55,7 @@ pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract=One<T>, Error=R
         trace!("header2({:?})", T::NAME);
         route.headers()
             .typed_get()
-            .ok_or_else(|| reject::bad_request())
+            .ok_or_else(|| reject::known(InvalidHeader(T::NAME.as_str())))
     })
 }
 
@@ -90,18 +91,17 @@ where
 /// ```
 pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
     filter_fn(move |route| {
-        trace!("exact({:?}, {:?})", name, value);
+        trace!("exact?({:?}, {:?})", name, value);
         route.headers()
             .get(name)
-            .map(|val| {
+            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .and_then(|val| {
                 if val == value {
                     Ok(())
                 } else {
-                    // TODO: exact header error kind?
-                    Err(reject::bad_request())
+                    Err(reject::known(InvalidHeader(name)))
                 }
             })
-            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
@@ -121,16 +121,14 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
         trace!("exact_ignore_case({:?}, {:?})", name, value);
         route.headers()
             .get(name)
-            .map(|val| {
-                trace!("    -> {:?}", val);
+            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .and_then(|val| {
                 if val.as_bytes().eq_ignore_ascii_case(value.as_bytes()) {
                     Ok(())
                 } else {
-                    // TODO: exact header error kind
-                    Err(reject::bad_request())
+                    Err(reject::known(InvalidHeader(name)))
                 }
             })
-            .unwrap_or_else(|| Err(reject::bad_request()))
     })
 }
 
@@ -162,3 +160,34 @@ where
     })
 }
 
+// ===== Rejections =====
+
+#[derive(Debug)]
+pub(crate) struct MissingHeader(&'static str);
+
+impl ::std::fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request header '{}'", self.0)
+    }
+}
+
+impl ::std::error::Error for MissingHeader {
+    fn description(&self) -> &str {
+        "Missing request header"
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct InvalidHeader(&'static str);
+
+impl ::std::fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Invalid request header '{}'", self.0)
+    }
+}
+
+impl ::std::error::Error for InvalidHeader {
+    fn description(&self) -> &str {
+        "Invalid request header"
+    }
+}

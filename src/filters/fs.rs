@@ -101,14 +101,14 @@ fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, 
                 Err(err) => {
                     debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), err);
                     // FromUrlEncodingError doesn't implement StdError
-                    return Err(reject::bad_request().with("dir: failed to decode route"));
+                    return Err(reject::not_found());
                 }
             };
             trace!("dir? base={:?}, route={:?}", base, p);
             for seg in p.split('/') {
                 if seg.starts_with("..") {
-                    debug!("dir: rejecting segment starting with '..'");
-                    return Err(reject::bad_request().with("dir: rejecting segment"));
+                    warn!("dir: rejecting segment starting with '..'");
+                    return Err(reject::not_found());
                 } else {
                     buf.push(seg);
                 }
@@ -134,12 +134,11 @@ fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, 
                 Ok(ArcPath(Arc::new(buf)).into())
             })
                 .map_err(|blocking_err: tokio_threadpool::BlockingError| {
-                    let err = format!(
+                    error!(
                         "threadpool blocking error checking buf.is_dir(): {}",
                         blocking_err,
                     );
-                    error!("{}", err);
-                    reject::server_error().with(err)
+                    reject::known(FsNeedsTokioThreadpool)
                 })
         })
 }
@@ -241,12 +240,12 @@ fn file_reply(path: ArcPath, conditionals: Conditionals) -> impl Future<Item=Fil
             Err(err) => {
                 let rej = match err.kind() {
                     io::ErrorKind::NotFound => {
-                        debug!("file open error: {} ", err);
-                        reject::not_found().with(err)
+                        debug!("file not found: {:?}", path.as_ref().display());
+                        reject::not_found()
                     },
                     _ => {
-                        error!("file open error: {} ", err);
-                        reject::server_error().with(err)
+                        error!("file open error (path={:?}): {} ", path.as_ref().display(), err);
+                        reject::not_found()
                     },
                 };
                 Either::B(future::err(rej))
@@ -262,7 +261,7 @@ fn file_metadata(f: TkFile) -> impl Future<Item=(TkFile, Metadata), Error=Reject
     })
         .map_err(|err: ::std::io::Error| {
             debug!("file metadata error: {}", err);
-            reject::server_error().with(err)
+            reject::not_found()
         })
 }
 
@@ -432,4 +431,21 @@ fn get_block_size(metadata: &Metadata) -> usize {
 #[cfg(not(unix))]
 fn get_block_size(_metadata: &Metadata) -> usize {
     8_192
+}
+
+// ===== Rejections =====
+
+#[derive(Debug)]
+pub(crate) struct FsNeedsTokioThreadpool;
+
+impl ::std::fmt::Display for FsNeedsTokioThreadpool {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.write_str("File system operations require tokio threadpool runtime")
+    }
+}
+
+impl ::std::error::Error for FsNeedsTokioThreadpool {
+    fn description(&self) -> &str {
+        "File system operations require tokio threadpool runtime"
+    }
 }

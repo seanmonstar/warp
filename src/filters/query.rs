@@ -19,7 +19,7 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract=One<T>, Error=
                     .ok()
             })
             .map(Ok)
-            .unwrap_or_else(|| Err(reject::bad_request()))
+            .unwrap_or_else(|| Err(reject::known(InvalidQuery)))
     })
 }
 
@@ -32,6 +32,22 @@ pub fn raw() -> impl Filter<Extract=One<String>, Error=Rejection> + Copy {
                 q.to_owned()
             })
             .map(Ok)
-            .unwrap_or_else(|| Err(reject::bad_request()))
+            .unwrap_or_else(|| Err(reject::known(InvalidQuery)))
     })
 }
+
+#[derive(Debug)]
+pub(crate) struct InvalidQuery;
+
+impl ::std::fmt::Display for InvalidQuery {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.write_str("Invalid query string")
+    }
+}
+
+impl ::std::error::Error for InvalidQuery {
+    fn description(&self) -> &str {
+        "Invalid query string"
+    }
+}
+
