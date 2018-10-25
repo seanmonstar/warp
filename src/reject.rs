@@ -240,6 +240,23 @@ impl Rejection {
         None
     }
 
+    /// Returns true if this Rejection was made via `warp::reject::not_found`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rejection = warp::reject::not_found();
+    ///
+    /// assert!(rejection.is_not_found());
+    /// ```
+    pub fn is_not_found(&self) -> bool {
+        if let Reason::NotFound = self.reason {
+            true
+        } else {
+            false
+        }
+    }
+
     #[doc(hidden)]
     #[deprecated(note = "into_cause can no longer be provided")]
     pub fn into_cause<T>(self) -> Result<Box<T>, Self>
