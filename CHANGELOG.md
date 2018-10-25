@@ -1,3 +1,34 @@
+### v0.1.8 (October 25, 2018)
+
+- **Features**:
+  - Improved flexibility of `Rejection` system.
+    
+    The `Rejection` type can now nest and combine arbitrary rejections,
+    so it is no longer bound to a small set of meanings. The ranking of
+    status codes is still used to determine which rejection gets priority.
+    
+    A different priority can be implemented by handling rejections with
+    a `Filter::recover`, and searching for causes in order via
+    `Rejection::find_cause`.
+    - Adds `warp::reject::custom()` to create a `Rejection` with
+      any `Into<Box<std::error::Error>>`. These rejections should be
+      handled with an eventual `Filter::recover`. Any unhandled
+      custom rejections are considered a server error.
+    - Deprecates `Rejection::with`. Use custom rejections instead.
+    - Deprecates `Rejection::into_cause`, as it can no longer work. Always
+      returns `Err(Rejection)`.
+    - Deprecates `Rejection::json`, since the format needed is too generic.
+      The `errors.rs` example shows how to send custom JSON when recovering
+      from rejections.
+    - Deprecates `warp::reject()`, since it current signals a `400 Bad
+      Request`, but in newer versions, it will signal `404 Not Found`.
+      It's deprecated simply to warn that the semantics are changing,
+      but the function won't actually go away.
+    - Deprecates `reject::bad_request()`, `reject::forbidden()`, and
+      `reject::server_error()`. Uses custom rejections instead.
+  - Renamed `warp::path::index` to `warp::path::end`.
+
+
 ### v0.1.7 (October 15, 2018)
 
 - **Features**:
