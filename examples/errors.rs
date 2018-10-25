@@ -32,7 +32,7 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match self {
             Error::Oops => ":fire: this is fine",
-            Error::Nope, => "Nope!",
+            Error::Nope => "Nope!",
         }
     }
 
