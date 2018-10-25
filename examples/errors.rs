@@ -13,7 +13,7 @@ use warp::http::StatusCode;
 #[derive(Copy, Clone, Debug)]
 enum Error {
     Oops,
-    NotFound
+    Nope,
 }
 
 #[derive(Serialize)]
@@ -32,7 +32,7 @@ impl StdError for Error {
     fn description(&self) -> &str {
         match self {
             Error::Oops => ":fire: this is fine",
-            Error::NotFound => "you get a 404, and *you* get a 404...",
+            Error::Nope, => "Nope!",
         }
     }
 
@@ -51,13 +51,13 @@ fn main() {
             Err::<StatusCode, _>(warp::reject::custom(Error::Oops))
         });
 
-    let not_found = warp::path("not_found")
+    let nope = warp::path("nope")
         .and_then(|| {
-            Err::<StatusCode, _>(warp::reject::custom(Error::NotFound))
+            Err::<StatusCode, _>(warp::reject::custom(Error::Nope))
         });
 
     let routes = warp::get2()
-        .and(hello.or(oops).or(not_found))
+        .and(hello.or(oops).or(nope))
         .recover(customize_error);
 
     warp::serve(routes)
@@ -69,7 +69,7 @@ fn main() {
 fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(&err) = err.find_cause::<Error>() {
         let code = match err {
-            Error::NotFound => StatusCode::NOT_FOUND,
+            Error::Nope => StatusCode::BAD_REQUEST,
             Error::Oops => StatusCode::INTERNAL_SERVER_ERROR,
         };
         let msg = err.to_string();
@@ -80,13 +80,8 @@ fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
         });
         Ok(warp::reply::with_status(json, code))
     } else {
+        // Could be a NOT_FOUND, or METHOD_NOT_ALLOWED... here we just
+        // let warp use its default rendering.
         Err(err)
     }
-    /*
-    let (code, msg) = match err.find_cause::<Error>() {
-        Some(&Error::NotFound) => StatusCode::NOT_FOUND,
-        Some(&Error::Oops) => StatusCode::INTERNAL_SERVER_ERROR,
-        None => return Err(err),
-    };
-    */
 }
