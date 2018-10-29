@@ -8,7 +8,7 @@ use std::io::ErrorKind::WouldBlock;
 use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
-use tungstenite::protocol;
+use tungstenite::protocol::{self, WebSocketConfig};
 
 use ::error::Kind;
 use ::filter::{Filter, FilterBase, FilterClone, One};
@@ -76,6 +76,7 @@ pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
         .map(move |key: SecWebsocketKey, body: ::hyper::Body| {
             Ws2 {
                 body,
+                config: None,
                 key,
             }
         })
@@ -88,13 +89,13 @@ where
     F2: Fn(WebSocket) + Send + 'static,
 {
     ws2()
-        .map(move |Ws2 { key, body }| {
+        .map(move |Ws2 { key, config, body }| {
             let fun = factory();
             let fut = body.on_upgrade()
                 .map(move |upgraded| {
                     trace!("websocket upgrade complete");
 
-                    let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, None);
+                    let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config);
 
                     fun(WebSocket {
                         inner: io,
@@ -141,6 +142,7 @@ impl fmt::Debug for Ws {
 /// Extracted by the [`ws2`](ws2) filter, and used to finish an upgrade.
 pub struct Ws2 {
     body: ::hyper::Body,
+    config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
 }
 
@@ -157,6 +159,17 @@ impl Ws2 {
             ws: self,
             on_upgrade: func,
         }
+    }
+
+    // config
+
+    /// Set the size of the internal message send queue.
+    pub fn max_send_queue(mut self, max: usize) -> Self {
+        self
+            .config
+            .get_or_insert_with(|| WebSocketConfig::default())
+            .max_send_queue = Some(max);
+        self
     }
 }
 
@@ -180,12 +193,13 @@ where
 {
     fn into_response(self) -> Response {
         let on_upgrade = self.on_upgrade;
+        let config = self.ws.config;
         let fut = self.ws.body.on_upgrade()
             .map_err(|err| debug!("ws upgrade error: {}", err))
             .and_then(move |upgraded| {
                 trace!("websocket upgrade complete");
 
-                let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, None);
+                let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config);
 
                 on_upgrade(WebSocket {
                     inner: io,
