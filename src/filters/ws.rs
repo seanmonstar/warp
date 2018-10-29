@@ -11,7 +11,7 @@ use http;
 use tungstenite::protocol::{self, WebSocketConfig};
 
 use ::error::Kind;
-use ::filter::{Filter, FilterBase, FilterClone, One};
+use ::filter::{Filter, FilterClone, One};
 use ::reject::{Rejection};
 use ::reply::{ReplySealed, Reply, Response};
 use super::{body, header};
@@ -63,7 +63,7 @@ pub fn ws2() -> impl Filter<Extract=One<Ws2>, Error=Rejection> + Copy {
                 Err(::reject::bad_request())
             }
         })
-        .unit();
+        .untuple_one();
 
     ::get2()
         .and(connection_has_upgrade)

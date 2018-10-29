@@ -61,7 +61,7 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
                 Err(reject::payload_too_large())
             }
         })
-        .unit()
+        .untuple_one()
 }
 
 /// Create a `Filter` that extracts the request body as a `futures::Stream`.
