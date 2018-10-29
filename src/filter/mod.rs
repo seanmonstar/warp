@@ -8,7 +8,7 @@ mod or_else;
 mod recover;
 mod service;
 mod unify;
-mod unit;
+mod untuple_one;
 mod wrap;
 
 use futures::{future, Future, IntoFuture};
@@ -26,7 +26,7 @@ pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
-use self::unit::Unit;
+use self::untuple_one::UntupleOne;
 pub(crate) use self::wrap::{WrapSealed, Wrap};
 
 // A crate-private base trait, allowing the actual `filter` method to change
@@ -49,15 +49,6 @@ pub trait FilterBase {
         MapErr {
             filter: self,
             callback: fun,
-        }
-    }
-
-    fn unit(self) -> Unit<Self>
-    where
-        Self: Filter<Extract=((),)> + Sized,
-    {
-        Unit {
-            filter: self,
         }
     }
 }
@@ -309,6 +300,52 @@ pub trait Filter: FilterBase {
         T: Tuple,
     {
         Unify {
+            filter: self,
+        }
+    }
+
+
+    /// Convenience method to remove one layer of tupling.
+    ///
+    /// This is useful for when things like `map` don't return a new value,
+    /// but just `()`, since warp will wrap it up into a `((),)`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let route = warp::path::param()
+    ///     .map(|num: u64| {
+    ///         println!("just logging: {}", num);
+    ///         // returning "nothing"
+    ///     })
+    ///     .untuple_one()
+    ///     .map(|| {
+    ///         println!("the ((),) was removed");
+    ///         warp::reply()
+    ///     });
+    /// ```
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// let route = warp::any()
+    ///     .map(|| {
+    ///         // wanting to return a tuple
+    ///         (true, 33)
+    ///     })
+    ///     .untuple_one()
+    ///     .map(|is_enabled: bool, count: i32| {
+    ///         println!("untupled: ({}, {})", is_enabled, count);
+    ///     });
+    /// ```
+    fn untuple_one<T>(self) -> UntupleOne<Self>
+    where
+        Self: Filter<Extract=(T,)> + Sized,
+        T: Tuple,
+    {
+        UntupleOne {
             filter: self,
         }
     }
