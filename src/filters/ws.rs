@@ -231,17 +231,12 @@ impl Stream for WebSocket {
 
             match msg {
                 msg @ protocol::Message::Text(..) |
-                msg @ protocol::Message::Binary(..) => {
+                msg @ protocol::Message::Binary(..) |
+                msg @ protocol::Message::Ping(..) => {
                     return Ok(Async::Ready(Some(Message {
                         inner: msg,
                     })));
                 },
-                protocol::Message::Ping(payload) => {
-                    trace!("websocket client ping: {:?}", payload);
-                    // tungstenite automatically responds to pings, so this
-                    // branch should actually never happen...
-                    debug_assert!(false, "tungstenite handles pings");
-                }
                 protocol::Message::Pong(payload) => {
                     trace!("websocket client pong: {:?}", payload);
                 }
@@ -255,6 +250,19 @@ impl Sink for WebSocket {
     type SinkError = ::Error;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+        match item.inner {
+            protocol::Message::Ping(..) => {
+                // warp doesn't yet expose a way to construct a `Ping` message,
+                // so the only way this could is if the user is forwarding the
+                // received `Ping`s straight back.
+                //
+                // tungstenite already auto-reponds to `Ping`s with a `Pong`,
+                // so this just prevents accidentally sending extra pings.
+                return Ok(AsyncSink::Ready);
+            },
+            _ => ()
+        }
+
         match self.inner.write_message(item.inner) {
             Ok(()) => Ok(AsyncSink::Ready),
             Err(::tungstenite::Error::SendQueueFull(inner)) => {
@@ -340,6 +348,11 @@ impl Message {
     /// Returns true if this message is a Binary message.
     pub fn is_binary(&self) -> bool {
         self.inner.is_binary()
+    }
+
+    /// Returns true if this message is a Ping message.
+    pub fn is_ping(&self) -> bool {
+        self.inner.is_ping()
     }
 
     /// Try to get a reference to the string text, if this is a Text message.
