@@ -381,6 +381,8 @@ impl Rejections {
                     StatusCode::BAD_REQUEST
                 } else if e.is::<::body::BodyDeserializeError>() {
                     StatusCode::BAD_REQUEST
+                } else if e.is::<::ext::MissingExtension>() {
+                    StatusCode::INTERNAL_SERVER_ERROR
                 } else if e.is::<::reply::ReplyHttpError>() {
                     StatusCode::INTERNAL_SERVER_ERROR
                 } else if e.is::<::reply::ReplyJsonError>() {

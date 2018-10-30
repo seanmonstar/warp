@@ -127,6 +127,7 @@ pub use self::filters::{
     cookie,
     // cookie() function
     cookie::cookie,
+    ext,
     fs,
     header,
     // header() function

@@ -21,7 +21,7 @@ pub(crate) fn is_set() -> bool {
 
 pub(crate) fn with<F, R>(func: F) -> R
 where
-    F: Fn(&mut Route) -> R,
+    F: FnOnce(&mut Route) -> R,
 {
     ROUTE.with(move |route| {
         func(&mut *route
@@ -68,6 +68,14 @@ impl Route {
 
     pub(crate) fn version(&self) -> http::Version {
         self.req.version()
+    }
+
+    pub(crate) fn extensions(&self) -> &http::Extensions {
+        self.req.extensions()
+    }
+
+    pub(crate) fn extensions_mut(&mut self) -> &mut http::Extensions {
+        self.req.extensions_mut()
     }
 
     pub(crate) fn uri(&self) -> &http::Uri {
