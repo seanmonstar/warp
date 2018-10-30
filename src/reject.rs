@@ -108,8 +108,10 @@ pub fn server_error() -> Rejection {
 
 /// Rejects a request with a custom cause.
 ///
-/// A `recover` filter should convert this `Rejection` into a `Reply`,
+/// A [`recover`][] filter should convert this `Rejection` into a `Reply`,
 /// or else this will be returned as a `500 Internal Server Error`.
+///
+/// [`recover`]: ../../trait.Filter.html#method.recover
 pub fn custom(err: impl Into<Cause>) -> Rejection {
     Rejection::custom(err.into())
 }
@@ -119,6 +121,8 @@ pub(crate) fn known(err: impl Into<Cause>) -> Rejection {
 }
 
 /// Rejection of a request by a [`Filter`](::Filter).
+///
+/// See the [`reject`](::reject) documentation for more.
 pub struct Rejection {
     reason: Reason,
 }
@@ -158,7 +162,51 @@ impl Rejection {
         }
     }
 
-    /// Return the HTTP status code that this rejection represents.
+    /// Searches this `Rejection` for a specific cause.
+    ///
+    /// A `Rejection` will accumulate causes over a `Filter` chain. This method
+    /// can search through them and return the first cause of this type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::io;
+    ///
+    /// let err = io::Error::new(
+    ///     io::ErrorKind::Other,
+    ///     "could be any std::error::Error"
+    /// );
+    /// let reject = warp::reject::custom(err);
+    ///
+    /// if let Some(cause) = reject.find_cause::<io::Error>() {
+    ///    println!("found the io::Error: {}", cause);
+    /// }
+    /// ```
+    pub fn find_cause<T: StdError + 'static>(&self) -> Option<&T> {
+        if let Reason::Other(ref rejections) = self.reason {
+            return rejections.find_cause();
+        }
+        None
+    }
+
+    /// Returns true if this Rejection was made via `warp::reject::not_found`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rejection = warp::reject::not_found();
+    ///
+    /// assert!(rejection.is_not_found());
+    /// ```
+    pub fn is_not_found(&self) -> bool {
+        if let Reason::NotFound = self.reason {
+            true
+        } else {
+            false
+        }
+    }
+
+    #[doc(hidden)]
     pub fn status(&self) -> StatusCode {
         Reject::status(self)
     }
@@ -211,50 +259,6 @@ impl Rejection {
             return err.cause()
         }
         None
-    }
-
-    /// Searches this `Rejection` for a specific cause.
-    ///
-    /// A `Rejection` will accumulate causes over a `Filter` chain. This method
-    /// can search through them and return the first cause of this type.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::io;
-    ///
-    /// let err = io::Error::new(
-    ///     io::ErrorKind::Other,
-    ///     "could be any std::error::Error"
-    /// );
-    /// let reject = warp::reject::custom(err);
-    ///
-    /// if let Some(cause) = reject.find_cause::<io::Error>() {
-    ///    println!("found the io::Error: {}", cause);
-    /// }
-    /// ```
-    pub fn find_cause<T: StdError + 'static>(&self) -> Option<&T> {
-        if let Reason::Other(ref rejections) = self.reason {
-            return rejections.find_cause();
-        }
-        None
-    }
-
-    /// Returns true if this Rejection was made via `warp::reject::not_found`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let rejection = warp::reject::not_found();
-    ///
-    /// assert!(rejection.is_not_found());
-    /// ```
-    pub fn is_not_found(&self) -> bool {
-        if let Reason::NotFound = self.reason {
-            true
-        } else {
-            false
-        }
     }
 
     #[doc(hidden)]
