@@ -1,3 +1,13 @@
+### v0.1.9 (October 30, 2018)
+
+- **Features**:
+  - Add `warp::ext::get` and `warp::ext::set` to set request extensions.
+  - Add `Filter::untuple_one` to unroll nested tuple layers from extractions.
+  - Add `Ws2::max_send_queue` configuration method.
+  - Add `ws::Message::is_ping` method, and yield pings to user code.
+- **Fixes**:
+  - Fix panic in debug mode when receiving a websocket ping.
+
 ### v0.1.8 (October 25, 2018)
 
 - **Features**:
