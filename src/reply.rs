@@ -373,6 +373,20 @@ mod sealed {
         }
     }
 
+    impl<T, T2> ReplySealed for Result<T, T2>
+    where
+        T: Reply + Send,
+        T2: Reply + Send,
+    {
+        #[inline]
+        fn into_response(self) -> Response {
+            match self {
+                Ok(t) => t.into_response(),
+                Err(e) => e.into_response(),
+            }
+        }
+    }
+
     impl<T> ReplySealed for Result<T, ::http::Error>
     where
         T: Reply + Send,
