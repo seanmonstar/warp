@@ -4,7 +4,7 @@
 //!
 //! - [`path`](./fn.path.html) matches a specific segment, like `/foo`.
 //! - [`param`](./fn.param.html) tries to parse a segment into a type, like `/:u16`.
-//! - [`index`](./fn.index.html) matches when the path end is found.
+//! - [`end`](./fn.end.html) matches when the path end is found.
 //! - [`path!`](../../macro.path.html) eases combining multiple `path` and `param` filters.
 //!
 //! # Routing
