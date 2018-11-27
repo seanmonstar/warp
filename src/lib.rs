@@ -111,6 +111,7 @@ pub mod reject;
 pub mod reply;
 mod route;
 mod server;
+pub mod sse;
 pub mod test;
 
 pub use self::error::Error;
@@ -158,6 +159,8 @@ pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
+#[doc(hidden)]
+pub use self::sse::{sse, ServerSentEvent};
 pub use hyper::rt::spawn;
 
 
