@@ -38,6 +38,7 @@ use std::fmt;
 
 use http::header::{CONTENT_TYPE, HeaderName, HeaderValue};
 use http::{HttpTryFrom, StatusCode};
+use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
@@ -142,6 +143,66 @@ impl fmt::Display for ReplyJsonError {
 impl StdError for ReplyJsonError {
     fn description(&self) -> &str {
         "warp::reply::json() failed"
+    }
+}
+
+/// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let body = r#"
+/// <html>
+///     <head>
+///         <title>HTML with warp!</title>
+///     </head>
+///     <body>
+///         <h1>warp + HTML = :heart:</h1>
+///     </body>
+/// </html>
+/// "#;
+///
+/// let route = warp::any()
+///     .map(|| {
+///         warp::reply::html(body)
+///     });
+/// ```
+///
+/// # Note
+///
+/// If a type fails to be serialized into JSON, the error is logged at the
+/// `error` level, and the returned `impl Reply` will be an empty
+/// `500 Internal Server Error` response.
+pub fn html<T>(body: T) -> impl Reply
+where
+    Body: From<T>,
+    T: Send,
+{
+    Html {
+        body,
+    }
+}
+
+#[allow(missing_debug_implementations)]
+struct Html<T> {
+    body: T,
+}
+
+impl<T> ReplySealed for Html<T>
+where
+    Body: From<T>,
+    T: Send,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::from(self.body));
+        res.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8")
+        );
+        res
     }
 }
 
