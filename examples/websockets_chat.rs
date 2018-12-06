@@ -46,9 +46,7 @@ fn main() {
     // GET / -> index html
     let index = warp::path::end()
         .map(|| {
-            warp::http::Response::builder()
-                .header("content-type", "text/html; charset=utf-8")
-                .body(INDEX_HTML)
+            warp::reply::html(INDEX_HTML)
         });
 
     let routes = index.or(chat);
