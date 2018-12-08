@@ -135,7 +135,6 @@ mod internal {
                 started,
             }
         }
-
     }
 
     #[allow(missing_debug_implementations)]

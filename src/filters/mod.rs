@@ -6,6 +6,7 @@
 pub mod any;
 pub mod body;
 pub mod cookie;
+pub mod cors;
 pub mod ext;
 pub mod fs;
 pub mod header;

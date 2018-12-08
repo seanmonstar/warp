@@ -127,6 +127,9 @@ pub use self::filters::{
     cookie,
     // cookie() function
     cookie::cookie,
+    cors,
+    // cors() function
+    cors::cors,
     ext,
     fs,
     header,
