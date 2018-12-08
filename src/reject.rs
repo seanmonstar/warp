@@ -381,6 +381,8 @@ impl Rejections {
                     StatusCode::BAD_REQUEST
                 } else if e.is::<::body::BodyDeserializeError>() {
                     StatusCode::BAD_REQUEST
+                } else if e.is::<::cors::CorsForbidden>() {
+                    StatusCode::FORBIDDEN
                 } else if e.is::<::ext::MissingExtension>() {
                     StatusCode::INTERNAL_SERVER_ERROR
                 } else if e.is::<::reply::ReplyHttpError>() {
@@ -613,7 +615,7 @@ mod sealed {
     }
 
     pub trait CombineRejection<E>: Send + Sized {
-        type Rejection: Reject + From<Self> + From<E>;
+        type Rejection: Reject + From<Self> + From<E> + Into<Rejection>;
 
         fn combine(self, other: E) -> Self::Rejection;
     }
