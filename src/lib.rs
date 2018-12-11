@@ -96,7 +96,9 @@ extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
 extern crate tokio;
+#[cfg_attr(feature = "tls", macro_use)]
 extern crate tokio_io;
+#[cfg(feature = "tls")] extern crate rustls;
 extern crate tokio_threadpool;
 extern crate tungstenite;
 extern crate urlencoding;
@@ -112,6 +114,7 @@ pub mod reply;
 mod route;
 mod server;
 pub mod test;
+#[cfg(feature = "tls")] mod tls;
 
 pub use self::error::Error;
 pub use self::filter::{Filter};

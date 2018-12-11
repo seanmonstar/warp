@@ -1,8 +1,10 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+#[cfg(feature = "tls")] use std::path::Path;
 
 use futures::{Async, Future, Poll, Stream};
 use hyper::{rt, Server as HyperServer};
+use hyper::server::conn::AddrIncoming;
 use hyper::service::{service_fn};
 use tokio_io::{AsyncRead, AsyncWrite};
 
@@ -29,11 +31,20 @@ pub struct Server<S> {
     service: S,
 }
 
+/// A Warp Server ready to filter requests over TLS.
+///
+/// *This type requires the `"tls"` feature.*
+#[cfg(feature = "tls")]
+pub struct TlsServer<S> {
+    server: Server<S>,
+    tls: ::rustls::ServerConfig,
+}
+
 // Getting all various generic bounds to make this a re-usable method is
 // very complicated, so instead this is just a macro.
 macro_rules! into_service {
-    ($this:ident) => ({
-        let inner = Arc::new($this.service.into_warp_service());
+    ($into:expr) => ({
+        let inner = Arc::new($into.into_warp_service());
         move || {
             let inner = inner.clone();
             service_fn(move |req| {
@@ -44,16 +55,46 @@ macro_rules! into_service {
         }
     });
 }
+
+macro_rules! addr_incoming {
+    ($addr:expr) => ({
+        let addr = $addr.into();
+        let mut incoming = AddrIncoming::bind(&addr)
+            .unwrap_or_else(|e| {
+                panic!("error binding to {}: {}", addr, e);
+            });
+        incoming.set_nodelay(true);
+        let addr = incoming.local_addr();
+        (addr, incoming)
+    });
+}
+
 macro_rules! bind_inner {
     ($this:ident, $addr:expr) => ({
-        let service = into_service!($this);
-        let srv = HyperServer::bind(&$addr.into())
+        let service = into_service!($this.service);
+        let (addr, incoming) = addr_incoming!($addr);
+        let srv = HyperServer::builder(incoming)
             .http1_pipeline_flush($this.pipeline)
             .serve(service);
-        let addr = srv.local_addr();
+        (addr, srv)
+    });
+
+    (tls: $this:ident, $addr:expr) => ({
+        let service = into_service!($this.server.service);
+        let (addr, incoming) = addr_incoming!($addr);
+        let tls = Arc::new($this.tls);
+        let incoming = incoming.map(move |sock| {
+            let session = ::rustls::ServerSession::new(&tls);
+            ::tls::TlsStream::new(sock, session)
+        });
+        let srv = HyperServer::builder(incoming)
+            .http1_pipeline_flush($this.server.pipeline)
+            .serve(service);
         (addr, srv)
     });
 }
+
+// ===== impl Server =====
 
 impl<S> Server<S>
 where
@@ -65,7 +106,7 @@ where
     pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        info!("warp drive engaged: listening on {}", addr);
+        info!("warp drive engaged: listening on http://{}", addr);
 
         rt::run(fut);
     }
@@ -160,7 +201,7 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<::std::error::Error + Send + Sync>>,
     {
-        let service = into_service!(self);
+        let service = into_service!(self.service);
         HyperServer::builder(incoming)
             .http1_pipeline_flush(self.pipeline)
             .serve(service)
@@ -175,7 +216,93 @@ where
         self.pipeline = true;
         self
     }
+
+    /// Configure a server to use TLS with the supplied certificate and key files.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    #[cfg(feature = "tls")]
+    pub fn tls(self, cert: impl AsRef<Path>, key: impl AsRef<Path>) -> TlsServer<S> {
+        let tls = ::tls::configure(cert.as_ref(), key.as_ref());
+
+        TlsServer {
+            server: self,
+            tls,
+        }
+    }
 }
+
+// ===== impl TlsServer =====
+
+#[cfg(feature = "tls")]
+impl<S> TlsServer<S>
+where
+    S: IntoWarpService + 'static,
+    <<S::Service as WarpService>::Reply as Future>::Item: Reply + Send,
+    <<S::Service as WarpService>::Reply as Future>::Error: Reject + Send,
+{
+    /// Run this `TlsServer` forever on the current thread.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
+        let (addr, fut) = self.bind_ephemeral(addr);
+
+        info!("warp drive engaged: listening on https://{}", addr);
+
+        rt::run(fut);
+    }
+
+    /// Bind to a socket address, returning a `Future` that can be
+    /// executed on any runtime.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn bind(self, addr: impl Into<SocketAddr> + 'static) -> impl Future<Item=(), Error=()> + 'static {
+        let (_, fut) = self.bind_ephemeral(addr);
+        fut
+    }
+
+    /// Bind to a possibly ephemeral socket address.
+    ///
+    /// Returns the bound address and a `Future` that can be executed on
+    /// any runtime.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn bind_ephemeral(self, addr: impl Into<SocketAddr> + 'static) -> (SocketAddr, impl Future<Item=(), Error=()> + 'static) {
+        let (addr, srv) = bind_inner!(tls: self, addr);
+        (addr, srv.map_err(|e| error!("server error: {}", e)))
+    }
+
+    /// Create a server with graceful shutdown signal.
+    ///
+    /// When the signal completes, the server will start the graceful shutdown
+    /// process.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn bind_with_graceful_shutdown(
+        self,
+        addr: impl Into<SocketAddr> + 'static,
+        signal: impl Future<Item=()> + Send + 'static,
+    ) -> (SocketAddr, impl Future<Item=(), Error=()> + 'static) {
+        let (addr, srv) = bind_inner!(tls: self, addr);
+        let fut = srv
+            .with_graceful_shutdown(signal)
+            .map_err(|e| error!("server error: {}", e));
+        (addr, fut)
+    }
+}
+
+#[cfg(feature = "tls")]
+impl<S> ::std::fmt::Debug for TlsServer<S>
+where
+    S: ::std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct("TlsServer")
+            .field("server", &self.server)
+            .finish()
+    }
+}
+
+// ===== impl WarpService =====
 
 pub trait IntoWarpService {
     type Service: WarpService + Send + Sync + 'static;
