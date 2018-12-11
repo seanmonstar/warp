@@ -10,6 +10,10 @@ matrix:
     - rust: 1.28.0
       script: cargo build
 
+    # `tls` feature
+    - rust: stable
+      script: cargo test --features tls
+
 script:
   - cargo test
   - 'if [ "$TRAVIS_RUST_VERSION" == "nightly" ]; then cargo test --benches; fi'

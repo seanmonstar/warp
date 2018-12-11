@@ -16,7 +16,7 @@ futures = "0.1"
 #headers = { path = "../headers" }
 headers-ext = "0.0.3"
 http = "0.1"
-hyper = "0.12.10"
+hyper = "0.12.18"
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0-alpha.6"
@@ -26,16 +26,22 @@ serde_json = "1.0"
 serde_urlencoded = "0.5.3"
 tokio = "0.1.11"
 tokio-io = "0.1"
+rustls = { version = "0.14", optional = true }
 tokio-threadpool = "0.1.7"
 # tls is enabled by default, we don't want that yet
 tungstenite = { default-features = false, version = "0.6" }
 urlencoding = "1.0.0"
 
-
 [dev-dependencies]
 pretty_env_logger = "0.2"
 serde_derive = "1.0"
 handlebars = "1.0.0"
+
+[features]
+tls = ["rustls"]
+
+[package.metadata.docs.rs]
+features = ["tls"]
 
 [profile.release]
 codegen-units = 1
