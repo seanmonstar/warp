@@ -7,7 +7,7 @@ matrix:
     - rust: beta
     - rust: nightly
     # minimum rustc version
-    - rust: 1.26.0
+    - rust: 1.28.0
       script: cargo build
 
 script:
