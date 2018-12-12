@@ -1,14 +1,15 @@
 //! Logger Filters
 
-use std::marker::PhantomData;
-use std::time::Instant;
+use std::fmt;
+use std::time::{Duration, Instant};
 
-use http::StatusCode;
+use http::{self, header, StatusCode};
+use tokio::clock;
 
 use ::filter::{Filter, WrapSealed};
 use ::reject::Reject;
 use ::reply::Reply;
-use ::route;
+use ::route::Route;
 
 use self::internal::{WithLog};
 
@@ -31,29 +32,54 @@ use self::internal::{WithLog};
 /// ```
 pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
     let func = move |info: Info| {
-        route::with(|route| {
-            // TODO:
-            // - remote_addr
-            // - response content length
-            // - date
-            info!(
-                target: name,
-                "\"{} {} {:?}\" {} {:?}",
-                route.method(),
-                route.full_path(),
-                route.version(),
-                info.status.as_u16(),
-                info.start.elapsed(),
-            );
-        });
+        // TODO?
+        // - response content length?
+        info!(
+            target: name,
+            "{} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
+            OptFmt(info.route.remote_addr()),
+            info.method(),
+            info.path(),
+            info.route.version(),
+            info.status().as_u16(),
+            OptFmt(info.route.headers().get(header::REFERER).and_then(|v| v.to_str().ok())),
+            OptFmt(info.route.headers().get(header::USER_AGENT).and_then(|v| v.to_str().ok())),
+            info.elapsed(),
+        );
     };
     Log {
         func,
     }
 }
 
-// TODO:
-// pub fn custom(impl Fn(Info)) -> Log
+/// Create a wrapping filter that receives `warp::log::Info`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let log = warp::log::custom(|info| {
+///     // Use a log macro, or slog, or println, or whatever!
+///     eprintln!(
+///         "{} {} {}",
+///         info.method(),
+///         info.path(),
+///         info.status(),
+///     );
+/// });
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .with(log);
+/// ```
+pub fn custom<F>(func: F) -> Log<F>
+where
+    F: Fn(Info),
+{
+    Log {
+        func,
+    }
+}
 
 /// Decorates a [`Filter`](::Filter) to log requests and responses.
 #[derive(Clone, Copy, Debug)]
@@ -64,11 +90,9 @@ pub struct Log<F> {
 /// Information about the request/response that can be used to prepare log lines.
 #[allow(missing_debug_implementations)]
 pub struct Info<'a> {
+    route: &'a Route,
     start: Instant,
     status: StatusCode,
-    // This struct will eventually hold a `&'a Route` and `&'a Response`,
-    // so use a marker so there can be a lifetime in the struct definition.
-    _marker: PhantomData<&'a ()>,
 }
 
 impl<FN, F> WrapSealed<F> for Log<FN>
@@ -88,8 +112,45 @@ where
     }
 }
 
+impl<'a> Info<'a> {
+    /// View the `http::Method` of the request.
+    pub fn method(&self) -> &http::Method {
+        self.route.method()
+    }
+
+    /// View the URI path of the request.
+    pub fn path(&self) -> &str {
+        self.route.full_path()
+    }
+
+    /// View the `http::Version` of the request.
+    pub fn version(&self) -> http::Version {
+        self.route.version()
+    }
+
+    /// View the `http::StatusCode` of the response.
+    pub fn status(&self) -> http::StatusCode {
+        self.status
+    }
+
+    fn elapsed(&self) -> Duration {
+        clock::now() - self.start
+    }
+}
+
+struct OptFmt<T>(Option<T>);
+
+impl<T: fmt::Display> fmt::Display for OptFmt<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref t) = self.0 {
+            fmt::Display::fmt(t, f)
+        } else {
+            f.write_str("-")
+        }
+    }
+}
+
 mod internal {
-    use std::marker::PhantomData;
     use std::time::Instant;
 
     use futures::{Async, Future, Poll};
@@ -97,6 +158,7 @@ mod internal {
     use ::filter::{FilterBase, Filter};
     use ::reject::Reject;
     use ::reply::{Reply, ReplySealed, Response};
+    use ::route;
     use super::{Info, Log};
 
     #[allow(missing_debug_implementations)]
@@ -128,7 +190,7 @@ mod internal {
         type Future = WithLogFuture<FN, F::Future>;
 
         fn filter(&self) -> Self::Future {
-            let started = Instant::now();
+            let started = ::tokio::clock::now();
             WithLogFuture {
                 log: self.log.clone(),
                 future: self.filter.filter(),
@@ -167,10 +229,12 @@ mod internal {
                 },
             };
 
-            (self.log.func)(Info {
-                start: self.started,
-                status,
-                _marker: PhantomData,
+            route::with(|route| {
+                (self.log.func)(Info {
+                    route,
+                    start: self.started,
+                    status,
+                });
             });
 
             result
