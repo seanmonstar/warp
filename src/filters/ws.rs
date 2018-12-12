@@ -5,7 +5,7 @@
 use std::fmt;
 use std::io::ErrorKind::WouldBlock;
 
-use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
+use futures::{future, Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use tungstenite::protocol::{self, WebSocketConfig};
@@ -224,6 +224,21 @@ pub struct WebSocket {
     inner: protocol::WebSocket<::hyper::upgrade::Upgraded>,
 }
 
+impl WebSocket {
+    pub(crate) fn new(inner: protocol::WebSocket<::hyper::upgrade::Upgraded>) -> Self {
+        WebSocket {
+            inner,
+        }
+    }
+
+    /// Gracefully close this websocket.
+    pub fn close(mut self) -> impl Future<Item = (), Error = ::Error> {
+        future::poll_fn(move || {
+            Sink::close(&mut self)
+        })
+    }
+}
+
 impl Stream for WebSocket {
     type Item = Message;
     type Error = ::Error;
@@ -313,6 +328,10 @@ impl Sink for WebSocket {
             Ok(()) => Ok(Async::Ready(())),
             Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
                 Ok(Async::NotReady)
+            },
+            Err(::tungstenite::Error::ConnectionClosed(frame)) => {
+                trace!("websocket closed: {:?}", frame);
+                return Ok(Async::Ready(()));
             },
             Err(err) => {
                 debug!("websocket close error: {}", err);
