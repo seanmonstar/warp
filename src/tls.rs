@@ -1,10 +1,13 @@
 use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
+use std::net::SocketAddr;
 use std::path::Path;
 
 use futures::Poll;
 use rustls::{self, Session, ServerConfig, ServerSession, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
+
+use transport::Transport;
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
 
@@ -112,3 +115,10 @@ impl<T: AsyncRead + AsyncWrite> AsyncWrite for TlsStream<T> {
         self.io.shutdown()
     }
 }
+
+impl<T: Transport> Transport for TlsStream<T> {
+    fn remote_addr(&self) -> Option<SocketAddr> {
+        self.io.remote_addr()
+    }
+}
+

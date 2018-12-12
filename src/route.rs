@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::mem;
+use std::net::SocketAddr;
 
 use http;
 use hyper::Body;
@@ -32,6 +33,7 @@ where
 #[derive(Debug)]
 pub(crate) struct Route {
     body: BodyState,
+    remote_addr: Option<SocketAddr>,
     req: Request,
     segments_index: usize,
 }
@@ -43,7 +45,7 @@ enum BodyState {
 }
 
 impl Route {
-    pub(crate) fn new(req: Request) -> RefCell<Route> {
+    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
         debug_assert_eq!(
             req.uri().path().as_bytes()[0],
             b'/',
@@ -52,6 +54,7 @@ impl Route {
 
         RefCell::new(Route {
             body: BodyState::Ready,
+            remote_addr,
             req,
             // always start at 1, since paths are `/...`.
             segments_index: 1,
@@ -123,6 +126,10 @@ impl Route {
             index,
         );
         self.segments_index = index;
+    }
+
+    pub(crate) fn remote_addr(&self) -> Option<SocketAddr> {
+        self.remote_addr
     }
 
     pub(crate) fn take_body(&mut self) -> Option<Body> {
