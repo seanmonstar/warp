@@ -3,6 +3,7 @@
 //! This module mostly serves as documentation to group together the list of
 //! built-in filters. Most of these are available at more convenient paths.
 
+pub mod addr;
 pub mod any;
 pub mod body;
 pub mod cookie;

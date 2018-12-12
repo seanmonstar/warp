@@ -5,12 +5,13 @@ use std::sync::Arc;
 use futures::{Async, Future, Poll, Stream};
 use hyper::{rt, Server as HyperServer};
 use hyper::server::conn::AddrIncoming;
-use hyper::service::{service_fn};
+use hyper::service::{make_service_fn, service_fn};
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use ::never::Never;
 use ::reject::Reject;
 use ::reply::{ReplySealed, Reply};
+use ::transport::Transport;
 use ::Request;
 
 /// Create a `Server` with the provided service.
@@ -45,14 +46,15 @@ pub struct TlsServer<S> {
 macro_rules! into_service {
     ($into:expr) => ({
         let inner = Arc::new($into.into_warp_service());
-        move || {
+        make_service_fn(move |transport| {
             let inner = inner.clone();
+            let remote_addr = Transport::remote_addr(transport);
             service_fn(move |req| {
                 ReplyFuture {
-                    inner: inner.call(req)
+                    inner: inner.call(req, remote_addr)
                 }
             })
-        }
+        })
     });
 }
 
@@ -121,7 +123,16 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<::std::error::Error + Send + Sync>>,
     {
-        let fut = self.serve_incoming(incoming);
+        self.run_incoming2(incoming.map(::transport::LiftIo));
+    }
+
+    fn run_incoming2<I>(self, incoming: I)
+    where
+        I: Stream + Send + 'static,
+        I::Item: Transport + Send + 'static,
+        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+    {
+        let fut = self.serve_incoming2(incoming);
 
         info!("warp drive engaged: listening with custom incoming");
 
@@ -199,6 +210,16 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
+        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+    {
+        let incoming = incoming.map(::transport::LiftIo);
+        self.serve_incoming2(incoming)
+    }
+
+    fn serve_incoming2<I>(self, incoming: I) -> impl Future<Item=(), Error=()> + 'static
+    where
+        I: Stream + Send + 'static,
+        I::Item: Transport + Send + 'static,
         I::Error: Into<Box<::std::error::Error + Send + Sync>>,
     {
         let service = into_service!(self.service);
@@ -311,7 +332,7 @@ pub trait IntoWarpService {
 
 pub trait WarpService {
     type Reply: Future + Send;
-    fn call(&self, req: Request) -> Self::Reply;
+    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
 }
 
 

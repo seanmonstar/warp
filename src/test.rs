@@ -4,6 +4,8 @@
 //! server, by making use of the [`RequestBuilder`](./struct.RequestBuilder.html) in this
 //! module.
 
+use std::net::SocketAddr;
+
 use bytes::Bytes;
 use futures::{future, Future, Stream};
 use http::{header::{HeaderName, HeaderValue}, HttpTryFrom, Response};
@@ -22,6 +24,7 @@ use self::inner::OneOrTuple;
 /// Starts a new test `RequestBuilder`.
 pub fn request() -> RequestBuilder {
     RequestBuilder {
+        remote_addr: None,
         req: Request::default(),
     }
 }
@@ -32,6 +35,7 @@ pub fn request() -> RequestBuilder {
 #[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
+    remote_addr: Option<SocketAddr>,
     req: Request,
 }
 
@@ -207,7 +211,7 @@ impl RequestBuilder {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req);
+        let route = Route::new(self.req, self.remote_addr);
         let mut fut = route::set(&route, move || f.filter())
             .map(|rep| rep.into_response())
             .or_else(|rej| {
@@ -239,7 +243,7 @@ impl RequestBuilder {
     {
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req);
+        let route = Route::new(self.req, self.remote_addr);
         let mut fut = route::set(&route, move || f.filter());
         let fut = future::poll_fn(move || {
             route::set(&route, || fut.poll())

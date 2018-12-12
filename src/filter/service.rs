@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use futures::{Future, Poll};
 
 use ::{Filter, Request};
@@ -20,10 +22,10 @@ where
     type Reply = FilteredFuture<F::Future>;
 
     #[inline]
-    fn call(&self, req: Request) -> Self::Reply {
+    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
-        let route = Route::new(req);
+        let route = Route::new(req, remote_addr);
         let fut = route::set(&route, || self.filter.filter());
         FilteredFuture {
             future: fut,

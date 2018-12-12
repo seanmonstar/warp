@@ -115,6 +115,7 @@ mod route;
 mod server;
 pub mod test;
 #[cfg(feature = "tls")] mod tls;
+mod transport;
 
 pub use self::error::Error;
 pub use self::filter::{Filter};
@@ -126,6 +127,7 @@ pub use self::filter::{Filter};
 pub use self::filters::{
     // any() function
     any::any,
+    addr,
     body,
     cookie,
     // cookie() function
