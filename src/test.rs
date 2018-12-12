@@ -4,14 +4,17 @@
 //! server, by making use of the [`RequestBuilder`](./struct.RequestBuilder.html) in this
 //! module.
 
+use std::error::Error as StdError;
+use std::fmt;
 use std::net::SocketAddr;
+use std::thread;
 
 use bytes::Bytes;
-use futures::{future, Future, Stream};
+use futures::{future, sync::{mpsc, oneshot}, Future, Stream, Sink};
 use http::{header::{HeaderName, HeaderValue}, HttpTryFrom, Response};
 use serde::Serialize;
 use serde_json;
-use tokio::runtime::Builder as RtBuilder;
+use tokio::runtime::{Builder as RtBuilder, Runtime};
 
 use ::filter::{Filter};
 use ::reject::Reject;
@@ -29,6 +32,13 @@ pub fn request() -> RequestBuilder {
     }
 }
 
+/// Starts a new test `WsBuilder`.
+pub fn ws() -> WsBuilder {
+    WsBuilder {
+        req: request(),
+    }
+}
+
 /// A request builder for testing filters.
 ///
 /// See [module documentation](::test) for an overview.
@@ -37,6 +47,27 @@ pub fn request() -> RequestBuilder {
 pub struct RequestBuilder {
     remote_addr: Option<SocketAddr>,
     req: Request,
+}
+
+/// A Websocket builder for testing filters.
+///
+/// See [module documentation](::test) for an overview.
+#[must_use = "WsBuilder does nothing on its own"]
+#[derive(Debug)]
+pub struct WsBuilder {
+    req: RequestBuilder,
+}
+
+/// A test client for Websocket filters.
+pub struct WsClient {
+    tx: mpsc::UnboundedSender<::ws::Message>,
+    rx: ::futures::stream::Wait<mpsc::UnboundedReceiver<Result<::ws::Message, ::Error>>>,
+}
+
+/// An error from Websocket filter tests.
+#[derive(Debug)]
+pub struct WsError {
+    cause: Box<StdError + Send + Sync>,
 }
 
 impl RequestBuilder {
@@ -253,19 +284,280 @@ impl RequestBuilder {
     }
 }
 
+impl WsBuilder {
+    /// Sets the request path of this builder.
+    ///
+    /// The default is not set is `/`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::ws()
+    ///     .path("/chat");
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// This panics if the passed string is not able to be parsed as a valid
+    /// `Uri`.
+    pub fn path(self, p: &str) -> Self {
+        WsBuilder {
+            req: self.req.path(p),
+        }
+    }
+
+    /// Set a header for this request.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let req = warp::test::ws()
+    ///     .header("foo", "bar");
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// This panics if the passed strings are not able to be parsed as a valid
+    /// `HeaderName` and `HeaderValue`.
+    pub fn header<K, V>(self, key: K, value: V) -> Self
+    where
+        HeaderName: HttpTryFrom<K>,
+        HeaderValue: HttpTryFrom<V>,
+    {
+        WsBuilder {
+            req: self.req.header(key, value),
+        }
+    }
+
+    /// Execute this Websocket request against te provided filter.
+    ///
+    /// If the handshake succeeds, returns a `WsClient`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # extern crate futures;
+    /// # extern crate warp;
+    /// use futures::future;
+    /// use warp::Filter;
+    /// # fn main() {
+    ///
+    /// // Some route that accepts websockets (but drops them immediately).
+    /// let route = warp::ws2()
+    ///     .map(|ws: warp::ws::Ws2| {
+    ///         ws.on_upgrade(|_| future::ok(()))
+    ///     });
+    ///
+    /// let client = warp::test::ws()
+    ///     .handshake(route)
+    ///     .expect("handshake");
+    /// # }
+    /// ```
+    pub fn handshake<F>(self, f: F) -> Result<WsClient, WsError>
+    where
+        F: Filter + Send + Sync + 'static,
+        F::Extract: Reply + Send,
+        F::Error: Reject + Send,
+    {
+
+        let (upgraded_tx, upgraded_rx) = oneshot::channel();
+        let (wr_tx, wr_rx) = mpsc::unbounded();
+        let (rd_tx, rd_rx) = mpsc::unbounded();
+
+        let test_thread = ::std::thread::current();
+        let test_name = test_thread
+            .name()
+            .unwrap_or("<unknown>");
+        thread::Builder::new().name(test_name.into()).spawn(move || {
+            use tungstenite::protocol;
+
+            let (addr, srv) = ::serve(f)
+                .bind_ephemeral(([127, 0, 0, 1], 0));
+
+            let srv = srv.map_err(|err| panic!("server error: {:?}", err));
+
+            let mut req = self
+                .req
+                .header("connection", "upgrade")
+                .header("upgrade", "websocket")
+                .header("sec-websocket-version", "13")
+                .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
+                .req;
+
+            let uri = format!("http://{}{}", addr, req.uri().path())
+                .parse()
+                .expect("addr + path is valid URI");
+
+            *req.uri_mut() = uri;
+
+            let mut rt = new_rt();
+            rt.spawn(srv);
+
+            let upgrade = ::hyper::Client::builder()
+                .build(AddrConnect(addr))
+                .request(req)
+                .and_then(|res| {
+                    res.into_body().on_upgrade()
+                });
+
+            let upgraded = match rt.block_on(upgrade) {
+                Ok(up) => {
+                    let _ = upgraded_tx.send(Ok(()));
+                    up
+                },
+                Err(err) => {
+                    let _ = upgraded_tx.send(Err(err));
+                    return;
+                }
+            };
+            let io = protocol::WebSocket::from_raw_socket(upgraded, protocol::Role::Client, Default::default());
+            let (tx, rx) = ::ws::WebSocket::new(io).split();
+            let write = wr_rx
+                .map_err(|()| {
+                    unreachable!("mpsc::Receiver doesn't error");
+                })
+                .forward(tx.sink_map_err(|_| ()))
+                .map(|_| ());
+
+            let read = rx
+                .then(|result| Ok(result))
+                .forward(rd_tx.sink_map_err(|_| ()))
+                .map(|_| ());
+
+            rt.block_on(write.join(read)).expect("websocket forward");
+        }).expect("websocket handshake thread");
+
+        match upgraded_rx.wait() {
+            Ok(Ok(())) => Ok(WsClient {
+                tx: wr_tx,
+                rx: rd_rx.wait(),
+            }),
+            Ok(Err(err)) => Err(WsError::new(err)),
+            Err(_canceled) => panic!("websocket handshake thread panicked"),
+        }
+    }
+}
+
+impl WsClient {
+    /// Send a "text" websocket message to the server.
+    pub fn send_text(&mut self, text: impl Into<String>) {
+        self.send(::ws::Message::text(text));
+    }
+
+    /// Send a websocket message to the server.
+    pub fn send(&mut self, msg: ::ws::Message) {
+        self.tx.unbounded_send(msg)
+            .unwrap();
+    }
+
+    /// Receive a websocket message from the server.
+    pub fn recv(&mut self) -> Result<::filters::ws::Message, WsError> {
+        self.rx
+            .next()
+            .map(|unbounded_result| {
+                unbounded_result
+                    .map(|result| {
+                        result.map_err(WsError::new)
+                    })
+                    .unwrap_or_else(|_| {
+                        unreachable!("mpsc Receiver never errors");
+                    })
+            })
+            .unwrap_or_else(|| {
+                // websocket is closed
+                Err(WsError::new("closed"))
+            })
+    }
+
+    /// Assert the server has closed the connection.
+    pub fn recv_closed(&mut self) -> Result<(), WsError> {
+        self.rx
+            .next()
+            .map(|unbounded_result| {
+                unbounded_result
+                    .unwrap_or_else(|_| {
+                        unreachable!("mpsc Receiver never errors");
+                    })
+            })
+            .map(|result| match result {
+                Ok(msg) => Err(WsError::new(format!("received message: {:?}", msg))),
+                Err(err) => Err(WsError::new(err)),
+            })
+            .unwrap_or_else(|| {
+                // closed successfully
+                Ok(())
+            })
+    }
+}
+
+impl fmt::Debug for WsClient {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WsClient")
+            .finish()
+    }
+}
+
+// ===== impl WsError =====
+
+impl WsError {
+    fn new<E: Into<Box<StdError + Send + Sync>>>(cause: E) -> Self {
+        WsError {
+            cause: cause.into(),
+        }
+    }
+}
+
+impl fmt::Display for WsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "websocket error: {}", self.cause)
+    }
+}
+
+impl StdError for WsError {
+    fn description(&self) -> &str {
+        "websocket error"
+    }
+}
+
+// ===== impl AddrConnect =====
+
+struct AddrConnect(SocketAddr);
+
+impl ::hyper::client::connect::Connect for AddrConnect {
+    type Transport = ::tokio::net::tcp::TcpStream;
+    type Error = ::std::io::Error;
+    type Future = ::futures::future::Map<
+        ::tokio::net::tcp::ConnectFuture,
+        fn(Self::Transport) -> (Self::Transport, ::hyper::client::connect::Connected)
+    >;
+
+    fn connect(&self, _: ::hyper::client::connect::Destination) -> Self::Future {
+        ::tokio::net::tcp::TcpStream::connect(&self.0)
+            .map(|sock| (sock, ::hyper::client::connect::Connected::new()))
+    }
+}
+
+fn new_rt() -> Runtime {
+    let test_thread = ::std::thread::current();
+    let test_name = test_thread
+        .name()
+        .unwrap_or("<unknown>");
+    let rt_name_prefix = format!("test {}; warp-test-runtime-", test_name);
+    RtBuilder::new()
+        .core_threads(1)
+        .blocking_threads(1)
+        .name_prefix(rt_name_prefix)
+        .build()
+        .expect("new rt")
+}
+
 fn block_on<F>(fut: F) -> Result<F::Item, F::Error>
 where
     F: Future + Send + 'static,
     F::Item: Send + 'static,
     F::Error: Send + 'static,
 {
-    let mut rt = RtBuilder::new()
-        .core_threads(1)
-        .blocking_threads(1)
-        .name_prefix("warp-test-runtime-")
-        .build()
-        .expect("new rt");
-
+    let mut rt = new_rt();
     rt.block_on(fut)
 }
 
