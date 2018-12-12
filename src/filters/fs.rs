@@ -286,7 +286,8 @@ fn file_conditional(f: TkFile, path: ArcPath, conditionals: Conditionals) -> imp
                         if sub_len != len {
                             *resp.status_mut() = StatusCode::PARTIAL_CONTENT;
                             resp.headers_mut().typed_insert(
-                                ContentRange::bytes(start, end - 1, len)
+                                ContentRange::bytes(start..end, len)
+                                    .expect("valid ContentRange")
                             );
 
                             len = sub_len;
