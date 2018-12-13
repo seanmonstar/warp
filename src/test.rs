@@ -3,6 +3,82 @@
 //! [`Filter`](../trait.Filter.html)s can be easily tested without starting up an HTTP
 //! server, by making use of the [`RequestBuilder`](./struct.RequestBuilder.html) in this
 //! module.
+//!
+//! # Testing Filters
+//!
+//! It's easy to test filters, especially if smaller filters are used to build
+//! up your full set. Consider these example filters:
+//!
+//! ```
+//! use warp::Filter;
+//!
+//! fn sum() -> impl Filter<Extract = (u32,), Error = warp::Rejection> + Copy {
+//!     warp::path::param()
+//!         .and(warp::path::param())
+//!         .map(|x: u32, y: u32| {
+//!             x + y
+//!         })
+//! }
+//!
+//! fn math() -> impl Filter<Extract = (String,), Error = warp::Rejection> + Copy {
+//!     warp::post2()
+//!         .and(sum())
+//!         .map(|z: u32| {
+//!             format!("Sum = {}", z)
+//!         })
+//! }
+//! ```
+//!
+//! We can test some requests against the `sum` filter like this:
+//!
+//! ```
+//! # use warp::Filter;
+//! #[test]
+//! fn test_sum() {
+//! #    let sum = || warp::any().map(|| 3);
+//!     let filter = sum();
+//!
+//!     // Execute `sum` and get the `Extract` back.
+//!     let value = warp::test::request()
+//!         .path("/1/2")
+//!         .filter(&filter)
+//!         .unwrap();
+//!     assert_eq!(value, 3);
+//!
+//!     // Or simply test if a request matches (doesn't reject).
+//!     assert!(
+//!         !warp::test::request()
+//!             .path("/1/-5")
+//!             .matches(&filter)
+//!     );
+//! }
+//! ```
+//!
+//! If the filter returns something that implements `Reply`, and thus can be
+//! turned into a response sent back to the client, we can test what exact
+//! response is returned. The `math` filter uses the `sum` filter, but returns
+//! a `String` that can be turned into a response.
+//!
+//! ```
+//! # use warp::Filter;
+//! #[test]
+//! fn test_math() {
+//! #    let math = || warp::any().map(warp::reply);
+//!     let filter = sum();
+//!
+//!     let res = warp::test::request()
+//!         .path("/1/2")
+//!         .reply(&filter);
+//!     assert_eq!(res.status(), 405, "GET is not allowed");
+//!
+//!     let res = warp::test::request()
+//!         .method("POST")
+//!         .path("/1/2")
+//!         .reply(&filter);
+//!     assert_eq!(res.status(), 200);
+//!     assert_eq!(res.body(), "Sum is 3");
+//! }
+//! ```
 
 use std::error::Error as StdError;
 use std::fmt;
