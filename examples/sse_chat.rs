@@ -12,7 +12,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
-use warp::{Buf, Filter, ServerSentEvent};
+use warp::{sse::ServerSentEvent, Buf, Filter};
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -47,21 +47,23 @@ fn main() {
             std::str::from_utf8(body.bytes())
                 .map(String::from)
                 .map_err(warp::reject::custom)
-        })).and(users.clone())
+        }))
+        .and(users.clone())
         .map(|my_id, msg, users| {
             user_message(my_id, msg, &users);
             warp::reply()
         });
 
     // GET /chat -> messages stream
-    let chat_recv = warp::path("chat")
-        .and(warp::get2())
-        .and(users)
-        .map(|users| {
-            // reply using server-sent events
-            let stream = user_connected(users);
-            warp::sse(warp::sse::keep(stream, None))
-        });
+    let chat_recv =
+        warp::path("chat")
+            .and(warp::sse())
+            .and(users)
+            .map(|sse: warp::sse::Sse, users| {
+                // reply using server-sent events
+                let stream = user_connected(users);
+                sse.reply(warp::sse::keep(stream, None))
+            });
 
     // GET / -> index html
     let index = warp::path::end().map(|| {
@@ -117,7 +119,8 @@ fn user_connected(
     rx.map(|msg| match msg {
         Message::UserId(my_id) => (warp::sse::event("user"), warp::sse::data(my_id)).into_a(),
         Message::Reply(reply) => warp::sse::data(reply).into_b(),
-    }).map_err(move |_| {
+    })
+    .map_err(move |_| {
         // Keep `drx` alive until `rx` will be closed
         drx.close();
         unreachable!("unbounded rx never errors");

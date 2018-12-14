@@ -1,4 +1,4 @@
-//! Reply using Server-Sent Events (SSE) stream.
+//! Server-Sent Events (SSE)
 //!
 //! # Example
 //!
@@ -8,9 +8,9 @@
 //!
 //! use std::time::Duration;
 //! use futures::stream::iter_ok;
-//! use warp::{Filter, ServerSentEvent};
+//! use warp::{Filter, sse::ServerSentEvent};
 //!
-//! let app = warp::get2().and(warp::path("push-notifications")).map(|| {
+//! let app = warp::path("push-notifications").and(warp::sse()).map(|sse: warp::sse::Sse| {
 //!     let events = iter_ok::<_, ::std::io::Error>(vec![
 //!         warp::sse::data("unnamed event").into_a(),
 //!         (
@@ -24,7 +24,7 @@
 //!             warp::sse::retry(Duration::from_millis(5000)),
 //!         ).into_b().into_b(),
 //!     ]);
-//!     warp::sse(warp::sse::keep(events, None))
+//!     sse.reply(warp::sse::keep(events, None))
 //! });
 //! ```
 //!
@@ -34,8 +34,8 @@
 //! See also [EventSource](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) API.
 //!
 use self::sealed::{SseError, SseField, SseFormat, SseWrapper};
+use super::{header, header::MissingHeader};
 use filter::One;
-use filters::header::{header, MissingHeader};
 use futures::{Async, Future, Poll, Stream};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
@@ -251,7 +251,8 @@ impl<T: Serialize> SseFormat for SseJson<T> {
                 .map_err(|error| {
                     error!("sse::json error {}", error);
                     fmt::Error
-                }).and_then(|data| data.fmt(f))?;
+                })
+                .and_then(|data| data.fmt(f))?;
             f.write_char('\n')?;
         }
         Ok(())
@@ -281,6 +282,7 @@ tuple_fmt!((A, B, C, D, E, F, G) => (0, 1, 2, 3, 4, 5, 6));
 tuple_fmt!((A, B, C, D, E, F, G, H) => (0, 1, 2, 3, 4, 5, 6, 7));
 
 /// Gets the optional last event id from request.
+/// Typically this identifier represented as number or string.
 ///
 /// ```
 /// let app = warp::sse::last_event_id::<u32>();
@@ -314,7 +316,7 @@ pub fn last_event_id<T>() -> impl Filter<Extract = One<Option<T>>, Error = Rejec
 where
     T: FromStr + Send,
 {
-    header("Last-Event-ID")
+    header::header("last-event-id")
         .map(Some)
         .or_else(|rejection: Rejection| {
             if rejection.find_cause::<MissingHeader>().is_some() {
@@ -324,78 +326,122 @@ where
         })
 }
 
-/// Server-sent events reply
+/// Creates a Server-sent Events filter.
 ///
-/// This function converts stream of server events into reply.
+/// The yielded `Sse` is used to reply with stream of events.
 ///
-/// ```
-/// # extern crate futures;
-/// # extern crate warp;
-/// # extern crate serde;
-/// # #[macro_use] extern crate serde_derive;
+/// # Note
 ///
-/// use std::time::Duration;
-/// use futures::stream::iter_ok;
-/// use warp::{Filter, ServerSentEvent};
+/// This filter combines multiple filters internally, so you don't need them:
 ///
-/// #[derive(Serialize)]
-/// struct Msg {
-///     from: u32,
-///     text: String,
-/// }
+/// - Method must be `GET`
+/// - Header `connection` must be `keep-alive` when it present.
 ///
-/// let app = warp::get2().and(warp::path("sse")).map(|| {
-///     let events = iter_ok::<_, ::std::io::Error>(vec![
-///         // Unnamed event with data only
-///         warp::sse::data("payload").boxed(),
-///         // Named event with ID and retry timeout
-///         (
-///             warp::sse::data("other message\nwith next line"),
-///             warp::sse::event("chat"),
-///             warp::sse::id(1),
-///             warp::sse::retry(Duration::from_millis(15000))
-///         ).boxed(),
-///         // Event with JSON data
-///         (
-///             warp::sse::id(2),
-///             warp::sse::json(Msg {
-///                 from: 2,
-///                 text: "hello".into(),
-///             }),
-///         ).boxed(),
-///     ]);
-///     warp::sse(events)
-/// });
+/// If the filters are met, yields a `Sse`. Calling `Sse::reply` will return
+/// a reply with:
 ///
-/// let res = warp::test::request()
-///     .method("GET")
-///     .path("/sse")
-///     .reply(&app)
-///     .into_body();
-///
-/// assert_eq!(
-///     res,
-///     r#"data:payload
-///
-/// event:chat
-/// data:other message
-/// data:with next line
-/// id:1
-/// retry:15000
-///
-/// data:{"from":2,"text":"hello"}
-/// id:2
-///
-/// "#
-/// );
-/// ```
-pub fn sse<S>(event_stream: S) -> impl Reply
-where
-    S: Stream + Send + 'static,
-    S::Item: ServerSentEvent,
-    S::Error: StdError + Send + Sync + 'static,
-{
-    SseReply { event_stream }
+/// - Status of `200 OK`
+/// - Header `content-type: text/event-stream`
+/// - Header `cache-control: no-cache`.
+pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
+    ::get2()
+        .and(
+            header::exact_ignore_case("connection", "keep-alive").or_else(
+                |rejection: Rejection| {
+                    if rejection.find_cause::<MissingHeader>().is_some() {
+                        return Ok(());
+                    }
+                    Err(rejection)
+                },
+            ),
+        )
+        .map(|| Sse)
+}
+
+/// Extracted by the [`sse`](sse) filter, and used to reply with stream of events.
+pub struct Sse;
+
+impl Sse {
+    /// Server-sent events reply
+    ///
+    /// This function converts stream of server events into reply.
+    ///
+    /// ```
+    /// # extern crate futures;
+    /// # extern crate warp;
+    /// # extern crate serde;
+    /// # #[macro_use] extern crate serde_derive;
+    ///
+    /// use std::time::Duration;
+    /// use futures::stream::iter_ok;
+    /// use warp::{Filter, sse::ServerSentEvent};
+    ///
+    /// #[derive(Serialize)]
+    /// struct Msg {
+    ///     from: u32,
+    ///     text: String,
+    /// }
+    ///
+    /// let app = warp::path("sse").and(warp::sse()).map(|sse: warp::sse::Sse| {
+    ///     let events = iter_ok::<_, ::std::io::Error>(vec![
+    ///         // Unnamed event with data only
+    ///         warp::sse::data("payload").boxed(),
+    ///         // Named event with ID and retry timeout
+    ///         (
+    ///             warp::sse::data("other message\nwith next line"),
+    ///             warp::sse::event("chat"),
+    ///             warp::sse::id(1),
+    ///             warp::sse::retry(Duration::from_millis(15000))
+    ///         ).boxed(),
+    ///         // Event with JSON data
+    ///         (
+    ///             warp::sse::id(2),
+    ///             warp::sse::json(Msg {
+    ///                 from: 2,
+    ///                 text: "hello".into(),
+    ///             }),
+    ///         ).boxed(),
+    ///     ]);
+    ///     sse.reply(events)
+    /// });
+    ///
+    /// let res = warp::test::request()
+    ///     .method("GET")
+    ///     .header("Connection", "Keep-Alive")
+    ///     .path("/sse")
+    ///     .reply(&app)
+    ///     .into_body();
+    ///
+    /// assert_eq!(
+    ///     res,
+    ///     r#"data:payload
+    ///
+    /// event:chat
+    /// data:other message
+    /// data:with next line
+    /// id:1
+    /// retry:15000
+    ///
+    /// data:{"from":2,"text":"hello"}
+    /// id:2
+    ///
+    /// "#
+    /// );
+    /// ```
+    pub fn reply<S>(self, event_stream: S) -> impl Reply
+    where
+        S: Stream + Send + 'static,
+        S::Item: ServerSentEvent,
+        S::Error: StdError + Send + Sync + 'static,
+    {
+        SseReply { event_stream }
+    }
+}
+
+impl fmt::Debug for Sse {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Sse").finish()
+    }
 }
 
 #[allow(missing_debug_implementations)]
@@ -417,7 +463,8 @@ where
                 .map_err(|error| {
                     error!("sse stream error: {}", error);
                     SseError
-                }).and_then(|event| SseWrapper::format(&event)),
+                })
+                .and_then(|event| SseWrapper::format(&event)),
         ));
         {
             let headers = res.headers_mut();
@@ -442,6 +489,8 @@ struct SseKeepAlive<S> {
 /// Some proxy servers may drop HTTP connection after a some timeout of inactivity.
 /// This function helps to prevent such behavior by sending dummy events with single
 /// empty comment field (i.e. ":" only) each `keep_interval` of inactivity.
+///
+/// By default this time interval between events equals to 15 seconds.
 ///
 /// See [notes](https://www.w3.org/TR/2009/WD-eventsource-20090421/#notes).
 pub fn keep<S>(

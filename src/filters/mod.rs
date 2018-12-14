@@ -14,6 +14,7 @@ pub mod method;
 pub mod path;
 pub mod query;
 pub mod reply;
+pub mod sse;
 pub mod ws;
 
 pub use ::filter::BoxedFilter;
