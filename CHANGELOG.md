@@ -1,3 +1,12 @@
+### v0.1.10 (December 17, 2018)
+
+- **Features**:
+  - Add optional TLS support. Enable the `tls` feature, and then use `Server::tls`.
+  - Add `warp::cors` filter for CORS support.
+  - Add `warp::addr::remote` to access the remote address of a request.
+  - Add `warp::log::custom` to support customizing of access logging.
+  - Add `warp::test::ws` to improve testing Websocket filters.
+
 ### v0.1.9 (October 30, 2018)
 
 - **Features**:
