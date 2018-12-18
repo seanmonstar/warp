@@ -154,6 +154,9 @@ pub use self::filters::{
     query,
     // query() function
     query::query,
+    sse,
+    // sse() function
+    sse::sse,
     ws,
     // ws() function
     ws::{ws, ws2},
