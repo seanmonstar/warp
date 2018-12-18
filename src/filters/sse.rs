@@ -33,21 +33,23 @@
 //!
 //! See also [EventSource](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) API.
 //!
-use self::sealed::{SseError, SseField, SseFormat, SseWrapper};
-use super::{header, header::MissingHeader};
-use filter::One;
-use futures::{Async, Future, Poll, Stream};
-use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
-use hyper::Body;
-use reply::{ReplySealed, Response};
-use serde::Serialize;
-use serde_json;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter, Write};
 use std::str::FromStr;
 use std::time::Duration;
+
+use futures::{Async, Future, Poll, Stream};
+use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
+use hyper::Body;
+use serde::Serialize;
+use serde_json;
 use tokio::{clock::now, timer::Delay};
+
+use filter::One;
+use reply::{ReplySealed, Response};
 use {Filter, Rejection, Reply};
+use super::{header, header::MissingHeader};
+use self::sealed::{BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper};
 
 /// Server-sent event message
 pub trait ServerSentEvent: SseFormat + Sized + Send + 'static {
@@ -68,39 +70,6 @@ pub trait ServerSentEvent: SseFormat + Sized + Send + 'static {
 }
 
 impl<T: SseFormat + Send + 'static> ServerSentEvent for T {}
-
-/// Boxed server-sent event
-#[allow(missing_debug_implementations)]
-pub struct BoxedServerSentEvent(Box<SseFormat + Send>);
-
-impl SseFormat for BoxedServerSentEvent {
-    fn fmt_field(&self, f: &mut Formatter, k: &SseField) -> fmt::Result {
-        self.0.fmt_field(f, k)
-    }
-}
-
-/// Either of two server-sent events
-#[allow(missing_debug_implementations)]
-pub enum EitherServerSentEvent<A, B> {
-    /// Variant A
-    A(A),
-    /// Variant B
-    B(B),
-}
-
-impl<A, B> SseFormat for EitherServerSentEvent<A, B>
-where
-    A: SseFormat,
-    B: SseFormat,
-{
-    fn fmt_field(&self, f: &mut Formatter, k: &SseField) -> fmt::Result {
-        use self::EitherServerSentEvent::*;
-        match self {
-            A(a) => a.fmt_field(f, k),
-            B(b) => b.fmt_field(f, k),
-        }
-    }
-}
 
 #[allow(missing_debug_implementations)]
 struct SseComment<T>(T);
@@ -457,22 +426,20 @@ where
 {
     #[inline]
     fn into_response(self) -> Response {
-        let mut res = Response::new(Body::wrap_stream(
-            self.event_stream
+        let body_stream = self
+            .event_stream
+            .map_err(|error| {
                 // FIXME: error logging
-                .map_err(|error| {
-                    error!("sse stream error: {}", error);
-                    SseError
-                })
-                .and_then(|event| SseWrapper::format(&event)),
-        ));
-        {
-            let headers = res.headers_mut();
-            // Set appropriate content type
-            headers.insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
-            // Disable response body caching
-            headers.insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-        }
+                error!("sse stream error: {}", error);
+                SseError
+            })
+            .and_then(|event| SseWrapper::format(&event));
+
+        let mut res = Response::new(Body::wrap_stream(body_stream));
+        // Set appropriate content type
+        res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
+        // Disable response body caching
+        res.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
         res
     }
 }
@@ -495,7 +462,7 @@ struct SseKeepAlive<S> {
 /// See [notes](https://www.w3.org/TR/2009/WD-eventsource-20090421/#notes).
 pub fn keep<S>(
     event_stream: S,
-    keep_interval: Option<Duration>,
+    keep_interval: impl Into<Option<Duration>>,
 ) -> impl Stream<
     Item = impl ServerSentEvent + Send + 'static,
     Error = impl StdError + Send + Sync + 'static,
@@ -506,7 +473,9 @@ where
     S::Item: ServerSentEvent + Send,
     S::Error: StdError + Send + Sync + 'static,
 {
-    let max_interval = keep_interval.unwrap_or_else(|| Duration::from_secs(15));
+    let max_interval = keep_interval
+        .into()
+        .unwrap_or_else(|| Duration::from_secs(15));
     let alive_timer = Delay::new(now() + max_interval);
     SseKeepAlive {
         event_stream,
@@ -639,6 +608,34 @@ mod sealed {
             self.0.fmt_field(f, &SseField::Id)?;
             self.0.fmt_field(f, &SseField::Retry)?;
             f.write_char('\n')
+        }
+    }
+
+    #[allow(missing_debug_implementations)]
+    pub struct BoxedServerSentEvent(pub(super) Box<SseFormat + Send>);
+
+    impl SseFormat for BoxedServerSentEvent {
+        fn fmt_field(&self, f: &mut Formatter, k: &SseField) -> fmt::Result {
+            self.0.fmt_field(f, k)
+        }
+    }
+
+    #[allow(missing_debug_implementations)]
+    pub enum EitherServerSentEvent<A, B> {
+        A(A),
+        B(B),
+    }
+
+    impl<A, B> SseFormat for EitherServerSentEvent<A, B>
+    where
+        A: SseFormat,
+        B: SseFormat,
+    {
+        fn fmt_field(&self, f: &mut Formatter, k: &SseField) -> fmt::Result {
+            match self {
+                EitherServerSentEvent::A(a) => a.fmt_field(f, k),
+                EitherServerSentEvent::B(b) => b.fmt_field(f, k),
+            }
         }
     }
 }
