@@ -10,8 +10,6 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use transport::Transport;
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
-
-
     let cert = {
         let file = File::open(cert)
             .unwrap_or_else(|e| {
@@ -106,6 +104,10 @@ impl<T: AsyncRead + AsyncWrite> AsyncRead for TlsStream<T> {}
 
 impl<T: AsyncRead + AsyncWrite> AsyncWrite for TlsStream<T> {
     fn shutdown(&mut self) -> Poll<(), io::Error> {
+        if self.session.is_handshaking() {
+            return Ok(().into());
+        }
+
         if !self.is_shutdown {
             self.session.send_close_notify();
             self.is_shutdown = true;
