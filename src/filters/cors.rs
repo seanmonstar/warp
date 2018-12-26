@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use http::{self, HttpTryFrom, header::{self, HeaderValue}};
-use headers::{AccessControlAllowMethods, HeaderMapExt};
+use http::{self, HttpTryFrom, header::{self, HeaderName, HeaderValue}};
+use headers::{AccessControlAllowHeaders, AccessControlAllowMethods, HeaderMapExt};
 
 use ::filter::{Filter, WrapSealed};
 use ::reject::{CombineRejection, Rejection};
@@ -33,6 +33,7 @@ use self::internal::{CorsFilter, IntoOrigin, Seconds};
 pub fn cors() -> Cors {
     Cors {
         credentials: false,
+        headers: HashSet::new(),
         max_age: None,
         methods: HashSet::new(),
         origins: None,
@@ -43,6 +44,7 @@ pub fn cors() -> Cors {
 #[derive(Clone, Debug)]
 pub struct Cors {
     credentials: bool,
+    headers: HashSet<HeaderName>,
     max_age: Option<u64>,
     methods: HashSet<http::Method>,
     origins: Option<HashSet<HeaderValue>>,
@@ -59,7 +61,7 @@ impl Cors {
     ///
     /// # Panics
     ///
-    /// Panics if the provide argument is not a valid `http::Method`.
+    /// Panics if the provided argument is not a valid `http::Method`.
     pub fn allow_method<M>(mut self, method: M) -> Self
     where
         http::Method: HttpTryFrom<M>,
@@ -76,7 +78,7 @@ impl Cors {
     ///
     /// # Panics
     ///
-    /// Panics if the provide argument is not a valid `http::Method`.
+    /// Panics if the provided argument is not a valid `http::Method`.
     pub fn allow_methods<I>(mut self, methods: I) -> Self
     where
         I: IntoIterator,
@@ -91,6 +93,45 @@ impl Cors {
                 }
             });
         self.methods.extend(iter);
+        self
+    }
+
+    /// Adds a header to the list of allowed request headers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided argument is not a valid `http::header::HeaderName`.
+    pub fn allow_header<H>(mut self, header: H) -> Self
+    where
+        HeaderName: HttpTryFrom<H>,
+    {
+        let header = match HttpTryFrom::try_from(header) {
+            Ok(m) => m,
+            Err(_) => panic!("illegal Header"),
+        };
+        self.headers.insert(header);
+        self
+    }
+
+    /// Adds multiple headers to the list of allowed request headers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the headers are not a valid `http::header::HeaderName`.
+    pub fn allow_headers<I>(mut self, headers: I) -> Self
+    where
+        I: IntoIterator,
+        HeaderName: HttpTryFrom<I::Item>,
+    {
+        let iter = headers
+            .into_iter()
+            .map(|h| {
+                match HttpTryFrom::try_from(h) {
+                    Ok(h) => h,
+                    Err(_) => panic!("illegal Method"),
+                }
+            });
+        self.headers.extend(iter);
         self
     }
 
@@ -109,7 +150,7 @@ impl Cors {
     ///
     /// # Panics
     ///
-    /// Panics if the provide argument is not a valid `Origin`.
+    /// Panics if the provided argument is not a valid `Origin`.
     pub fn allow_origin(self, origin: impl IntoOrigin) -> Self {
         self.allow_origins(Some(origin))
     }
@@ -118,7 +159,7 @@ impl Cors {
     ///
     /// # Panics
     ///
-    /// Panics if the provide argument is not a valid `Origin`.
+    /// Panics if the provided argument is not a valid `Origin`.
     pub fn allow_origins<I>(mut self, origins: I) -> Self
     where
         I: IntoIterator,
@@ -173,6 +214,11 @@ where
     fn wrap(&self, inner: F) -> Self::Wrapped {
         let config = Arc::new(Configured {
             cors: self.clone(),
+            headers_header: self
+                .headers
+                .iter()
+                .map(|m| m.clone())
+                .collect(),
             methods_header: self
                 .methods
                 .iter()
@@ -197,6 +243,7 @@ pub struct CorsForbidden {
 enum Forbidden {
     OriginNotAllowed,
     MethodNotAllowed,
+    HeaderNotAllowed,
 }
 
 impl ::std::fmt::Display for CorsForbidden {
@@ -204,6 +251,7 @@ impl ::std::fmt::Display for CorsForbidden {
         let detail = match self.kind {
             Forbidden::OriginNotAllowed => "origin not allowed",
             Forbidden::MethodNotAllowed => "request-method not allowed",
+            Forbidden::HeaderNotAllowed => "header not allowed",
         };
         write!(f, "CORS request forbidden: {}", detail)
     }
@@ -218,6 +266,7 @@ impl ::std::error::Error for CorsForbidden {
 #[derive(Clone, Debug)]
 struct Configured {
     cors: Cors,
+    headers_header: AccessControlAllowHeaders,
     methods_header: AccessControlAllowMethods,
 }
 
@@ -250,6 +299,15 @@ impl Configured {
                     return Err(Forbidden::MethodNotAllowed);
                 }
 
+                if let Some(req_headers) = headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {
+                    let headers = req_headers.to_str().map_err(|_| Forbidden::HeaderNotAllowed)?;
+                    for header in headers.split(",") {
+                        if !self.is_header_allowed(header) {
+                            return Err(Forbidden::HeaderNotAllowed);
+                        }
+                    }
+                }
+
                 Ok(Validated::Preflight(origin.clone()))
             },
             (Some(origin), _) => {
@@ -277,6 +335,12 @@ impl Configured {
             .unwrap_or(false)
     }
 
+    fn is_header_allowed(&self, header: &str) -> bool {
+        HeaderName::from_bytes(header.as_bytes())
+            .map(|header| self.cors.headers.contains(&header) )
+            .unwrap_or(false)
+    }
+
     fn is_origin_allowed(&self, origin: &HeaderValue) -> bool {
         if let Some(ref allowed) = self.cors.origins {
             allowed.contains(origin)
@@ -288,6 +352,7 @@ impl Configured {
     fn append_preflight_headers(&self, headers: &mut http::HeaderMap) {
         self.append_common_headers(headers);
 
+        headers.typed_insert(self.headers_header.clone());
         headers.typed_insert(self.methods_header.clone());
 
         if let Some(max_age) = self.cors.max_age {
