@@ -1,3 +1,11 @@
+### v0.1.11 (January 14, 2019)
+
+- **Features**:
+  - Add `warp::sse` filters for handling Server-Sent-Events.
+  - Add `allow_headers` to `warp::cors` filter.
+- **Fixes**:
+  - Fix TLS handshake to close the connection if handshake fails.
+
 ### v0.1.10 (December 17, 2018)
 
 - **Features**:
