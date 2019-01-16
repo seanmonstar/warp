@@ -6,9 +6,6 @@ matrix:
     - rust: stable
     - rust: beta
     - rust: nightly
-    # minimum rustc version
-    - rust: 1.28.0
-      script: cargo build
 
     # `tls` feature
     - rust: stable
