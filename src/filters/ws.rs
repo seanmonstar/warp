@@ -354,6 +354,7 @@ impl fmt::Debug for WebSocket {
 ///
 /// This will likely become a `non-exhaustive` enum in the future, once that
 /// language feature has stabilized.
+#[derive(Eq, PartialEq, Clone)]
 pub struct Message {
     inner: protocol::Message,
 }
