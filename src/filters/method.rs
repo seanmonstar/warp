@@ -8,78 +8,56 @@
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
 
-use ::filter::{And, Filter, filter_fn, filter_fn_one, One};
-use ::never::Never;
-use ::reject::{CombineRejection, Rejection};
+use filter::{filter_fn, filter_fn_one, And, Filter, One};
+use never::Never;
+use reject::{CombineRejection, Rejection};
 
 pub use self::v2::{
-    get as get2,
-    post as post2,
-    put as put2,
-    delete as delete2,
-    head,
-    options,
-    patch,
+    delete as delete2, get as get2, head, options, patch, post as post2, put as put2,
 };
 
 #[doc(hidden)]
-#[deprecated(note="warp::get2() is meant to replace get()")]
-pub fn get<F>(filter: F) -> And<
-    impl Filter<Extract=(), Error=Rejection> + Copy,
-    F,
->
+#[deprecated(note = "warp::get2() is meant to replace get()")]
+pub fn get<F>(filter: F) -> And<impl Filter<Extract = (), Error = Rejection> + Copy, F>
 where
     F: Filter + Clone,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::GET)
-        .and(filter)
+    method_is(|| &Method::GET).and(filter)
 }
 
 #[doc(hidden)]
-#[deprecated(note="warp::post2() is meant to replace post()")]
-pub fn post<F>(filter: F) -> And<
-    impl Filter<Extract=(), Error=Rejection> + Copy,
-    F,
->
+#[deprecated(note = "warp::post2() is meant to replace post()")]
+pub fn post<F>(filter: F) -> And<impl Filter<Extract = (), Error = Rejection> + Copy, F>
 where
     F: Filter + Clone,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::POST)
-        .and(filter)
+    method_is(|| &Method::POST).and(filter)
 }
 
 #[doc(hidden)]
-#[deprecated(note="warp::put2() is meant to replace put()")]
-pub fn put<F>(filter: F) -> And<
-    impl Filter<Extract=(), Error=Rejection> + Copy,
-    F,
->
+#[deprecated(note = "warp::put2() is meant to replace put()")]
+pub fn put<F>(filter: F) -> And<impl Filter<Extract = (), Error = Rejection> + Copy, F>
 where
     F: Filter + Clone,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::PUT)
-        .and(filter)
+    method_is(|| &Method::PUT).and(filter)
 }
 
 #[doc(hidden)]
-#[deprecated(note="warp::delete2() is meant to replace delete()")]
-pub fn delete<F>(filter: F) -> And<
-    impl Filter<Extract=(), Error=Rejection> + Copy,
-    F,
->
+#[deprecated(note = "warp::delete2() is meant to replace delete()")]
+pub fn delete<F>(filter: F) -> And<impl Filter<Extract = (), Error = Rejection> + Copy, F>
 where
     F: Filter + Clone,
     F::Error: CombineRejection<Rejection>,
     <F::Error as CombineRejection<Rejection>>::Rejection: CombineRejection<Rejection>,
 {
-    method_is(|| &Method::DELETE)
-        .and(filter)
+    method_is(|| &Method::DELETE).and(filter)
 }
 
 /// Extract the `Method` from the request.
@@ -96,16 +74,14 @@ where
 ///         format!("You sent a {} request!", method)
 ///     });
 /// ```
-pub fn method() -> impl Filter<Extract=One<Method>, Error=Never> + Copy {
-    filter_fn_one(|route| {
-        Ok::<_, Never>(route.method().clone())
-    })
+pub fn method() -> impl Filter<Extract = One<Method>, Error = Never> + Copy {
+    filter_fn_one(|route| Ok::<_, Never>(route.method().clone()))
 }
 
 // NOTE: This takes a static function instead of `&'static Method` directly
 // so that the `impl Filter` can be zero-sized. Moving it around should be
 // cheaper than holding a single static pointer (which would make it 1 word).
-fn method_is<F>(func: F) -> impl Filter<Extract=(), Error=Rejection> + Copy
+fn method_is<F>(func: F) -> impl Filter<Extract = (), Error = Rejection> + Copy
 where
     F: Fn() -> &'static Method + Copy,
 {
@@ -142,7 +118,7 @@ pub mod v2 {
     ///
     /// let get_only = warp::get2().map(warp::reply);
     /// ```
-    pub fn get() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn get() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::GET)
     }
 
@@ -155,7 +131,7 @@ pub mod v2 {
     ///
     /// let post_only = warp::post2().map(warp::reply);
     /// ```
-    pub fn post() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn post() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::POST)
     }
 
@@ -168,7 +144,7 @@ pub mod v2 {
     ///
     /// let put_only = warp::put2().map(warp::reply);
     /// ```
-    pub fn put() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn put() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::PUT)
     }
 
@@ -181,7 +157,7 @@ pub mod v2 {
     ///
     /// let delete_only = warp::delete2().map(warp::reply);
     /// ```
-    pub fn delete() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn delete() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::DELETE)
     }
 
@@ -194,7 +170,7 @@ pub mod v2 {
     ///
     /// let head_only = warp::head().map(warp::reply);
     /// ```
-    pub fn head() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn head() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::HEAD)
     }
 
@@ -207,7 +183,7 @@ pub mod v2 {
     ///
     /// let options_only = warp::options().map(warp::reply);
     /// ```
-    pub fn options() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn options() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::OPTIONS)
     }
 
@@ -220,7 +196,7 @@ pub mod v2 {
     ///
     /// let patch_only = warp::patch().map(warp::reply);
     /// ```
-    pub fn patch() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+    pub fn patch() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         method_is(|| &Method::PATCH)
     }
 }

@@ -10,8 +10,7 @@ use warp::Filter;
 fn query() {
     let as_map = warp::query::<HashMap<String, String>>();
 
-    let req = warp::test::request()
-        .path("/?foo=bar&baz=quux");
+    let req = warp::test::request().path("/?foo=bar&baz=quux");
 
     let extracted = req.filter(&as_map).unwrap();
     assert_eq!(extracted["foo"], "bar");
@@ -22,33 +21,48 @@ fn query() {
 fn query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
-    let req = warp::test::request()
-        .path("/?foo=bar&baz=quux");
+    let req = warp::test::request().path("/?foo=bar&baz=quux");
 
     let extracted = req.filter(&as_struct).unwrap();
-    assert_eq!(extracted, MyArgs { foo: Some("bar".into()), baz: Some("quux".into()) });
+    assert_eq!(
+        extracted,
+        MyArgs {
+            foo: Some("bar".into()),
+            baz: Some("quux".into())
+        }
+    );
 }
 
 #[test]
 fn empty_query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
-    let req = warp::test::request()
-        .path("/?");
+    let req = warp::test::request().path("/?");
 
     let extracted = req.filter(&as_struct).unwrap();
-    assert_eq!(extracted, MyArgs { foo: None, baz: None });
+    assert_eq!(
+        extracted,
+        MyArgs {
+            foo: None,
+            baz: None
+        }
+    );
 }
 
 #[test]
 fn missing_query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
-    let req = warp::test::request()
-        .path("/");
+    let req = warp::test::request().path("/");
 
     let extracted = req.filter(&as_struct).unwrap();
-    assert_eq!(extracted, MyArgs { foo: None, baz: None });
+    assert_eq!(
+        extracted,
+        MyArgs {
+            foo: None,
+            baz: None
+        }
+    );
 }
 
 #[derive(Deserialize, Debug, Eq, PartialEq)]
@@ -61,19 +75,23 @@ struct MyArgs {
 fn required_query_struct() {
     let as_struct = warp::query::<MyRequiredArgs>();
 
-    let req = warp::test::request()
-        .path("/?foo=bar&baz=quux");
+    let req = warp::test::request().path("/?foo=bar&baz=quux");
 
     let extracted = req.filter(&as_struct).unwrap();
-    assert_eq!(extracted, MyRequiredArgs { foo: "bar".into(), baz: "quux".into() });
+    assert_eq!(
+        extracted,
+        MyRequiredArgs {
+            foo: "bar".into(),
+            baz: "quux".into()
+        }
+    );
 }
 
 #[test]
 fn missing_required_query_struct_partial() {
     let as_struct = warp::query::<MyRequiredArgs>();
 
-    let req = warp::test::request()
-        .path("/?foo=something");
+    let req = warp::test::request().path("/?foo=something");
 
     let extracted = req.filter(&as_struct);
     assert!(extracted.is_err())
@@ -81,11 +99,9 @@ fn missing_required_query_struct_partial() {
 
 #[test]
 fn missing_required_query_struct_no_query() {
-    let as_struct = warp::query::<MyRequiredArgs>()
-        .map(|_| warp::reply());
+    let as_struct = warp::query::<MyRequiredArgs>().map(|_| warp::reply());
 
-    let req = warp::test::request()
-        .path("/");
+    let req = warp::test::request().path("/");
 
     let res = req.reply(&as_struct);
     assert_eq!(res.status(), 400);
@@ -102,8 +118,7 @@ struct MyRequiredArgs {
 fn raw_query() {
     let as_raw = warp::query::raw();
 
-    let req = warp::test::request()
-        .path("/?foo=bar&baz=quux");
+    let req = warp::test::request().path("/?foo=bar&baz=quux");
 
     let extracted = req.filter(&as_raw).unwrap();
     assert_eq!(extracted, "foo=bar&baz=quux".to_owned());

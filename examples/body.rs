@@ -1,6 +1,7 @@
 #![deny(warnings)]
 extern crate serde;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate pretty_env_logger;
 extern crate warp;
 
@@ -27,6 +28,5 @@ fn main() {
             warp::reply::json(&employee)
         });
 
-    warp::serve(promote)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(promote).run(([127, 0, 0, 1], 3030));
 }

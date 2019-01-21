@@ -6,8 +6,8 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use bytes::Buf;
-use futures::{Async, Future, Poll, Stream};
 use futures::stream::Concat2;
+use futures::{Async, Future, Poll, Stream};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
@@ -16,20 +16,18 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use ::filter::{FilterBase, Filter, filter_fn, filter_fn_one};
-use ::reject::{self, Rejection};
+use filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use reject::{self, Rejection};
 
 // Extracts the `Body` Stream from the route.
 //
 // Does not consume any of it.
-pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
+pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
-        route
-            .take_body()
-            .ok_or_else(|| {
-                error!("request body already taken in previous filter");
-                reject::known(BodyConsumedMultipleTimes(()))
-            })
+        route.take_body().ok_or_else(|| {
+            error!("request body already taken in previous filter");
+            reject::known(BodyConsumedMultipleTimes(()))
+        })
     })
 }
 
@@ -47,7 +45,7 @@ pub(crate) fn body() -> impl Filter<Extract=(Body,), Error=Rejection> + Copy {
 /// let upload = warp::body::content_length_limit(4096)
 ///     .and(warp::body::concat());
 /// ```
-pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     ::filters::header::header2()
         .map_err(|_| {
             debug!("content-length missing");
@@ -73,10 +71,8 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract=(), Error=Rejecti
 ///
 /// This does not have a default size limit, it would be wise to use one to
 /// prevent a overly large request from using too much memory.
-pub fn stream() -> impl Filter<Extract=(BodyStream,), Error=Rejection> + Copy {
-    body().map(|body: Body| BodyStream {
-        body,
-    })
+pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Copy {
+    body().map(|body: Body| BodyStream { body })
 }
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
@@ -106,29 +102,33 @@ pub fn stream() -> impl Filter<Extract=(BodyStream,), Error=Rejection> + Copy {
 ///         }
 ///     });
 /// ```
-pub fn concat() -> impl Filter<Extract=(FullBody,), Error=Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| {
-        Concat {
-            fut: body.concat2(),
-        }
+pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
+    body().and_then(|body: ::hyper::Body| Concat {
+        fut: body.concat2(),
     })
 }
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
 // header at all, optimistically hope it's the right type).
-fn is_content_type(type_: mime::Name<'static>, subtype: mime::Name<'static>)
-    -> impl Filter<Extract=(), Error=Rejection> + Copy
-{
+fn is_content_type(
+    type_: mime::Name<'static>,
+    subtype: mime::Name<'static>,
+) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
             trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
-            let ct = value.to_str().ok()
+            let ct = value
+                .to_str()
+                .ok()
                 .and_then(|s| s.parse::<mime::Mime>().ok());
             if let Some(ct) = ct {
                 if ct.type_() == type_ && ct.subtype() == subtype {
                     Ok(())
                 } else {
-                    debug!("content-type {:?} doesn't match {}/{}", value, type_, subtype);
+                    debug!(
+                        "content-type {:?} doesn't match {}/{}",
+                        value, type_, subtype
+                    );
                     Err(reject::unsupported_media_type())
                 }
             } else {
@@ -163,17 +163,14 @@ fn is_content_type(type_: mime::Name<'static>, subtype: mime::Name<'static>)
 ///         "Got a JSON body!"
 ///     });
 /// ```
-pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
+pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type(mime::APPLICATION, mime::JSON)
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_json::from_slice(&buf.chunk)
-                .map_err(|err| {
-                    debug!("request json body error: {}", err);
-                    reject::known(BodyDeserializeError {
-                        cause: err.into(),
-                    })
-                })
+            serde_json::from_slice(&buf.chunk).map_err(|err| {
+                debug!("request json body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err.into() })
+            })
         })
 }
 
@@ -201,17 +198,14 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rej
 ///         "Got a urlencoded body!"
 ///     });
 /// ```
-pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract=(T,), Error=Rejection> + Copy {
+pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_urlencoded::from_bytes(&buf.chunk)
-                .map_err(|err| {
-                    debug!("request form body error: {}", err);
-                    reject::known(BodyDeserializeError {
-                        cause: err.into(),
-                    })
-                })
+            serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
+                debug!("request form body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err.into() })
+            })
         })
 }
 
@@ -256,7 +250,7 @@ impl Future for Concat {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.fut.poll() {
-            Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk, })),
+            Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk })),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
                 debug!("concat error: {}", err);
@@ -281,8 +275,7 @@ impl Stream for BodyStream {
         let opt_item = try_ready!(self
             .body
             .poll()
-            .map_err(|e| ::Error::from(::error::Kind::Hyper(e)))
-        );
+            .map_err(|e| ::Error::from(::error::Kind::Hyper(e))));
 
         Ok(opt_item.map(|chunk| StreamBuf { chunk }).into())
     }
@@ -290,8 +283,7 @@ impl Stream for BodyStream {
 
 impl fmt::Debug for BodyStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BodyStream")
-            .finish()
+        f.debug_struct("BodyStream").finish()
     }
 }
 
@@ -357,7 +349,6 @@ impl ::std::error::Error for BodyReadError {
     }
 }
 
-
 #[derive(Debug)]
 pub(crate) struct BodyConsumedMultipleTimes(());
 
@@ -372,4 +363,3 @@ impl ::std::error::Error for BodyConsumedMultipleTimes {
         "Request body consumed multiple times"
     }
 }
-

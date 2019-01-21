@@ -9,9 +9,9 @@ use std::str::FromStr;
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
 
-use ::never::Never;
-use ::filter::{Filter, filter_fn, filter_fn_one, One};
-use ::reject::{self, Rejection};
+use filter::{filter_fn, filter_fn_one, Filter, One};
+use never::Never;
+use reject::{self, Rejection};
 
 /// Create a `Filter` that tries to parse the specified header.
 ///
@@ -32,10 +32,13 @@ use ::reject::{self, Rejection};
 /// // Parse `foo: bar` into a `String`
 /// let foo = warp::header::<String>("foo");
 /// ```
-pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn header<T: FromStr + Send>(
+    name: &'static str,
+) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(move |route| {
         trace!("header({:?})", name);
-        route.headers()
+        route
+            .headers()
             .get(name)
             .ok_or_else(|| reject::known(MissingHeader(name)))
             .and_then(|value| {
@@ -43,17 +46,16 @@ pub fn header<T: FromStr + Send>(name: &'static str) -> impl Filter<Extract=One<
                     .to_str()
                     .map_err(|_| reject::known(InvalidHeader(name)))
             })
-            .and_then(|s| {
-                T::from_str(s)
-                    .map_err(|_| reject::known(InvalidHeader(name)))
-            })
+            .and_then(|s| T::from_str(s).map_err(|_| reject::known(InvalidHeader(name))))
     })
 }
 
-pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+{
     filter_fn_one(move |route| {
         trace!("header2({:?})", T::NAME);
-        route.headers()
+        route
+            .headers()
             .typed_get()
             .ok_or_else(|| reject::known(InvalidHeader(T::NAME.as_str())))
     })
@@ -89,10 +91,14 @@ where
 /// // Require `dnt: 1` header to be set.
 /// let must_dnt = warp::header::exact("dnt", "1");
 /// ```
-pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn exact(
+    name: &'static str,
+    value: &'static str,
+) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact?({:?}, {:?})", name, value);
-        route.headers()
+        route
+            .headers()
             .get(name)
             .ok_or_else(|| reject::known(MissingHeader(name)))
             .and_then(|val| {
@@ -116,10 +122,14 @@ pub fn exact(name: &'static str, value: &'static str) -> impl Filter<Extract=(),
 /// // Require `connection: keep-alive` header to be set.
 /// let keep_alive = warp::header::exact("connection", "keep-alive");
 /// ```
-pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn exact_ignore_case(
+    name: &'static str,
+    value: &'static str,
+) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         trace!("exact_ignore_case({:?}, {:?})", name, value);
-        route.headers()
+        route
+            .headers()
             .get(name)
             .ok_or_else(|| reject::known(MissingHeader(name)))
             .and_then(|val| {
@@ -144,20 +154,15 @@ pub fn exact_ignore_case(name: &'static str, value: &'static str) -> impl Filter
 ///         format!("header count: {}", headers.len())
 ///     });
 /// ```
-pub fn headers_cloned() -> impl Filter<Extract=One<HeaderMap>, Error=Never> + Copy {
-    filter_fn_one(|route| {
-        Ok(route.headers().clone())
-    })
+pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Never> + Copy {
+    filter_fn_one(|route| Ok(route.headers().clone()))
 }
 
-pub(crate) fn optional<T>()
-    -> impl Filter<Extract=One<Option<T>>, Error=Never> + Copy
+pub(crate) fn optional<T>() -> impl Filter<Extract = One<Option<T>>, Error = Never> + Copy
 where
     T: Header + Send,
 {
-    filter_fn_one(move |route| {
-        Ok(route.headers().typed_get())
-    })
+    filter_fn_one(move |route| Ok(route.headers().typed_get()))
 }
 
 // ===== Rejections =====

@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{Either, FilterBase, Filter, Tuple};
+use super::{Either, Filter, FilterBase, Tuple};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unify<F> {
@@ -30,7 +30,7 @@ pub struct UnifyFuture<F> {
 
 impl<F, T> Future for UnifyFuture<F>
 where
-    F: Future<Item=(Either<T, T>,)>,
+    F: Future<Item = (Either<T, T>,)>,
 {
     type Item = T;
     type Error = F::Error;
@@ -44,4 +44,3 @@ where
         Ok(Async::Ready(unified))
     }
 }
-

@@ -1,6 +1,6 @@
 use futures::{Async, Future, Poll};
 
-use super::{FilterBase, Filter, Tuple};
+use super::{Filter, FilterBase, Tuple};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UntupleOne<F> {
@@ -9,7 +9,7 @@ pub struct UntupleOne<F> {
 
 impl<F, T> FilterBase for UntupleOne<F>
 where
-    F: Filter<Extract=(T,)>,
+    F: Filter<Extract = (T,)>,
     T: Tuple,
 {
     type Extract = T;
@@ -30,7 +30,7 @@ pub struct UntupleOneFuture<F: Filter> {
 
 impl<F, T> Future for UntupleOneFuture<F>
 where
-    F: Filter<Extract=(T,)>,
+    F: Filter<Extract = (T,)>,
     T: Tuple,
 {
     type Item = T;
@@ -42,4 +42,3 @@ where
         Ok(Async::Ready(t))
     }
 }
-

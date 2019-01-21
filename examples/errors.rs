@@ -1,14 +1,15 @@
 #![deny(warnings)]
 extern crate serde;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate serde_derive;
 extern crate pretty_env_logger;
 extern crate warp;
 
 use std::error::Error as StdError;
 use std::fmt::{self, Display};
 
-use warp::{Filter, Rejection, Reply};
 use warp::http::StatusCode;
+use warp::{Filter, Rejection, Reply};
 
 #[derive(Copy, Clone, Debug)]
 enum Error {
@@ -41,27 +42,20 @@ impl StdError for Error {
     }
 }
 
-
 fn main() {
-    let hello = warp::path::end()
-        .map(warp::reply);
+    let hello = warp::path::end().map(warp::reply);
 
-    let oops = warp::path("oops")
-        .and_then(|| {
-            Err::<StatusCode, _>(warp::reject::custom(Error::Oops))
-        });
+    let oops =
+        warp::path("oops").and_then(|| Err::<StatusCode, _>(warp::reject::custom(Error::Oops)));
 
-    let nope = warp::path("nope")
-        .and_then(|| {
-            Err::<StatusCode, _>(warp::reject::custom(Error::Nope))
-        });
+    let nope =
+        warp::path("nope").and_then(|| Err::<StatusCode, _>(warp::reject::custom(Error::Nope)));
 
     let routes = warp::get2()
         .and(hello.or(oops).or(nope))
         .recover(customize_error);
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
 
 // This function receives a `Rejection` and tries to return a custom

@@ -71,5 +71,8 @@ impl From<Never> for Error {
 
 #[test]
 fn error_size_of() {
-    assert_eq!(::std::mem::size_of::<Error>(), ::std::mem::size_of::<usize>());
+    assert_eq!(
+        ::std::mem::size_of::<Error>(),
+        ::std::mem::size_of::<usize>()
+    );
 }

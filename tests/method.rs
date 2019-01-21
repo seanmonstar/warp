@@ -12,12 +12,10 @@ fn method() {
     let req = warp::test::request();
     assert!(req.matches(&get));
 
-    let req = warp::test::request()
-        .method("POST");
+    let req = warp::test::request().method("POST");
     assert!(!req.matches(&get));
 
-    let req = warp::test::request()
-        .method("POST");
+    let req = warp::test::request().method("POST");
     let resp = req.reply(&get);
     assert_eq!(resp.status(), 405);
 }
@@ -30,10 +28,7 @@ fn method_not_allowed_trumps_not_found() {
 
     let routes = get.or(post);
 
-
-    let req = warp::test::request()
-        .method("GET")
-        .path("/bye");
+    let req = warp::test::request().method("GET").path("/bye");
 
     let resp = req.reply(&routes);
     // GET was allowed, but only for /hello, so POST returning 405 is fine.
@@ -47,20 +42,14 @@ fn bad_request_trumps_method_not_allowed() {
         .and(warp::path("hello"))
         .and(warp::header::exact("foo", "bar"))
         .map(warp::reply);
-    let post = warp::post2()
-        .and(warp::path("bye"))
-        .map(warp::reply);
+    let post = warp::post2().and(warp::path("bye")).map(warp::reply);
 
     let routes = get.or(post);
 
-
-    let req = warp::test::request()
-        .method("GET")
-        .path("/hello");
+    let req = warp::test::request().method("GET").path("/hello");
 
     let resp = req.reply(&routes);
     // GET was allowed, but header rejects with 400, should not
     // assume POST was the appropriate method.
     assert_eq!(resp.status(), 400);
 }
-

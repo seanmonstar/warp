@@ -30,12 +30,16 @@
 use std::error::Error as StdError;
 use std::fmt;
 
-use http::{self, header::{CONTENT_TYPE, HeaderValue}, StatusCode};
+use http::{
+    self,
+    header::{HeaderValue, CONTENT_TYPE},
+    StatusCode,
+};
 use hyper::Body;
 use serde;
 use serde_json;
 
-use ::never::Never;
+use never::Never;
 
 pub(crate) use self::sealed::{CombineRejection, Reject};
 
@@ -45,7 +49,9 @@ pub(crate) use self::sealed::{CombineRejection, Reject};
 pub type Cause = Box<StdError + Send + Sync>;
 
 #[doc(hidden)]
-#[deprecated(note = "this will be changed to return a NotFound rejection, use warp::reject::custom for custom bad requests")]
+#[deprecated(
+    note = "this will be changed to return a NotFound rejection, use warp::reject::custom for custom bad requests"
+)]
 #[allow(deprecated)]
 #[inline]
 pub fn reject() -> Rejection {
@@ -104,7 +110,6 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 pub fn server_error() -> Rejection {
     Rejection::known_status(StatusCode::INTERNAL_SERVER_ERROR)
 }
-
 
 /// Rejects a request with a custom cause.
 ///
@@ -220,7 +225,7 @@ impl Rejection {
         let cause = err.into();
 
         Self {
-            reason: Reason::Other(Box::new(Rejections::With(self, cause)))
+            reason: Reason::Other(Box::new(Rejections::With(self, cause))),
         }
     }
 
@@ -231,7 +236,8 @@ impl Rejection {
         let mut res = http::Response::default();
         *res.status_mut() = code;
 
-        res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        res.headers_mut()
+            .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
 
         *res.body_mut() = match serde_json::to_string(&self) {
             Ok(body) => Body::from(body),
@@ -256,7 +262,7 @@ impl Rejection {
     /// annoy people who didn't need to make any changes.
     pub fn cause(&self) -> Option<&Cause> {
         if let Reason::Other(ref err) = self.reason {
-            return err.cause()
+            return err.cause();
         }
         None
     }
@@ -265,7 +271,7 @@ impl Rejection {
     #[deprecated(note = "into_cause can no longer be provided")]
     pub fn into_cause<T>(self) -> Result<Box<T>, Self>
     where
-        T: StdError + Send + Sync + 'static
+        T: StdError + Send + Sync + 'static,
     {
         Err(self)
     }
@@ -306,7 +312,7 @@ impl Reject for Rejection {
                 let mut res = http::Response::default();
                 *res.status_mut() = StatusCode::NOT_FOUND;
                 res
-            },
+            }
             Reason::Other(ref other) => other.into_response(),
         }
     }
@@ -318,9 +324,7 @@ impl Reject for Rejection {
 
 impl fmt::Debug for Rejection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Rejection")
-            .field(&self.reason)
-            .finish()
+        f.debug_tuple("Rejection").field(&self.reason).finish()
     }
 }
 
@@ -329,7 +333,6 @@ impl fmt::Debug for Reason {
         match *self {
             Reason::NotFound => f.write_str("NotFound"),
             Reason::Other(ref other) => fmt::Debug::fmt(other, f),
-
         }
     }
 }
@@ -339,18 +342,20 @@ impl fmt::Debug for Reason {
 impl serde::Serialize for Rejection {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer
+        S: serde::Serializer,
     {
         use serde::ser::SerializeMap;
 
         let mut map = serializer.serialize_map(None)?;
         let err = match self.cause() {
             Some(err) => err,
-            None => return map.end()
+            None => return map.end(),
         };
 
-        map.serialize_key("description").and_then(|_| map.serialize_value(err.description()))?;
-        map.serialize_key("message").and_then(|_| map.serialize_value(&err.to_string()))?;
+        map.serialize_key("description")
+            .and_then(|_| map.serialize_value(err.description()))?;
+        map.serialize_key("message")
+            .and_then(|_| map.serialize_value(&err.to_string()))?;
         map.end()
     }
 }
@@ -396,17 +401,11 @@ impl Rejections {
                 } else {
                     unreachable!("unexpected 'Known' rejection: {:?}", e);
                 }
-            },
-            Rejections::KnownStatus(status) => status,
-            Rejections::With(ref rej, _) => {
-                rej.status()
-            },
-            Rejections::Custom(..) => {
-                StatusCode::INTERNAL_SERVER_ERROR
-            },
-            Rejections::Combined(ref a, ref b) => {
-                preferred(a, b).status()
             }
+            Rejections::KnownStatus(status) => status,
+            Rejections::With(ref rej, _) => rej.status(),
+            Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
+            Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
         }
     }
 
@@ -415,78 +414,60 @@ impl Rejections {
             Rejections::Known(ref e) => {
                 let mut res = http::Response::new(Body::from(e.to_string()));
                 *res.status_mut() = self.status();
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
                 res
-            },
+            }
             Rejections::KnownStatus(ref s) => {
                 use reply::ReplySealed;
                 s.into_response()
-            },
+            }
             Rejections::With(ref rej, ref e) => {
                 let mut res = rej.into_response();
 
                 let bytes = e.to_string();
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
                 *res.body_mut() = Body::from(bytes);
 
                 res
-            },
+            }
             Rejections::Custom(ref e) => {
-                error!("unhandled custom rejection, returning 500 response: {:?}", e);
+                error!(
+                    "unhandled custom rejection, returning 500 response: {:?}",
+                    e
+                );
                 let body = format!("Unhandled rejection: {}", e);
                 let mut res = http::Response::new(Body::from(body));
                 *res.status_mut() = self.status();
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
                 res
-            },
-            Rejections::Combined(ref a, ref b) => {
-                preferred(a, b).into_response()
-            },
+            }
+            Rejections::Combined(ref a, ref b) => preferred(a, b).into_response(),
         }
     }
 
     fn cause(&self) -> Option<&Cause> {
         match *self {
-            Rejections::Known(ref e) => {
-                Some(e)
-            },
-            Rejections::KnownStatus(_) => {
-                None
-            },
-            Rejections::With(_, ref e) => {
-                Some(e)
-            },
-            Rejections::Custom(ref e) => {
-                Some(e)
-            },
-            Rejections::Combined(ref a, ref b) => {
-                preferred(a, b).cause()
-            },
+            Rejections::Known(ref e) => Some(e),
+            Rejections::KnownStatus(_) => None,
+            Rejections::With(_, ref e) => Some(e),
+            Rejections::Custom(ref e) => Some(e),
+            Rejections::Combined(ref a, ref b) => preferred(a, b).cause(),
         }
     }
 
     pub fn find_cause<T: StdError + 'static>(&self) -> Option<&T> {
         match *self {
-            Rejections::Known(ref e) => {
-                e.downcast_ref()
-            },
-            Rejections::KnownStatus(_) => {
-                None
-            },
-            Rejections::With(_, ref e) => {
-                e.downcast_ref()
-            },
-            Rejections::Custom(ref e) => {
-                e.downcast_ref()
-            },
-            Rejections::Combined(ref a, ref b) => {
-                a.find_cause()
-                    .or_else(|| b.find_cause())
-            },
+            Rejections::Known(ref e) => e.downcast_ref(),
+            Rejections::KnownStatus(_) => None,
+            Rejections::With(_, ref e) => e.downcast_ref(),
+            Rejections::Custom(ref e) => e.downcast_ref(),
+            Rejections::Combined(ref a, ref b) => a.find_cause().or_else(|| b.find_cause()),
         }
     }
 }
-
 
 fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
     // Compare status codes, with this priority:
@@ -508,28 +489,12 @@ impl fmt::Debug for Rejections {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
-            Rejections::KnownStatus(ref s) => {
-                f.debug_tuple("Status")
-                    .field(s)
-                    .finish()
-            },
-            Rejections::With(ref rej, ref e) => {
-                f.debug_tuple("With")
-                    .field(rej)
-                    .field(e)
-                    .finish()
-            },
-            Rejections::Custom(ref e) => {
-                f.debug_tuple("Custom")
-                    .field(e)
-                    .finish()
-            },
+            Rejections::KnownStatus(ref s) => f.debug_tuple("Status").field(s).finish(),
+            Rejections::With(ref rej, ref e) => f.debug_tuple("With").field(rej).field(e).finish(),
+            Rejections::Custom(ref e) => f.debug_tuple("Custom").field(e).finish(),
             Rejections::Combined(ref a, ref b) => {
-                f.debug_tuple("Combined")
-                    .field(a)
-                    .field(b)
-                    .finish()
-            },
+                f.debug_tuple("Combined").field(a).field(b).finish()
+            }
         }
     }
 }
@@ -599,15 +564,17 @@ trait Typed: StdError + 'static {
 }
 
 mod sealed {
-    use std::fmt;
-    use http::StatusCode;
-    use ::never::Never;
     use super::{Cause, Reason, Rejection, Rejections};
+    use http::StatusCode;
+    use never::Never;
+    use std::fmt;
 
     pub trait Reject: fmt::Debug + Send + Sync {
         fn status(&self) -> StatusCode;
         fn into_response(&self) -> ::reply::Response;
-        fn cause(&self) -> Option<&Cause> { None }
+        fn cause(&self) -> Option<&Cause> {
+            None
+        }
     }
 
     fn _assert_object_safe() {
@@ -627,20 +594,16 @@ mod sealed {
             let reason = match (self.reason, other.reason) {
                 (Reason::Other(left), Reason::Other(right)) => {
                     Reason::Other(Box::new(Rejections::Combined(left, right)))
-                },
-                (Reason::Other(other), Reason::NotFound) |
-                (Reason::NotFound, Reason::Other(other)) => {
+                }
+                (Reason::Other(other), Reason::NotFound)
+                | (Reason::NotFound, Reason::Other(other)) => {
                     // ignore the NotFound
                     Reason::Other(other)
-                },
-                (Reason::NotFound, Reason::NotFound) => {
-                    Reason::NotFound
                 }
+                (Reason::NotFound, Reason::NotFound) => Reason::NotFound,
             };
 
-            Rejection {
-                reason,
-            }
+            Rejection { reason }
         }
     }
 
@@ -671,7 +634,7 @@ mod sealed {
 
 #[cfg(test)]
 mod tests {
-    use http::header::{CONTENT_TYPE};
+    use http::header::CONTENT_TYPE;
 
     use super::*;
     use http::StatusCode;
@@ -682,10 +645,16 @@ mod tests {
         assert_eq!(bad_request().status(), StatusCode::BAD_REQUEST);
         assert_eq!(forbidden().status(), StatusCode::FORBIDDEN);
         assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
-        assert_eq!(method_not_allowed().status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            method_not_allowed().status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
         assert_eq!(length_required().status(), StatusCode::LENGTH_REQUIRED);
         assert_eq!(payload_too_large().status(), StatusCode::PAYLOAD_TOO_LARGE);
-        assert_eq!(unsupported_media_type().status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(
+            unsupported_media_type().status(),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
         assert_eq!(server_error().status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(custom("boom").status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
@@ -737,8 +706,7 @@ mod tests {
     #[allow(deprecated)]
     #[test]
     fn unhandled_customs() {
-        let reject = bad_request()
-            .combine(custom("right"));
+        let reject = bad_request().combine(custom("right"));
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -746,8 +714,7 @@ mod tests {
 
         // There's no real way to determine which is worse, since both are a 500,
         // so pick the first one.
-        let reject = server_error()
-            .combine(custom("right"));
+        let reject = server_error().combine(custom("right"));
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -787,7 +754,10 @@ mod tests {
     fn into_json_with_none_cause() {
         let resp = not_found().json();
         assert_eq!(404, resp.status());
-        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!(
+            "application/json",
+            resp.headers().get(CONTENT_TYPE).unwrap()
+        );
         assert_eq!("{}", response_body_string(resp))
     }
 
@@ -796,20 +766,21 @@ mod tests {
     fn into_json_with_some_cause() {
         let resp = bad_request().with("boom").json();
         assert_eq!(400, resp.status());
-        assert_eq!("application/json", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!(
+            "application/json",
+            resp.headers().get(CONTENT_TYPE).unwrap()
+        );
         let expected = "{\"description\":\"boom\",\"message\":\"boom\"}";
         assert_eq!(expected, response_body_string(resp))
     }
 
     fn response_body_string(resp: ::reply::Response) -> String {
-        use futures::{Future, Stream, Async};
+        use futures::{Async, Future, Stream};
 
         let (_, body) = resp.into_parts();
         match body.concat2().poll() {
-            Ok(Async::Ready(chunk)) => {
-                String::from_utf8_lossy(&chunk).to_string()
-            },
-            err => unreachable!("{:?}", err)
+            Ok(Async::Ready(chunk)) => String::from_utf8_lossy(&chunk).to_string(),
+            err => unreachable!("{:?}", err),
         }
     }
 
@@ -818,12 +789,9 @@ mod tests {
     fn into_cause() {
         use std::io;
 
-        let reject = bad_request()
-            .with(io::Error::new(io::ErrorKind::Other, "boom"));
+        let reject = bad_request().with(io::Error::new(io::ErrorKind::Other, "boom"));
 
-        reject
-            .into_cause::<io::Error>()
-            .unwrap_err();
+        reject.into_cause::<io::Error>().unwrap_err();
     }
 
     #[allow(deprecated)]
@@ -831,8 +799,7 @@ mod tests {
     fn find_cause() {
         use std::io;
 
-        let rej = bad_request()
-            .with(io::Error::new(io::ErrorKind::Other, "boom"));
+        let rej = bad_request().with(io::Error::new(io::ErrorKind::Other, "boom"));
 
         assert_eq!(rej.find_cause::<io::Error>().unwrap().to_string(), "boom");
 
@@ -841,8 +808,10 @@ mod tests {
             .combine(method_not_allowed());
 
         assert_eq!(rej.find_cause::<io::Error>().unwrap().to_string(), "boom");
-        assert!(rej.find_cause::<MethodNotAllowed>().is_some(), "MethodNotAllowed");
-
+        assert!(
+            rej.find_cause::<MethodNotAllowed>().is_some(),
+            "MethodNotAllowed"
+        );
     }
 
     #[test]
