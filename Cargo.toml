@@ -36,6 +36,7 @@ urlencoding = "1.0.0"
 pretty_env_logger = "0.2"
 serde_derive = "1.0"
 handlebars = "1.0.0"
+signal-hook = { version = "0.1", features = ["tokio-support"] }
 
 [features]
 tls = ["rustls"]
