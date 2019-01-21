@@ -13,16 +13,13 @@ struct Seconds(u64);
 impl FromStr for Seconds {
     type Err = ();
     fn from_str(src: &str) -> Result<Self, Self::Err> {
-        src
-            .parse::<u64>()
-            .map_err(|_| ())
-            .and_then(|num| {
-                if num <= 5 {
-                    Ok(Seconds(num))
-                } else {
-                    Err(())
-                }
-            })
+        src.parse::<u64>().map_err(|_| ()).and_then(|num| {
+            if num <= 5 {
+                Ok(Seconds(num))
+            } else {
+                Err(())
+            }
+        })
     }
 }
 
@@ -42,6 +39,5 @@ fn main() {
         })
         .map(|seconds| format!("I waited {} seconds!", seconds));
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }

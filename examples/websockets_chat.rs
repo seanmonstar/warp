@@ -4,12 +4,15 @@ extern crate pretty_env_logger;
 extern crate warp;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 
-use futures::{Future, Stream};
 use futures::sync::mpsc;
-use warp::Filter;
+use futures::{Future, Stream};
 use warp::ws::{Message, WebSocket};
+use warp::Filter;
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -20,7 +23,6 @@ static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 /// - Value is a sender of `warp::ws::Message`
 type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 
-
 fn main() {
     pretty_env_logger::init();
 
@@ -30,7 +32,6 @@ fn main() {
     // Turn our "state" into a new Filter...
     let users = warp::any().map(move || users.clone());
 
-
     // GET /chat -> websocket upgrade
     let chat = warp::path("chat")
         // The `ws2()` filter will prepare Websocket handshake...
@@ -38,21 +39,15 @@ fn main() {
         .and(users)
         .map(|ws: warp::ws::Ws2, users| {
             // This will call our function if the handshake succeeds.
-            ws.on_upgrade(move |socket| {
-                user_connected(socket, users)
-            })
+            ws.on_upgrade(move |socket| user_connected(socket, users))
         });
 
     // GET / -> index html
-    let index = warp::path::end()
-        .map(|| {
-            warp::reply::html(INDEX_HTML)
-        });
+    let index = warp::path::end().map(|| warp::reply::html(INDEX_HTML));
 
     let routes = index.or(chat);
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
 
 fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error = ()> {
@@ -68,19 +63,14 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error =
     // to the websocket...
     let (tx, rx) = mpsc::unbounded();
     warp::spawn(
-        rx
-            .map_err(|()| -> warp::Error { unreachable!("unbounded rx never errors") })
+        rx.map_err(|()| -> warp::Error { unreachable!("unbounded rx never errors") })
             .forward(user_ws_tx)
             .map(|_tx_rx| ())
-            .map_err(|ws_err| eprintln!("websocket send error: {}", ws_err))
+            .map_err(|ws_err| eprintln!("websocket send error: {}", ws_err)),
     );
 
-
     // Save the sender in our list of connected users.
-    users
-        .lock()
-        .unwrap()
-        .insert(my_id, tx);
+    users.lock().unwrap().insert(my_id, tx);
 
     // Return a `Future` that is basically a state machine managing
     // this specific user's connection.
@@ -111,7 +101,7 @@ fn user_message(my_id: usize, msg: Message, users: &Users) {
     // Skip any non-Text messages...
     let msg = if let Ok(s) = msg.to_str() {
         s
-    } else{
+    } else {
         return;
     };
 
@@ -139,10 +129,7 @@ fn user_disconnected(my_id: usize, users: &Users) {
     eprintln!("good bye user: {}", my_id);
 
     // Stream closed up, so remove from the user list
-    users
-        .lock()
-        .unwrap()
-        .remove(&my_id);
+    users.lock().unwrap().remove(&my_id);
 }
 
 static INDEX_HTML: &str = r#"

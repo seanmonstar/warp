@@ -29,8 +29,7 @@ fn dir() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/todos.rs");
+    let req = warp::test::request().path("/todos.rs");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
@@ -49,8 +48,7 @@ fn dir_encoded() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/todos%2ers");
+    let req = warp::test::request().path("/todos%2ers");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 200);
@@ -67,8 +65,7 @@ fn dir_not_found() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/definitely-not-found");
+    let req = warp::test::request().path("/definitely-not-found");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 404);
@@ -80,8 +77,7 @@ fn dir_bad_path() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/../README.md");
+    let req = warp::test::request().path("/../README.md");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 404);
@@ -93,8 +89,7 @@ fn dir_bad_encoded_path() {
 
     let file = warp::fs::dir("examples");
 
-    let req = warp::test::request()
-        .path("/%2E%2e/README.md");
+    let req = warp::test::request().path("/%2E%2e/README.md");
     let res = req.reply(&file);
 
     assert_eq!(res.status(), 404);
@@ -176,7 +171,10 @@ fn byte_ranges() {
         .header("range", "bytes=100-200")
         .reply(&file);
     assert_eq!(res.status(), 206);
-    assert_eq!(res.headers()["content-range"], format!("bytes 100-200/{}", contents.len()));
+    assert_eq!(
+        res.headers()["content-range"],
+        format!("bytes 100-200/{}", contents.len())
+    );
     assert_eq!(res.headers()["content-length"], "101");
     assert_eq!(res.body(), &contents[100..=200]);
 
@@ -185,7 +183,10 @@ fn byte_ranges() {
         .header("range", "bytes=100-10")
         .reply(&file);
     assert_eq!(res.status(), 416);
-    assert_eq!(res.headers()["content-range"], format!("bytes */{}", contents.len()));
+    assert_eq!(
+        res.headers()["content-range"],
+        format!("bytes */{}", contents.len())
+    );
     assert_eq!(res.headers().get("content-length"), None);
     assert_eq!(res.body(), "");
 
@@ -194,7 +195,10 @@ fn byte_ranges() {
         .header("range", "bytes=100-100000")
         .reply(&file);
     assert_eq!(res.status(), 416);
-    assert_eq!(res.headers()["content-range"], format!("bytes */{}", contents.len()));
+    assert_eq!(
+        res.headers()["content-range"],
+        format!("bytes */{}", contents.len())
+    );
     assert_eq!(res.headers().get("content-length"), None);
     assert_eq!(res.body(), "");
 
@@ -207,4 +211,3 @@ fn byte_ranges() {
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
     assert_eq!(res.headers().get("content-range"), None);
 }
-

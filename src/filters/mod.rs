@@ -19,4 +19,4 @@ pub mod reply;
 pub mod sse;
 pub mod ws;
 
-pub use ::filter::BoxedFilter;
+pub use filter::BoxedFilter;

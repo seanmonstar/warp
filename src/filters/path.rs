@@ -131,11 +131,10 @@ use std::str::FromStr;
 
 use http::uri::PathAndQuery;
 
-use ::filter::{Filter, filter_fn, Tuple, One, one};
-use ::never::Never;
-use ::reject::{self, Rejection};
-use ::route::Route;
-
+use filter::{filter_fn, one, Filter, One, Tuple};
+use never::Never;
+use reject::{self, Rejection};
+use route::Route;
 
 /// Create an exact match path segment `Filter`.
 ///
@@ -154,9 +153,13 @@ use ::route::Route;
 /// let hello = warp::path("hello")
 ///     .map(|| "Hello, World!");
 /// ```
-pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     assert!(!p.is_empty(), "exact path segments should not be empty");
-    assert!(!p.contains('/'), "exact path segments should not contain a slash: {:?}", p);
+    assert!(
+        !p.contains('/'),
+        "exact path segments should not contain a slash: {:?}",
+        p
+    );
 
     segment(move |seg| {
         trace!("{:?}?: {:?}", p, seg);
@@ -170,7 +173,7 @@ pub fn path(p: &'static str) -> impl Filter<Extract=(), Error=Rejection> + Copy 
 
 #[doc(hidden)]
 #[deprecated(note = "renamed to warp::path::end")]
-pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn index() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     end()
 }
 
@@ -185,7 +188,7 @@ pub fn index() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 /// let hello = warp::path::end()
 ///     .map(|| "Hello, World!");
 /// ```
-pub fn end() -> impl Filter<Extract=(), Error=Rejection> + Copy {
+pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if route.path().is_empty() {
             Ok(())
@@ -213,15 +216,13 @@ pub fn end() -> impl Filter<Extract=(), Error=Rejection> + Copy {
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy {
+pub fn param<T: FromStr + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     segment(|seg| {
         trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg)
-            .map(one)
-            .map_err(|_| reject::not_found())
+        T::from_str(seg).map(one).map_err(|_| reject::not_found())
     })
 }
 
@@ -244,22 +245,20 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract=One<T>, Error=Rejection
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param2<T>() -> impl Filter<Extract=One<T>, Error=Rejection> + Copy
+pub fn param2<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send,
-    T::Err: Into<::reject::Cause>
+    T::Err: Into<::reject::Cause>,
 {
     segment(|seg| {
         trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg)
-            .map(one)
-            .map_err(|err| {
-                #[allow(deprecated)]
-                reject::not_found().with(err.into())
-            })
+        T::from_str(seg).map(one).map_err(|err| {
+            #[allow(deprecated)]
+            reject::not_found().with(err.into())
+        })
     })
 }
 
@@ -280,7 +279,7 @@ where
 ///         format!("The tail after foo is {:?}", tail)
 ///     });
 /// ```
-pub fn tail() -> impl Filter<Extract=One<Tail>, Error=Never> + Copy {
+pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Never> + Copy {
     filter_fn(move |route| {
         let path = path_and_query(&route);
         let idx = route.matched_path_index();
@@ -316,7 +315,6 @@ impl fmt::Debug for Tail {
     }
 }
 
-
 /// Peek at the unmatched tail of the path, without affecting the matched path.
 ///
 /// This will return a `Peek`, which allows access to the rest of the path
@@ -335,7 +333,7 @@ impl fmt::Debug for Tail {
 ///         format!("The path after foo is {:?}", peek)
 ///     });
 /// ```
-pub fn peek() -> impl Filter<Extract=One<Peek>, Error=Never> + Copy {
+pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Never> + Copy {
     filter_fn(move |route| {
         let path = path_and_query(&route);
         let idx = route.matched_path_index();
@@ -361,10 +359,7 @@ impl Peek {
 
     /// Get an iterator over the segments of the peeked path.
     pub fn segments(&self) -> impl Iterator<Item = &str> {
-        self
-            .as_str()
-            .split('/')
-            .filter(|seg| !seg.is_empty())
+        self.as_str().split('/').filter(|seg| !seg.is_empty())
     }
 }
 
@@ -405,10 +400,8 @@ impl fmt::Debug for Peek {
 ///         format!("This is the {}th visit to this URL!", count)
 ///     });
 /// ```
-pub fn full() -> impl Filter<Extract=One<FullPath>, Error=Never> + Copy {
-    filter_fn(move |route| {
-        Ok(one(FullPath(path_and_query(&route))))
-    })
+pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Never> + Copy {
+    filter_fn(move |route| Ok(one(FullPath(path_and_query(&route)))))
 }
 
 /// Represents the full request path, returned by the `full()` filter.
@@ -427,14 +420,15 @@ impl fmt::Debug for FullPath {
     }
 }
 
-fn segment<F, U>(func: F) -> impl Filter<Extract=U, Error=Rejection> + Copy
+fn segment<F, U>(func: F) -> impl Filter<Extract = U, Error = Rejection> + Copy
 where
     F: Fn(&str) -> Result<U, Rejection> + Copy,
     U: Tuple + Send,
 {
     filter_fn(move |route| {
         let (u, idx) = {
-            let seg = route.path()
+            let seg = route
+                .path()
                 .splitn(2, '/')
                 .next()
                 .expect("split always has at least 1");
@@ -507,4 +501,3 @@ macro_rules! path {
         path!(@start $($pieces)*)
     );
 }
-

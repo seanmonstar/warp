@@ -1,15 +1,18 @@
 //! File System Filters
 
 use std::cmp;
-use std::io;
 use std::fs::Metadata;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bytes::{BufMut, BytesMut};
-use futures::{future, Future, stream, Stream};
 use futures::future::Either;
-use headers::{AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange, IfUnmodifiedSince, LastModified, Range};
+use futures::{future, stream, Future, Stream};
+use headers::{
+    AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
+    IfUnmodifiedSince, LastModified, Range,
+};
 use http::StatusCode;
 use hyper::{Body, Chunk};
 use mime_guess;
@@ -18,10 +21,10 @@ use tokio::io::AsyncRead;
 use tokio_threadpool;
 use urlencoding::decode;
 
-use ::never::Never;
-use ::filter::{Filter, FilterClone, One};
-use ::reject::{self, Rejection};
-use ::reply::{ReplySealed, Response};
+use filter::{Filter, FilterClone, One};
+use never::Never;
+use reject::{self, Rejection};
+use reply::{ReplySealed, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 ///
@@ -45,7 +48,7 @@ use ::reply::{ReplySealed, Response};
 /// This filter uses `tokio-fs` to serve files, which requires the server
 /// to be run in the threadpool runtime. This is only important to remember
 /// if starting a runtime manually.
-pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
+pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let path = Arc::new(path.into());
     ::any()
         .map(move || {
@@ -84,7 +87,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Err
 /// This filter uses `tokio-fs` to serve files, which requires the server
 /// to be run in the threadpool runtime. This is only important to remember
 /// if starting a runtime manually.
-pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Error=Rejection> {
+pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     ::get2()
         .and(path_from_tail(base))
@@ -92,7 +95,9 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract=One<File>, Erro
         .and_then(file_reply)
 }
 
-fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, Error=Rejection> {
+fn path_from_tail(
+    base: Arc<PathBuf>,
+) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
     ::path::tail()
         .and_then(move |tail: ::path::Tail| {
             let mut buf = PathBuf::from(base.as_ref());
@@ -120,9 +125,10 @@ fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, 
             // so put it in a blocking() future
             let mut buf = Some(buf);
             future::poll_fn(move || {
-                let is_dir = try_ready!(tokio_threadpool::blocking(|| {
-                    buf.as_ref().unwrap().is_dir()
-                }));
+                let is_dir = try_ready!(tokio_threadpool::blocking(|| buf
+                    .as_ref()
+                    .unwrap()
+                    .is_dir()));
                 let mut buf = buf.take().unwrap();
                 if is_dir {
                     debug!("dir: appending index.html to directory path");
@@ -133,16 +139,15 @@ fn path_from_tail(base: Arc<PathBuf>) -> impl FilterClone<Extract=One<ArcPath>, 
 
                 Ok(ArcPath(Arc::new(buf)).into())
             })
-                .map_err(|blocking_err: tokio_threadpool::BlockingError| {
-                    error!(
-                        "threadpool blocking error checking buf.is_dir(): {}",
-                        blocking_err,
-                    );
-                    reject::known(FsNeedsTokioThreadpool)
-                })
+            .map_err(|blocking_err: tokio_threadpool::BlockingError| {
+                error!(
+                    "threadpool blocking error checking buf.is_dir(): {}",
+                    blocking_err,
+                );
+                reject::known(FsNeedsTokioThreadpool)
+            })
         })
 }
-
 
 #[derive(Debug)]
 struct Conditionals {
@@ -164,7 +169,12 @@ impl Conditionals {
                 .map(|time| since.precondition_passes(time.into()))
                 .unwrap_or(false);
 
-            trace!("if-unmodified-since? {:?} vs {:?} = {}", since, last_modified, precondition);
+            trace!(
+                "if-unmodified-since? {:?} vs {:?} = {}",
+                since,
+                last_modified,
+                precondition
+            );
             if !precondition {
                 let mut res = Response::new(Body::empty());
                 *res.status_mut() = StatusCode::PRECONDITION_FAILED;
@@ -173,7 +183,11 @@ impl Conditionals {
         }
 
         if let Some(since) = self.if_modified_since {
-            trace!("if-modified-since? header = {:?}, file = {:?}", since, last_modified);
+            trace!(
+                "if-modified-since? header = {:?}, file = {:?}",
+                since,
+                last_modified
+            );
             let unmodified = last_modified
                 .map(|time| !since.is_modified(time.into()))
                 // no last_modified means its always modified
@@ -198,17 +212,19 @@ impl Conditionals {
     }
 }
 
-fn conditionals() -> impl Filter<Extract=One<Conditionals>, Error=Never> + Copy {
+fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Never> + Copy {
     ::header::optional()
         .and(::header::optional())
         .and(::header::optional())
         .and(::header::optional())
-        .map(|if_modified_since, if_unmodified_since, if_range, range| Conditionals {
-            if_modified_since,
-            if_unmodified_since,
-            if_range,
-            range,
-        })
+        .map(
+            |if_modified_since, if_unmodified_since, if_range, range| Conditionals {
+                if_modified_since,
+                if_unmodified_since,
+                if_range,
+                range,
+            },
+        )
 }
 
 /// A file response.
@@ -233,43 +249,52 @@ impl ReplySealed for File {
     }
 }
 
-fn file_reply(path: ArcPath, conditionals: Conditionals) -> impl Future<Item=File, Error=Rejection> + Send {
-    TkFile::open(path.clone())
-        .then(move |res| match res {
-            Ok(f) => Either::A(file_conditional(f, path, conditionals)),
-            Err(err) => {
-                let rej = match err.kind() {
-                    io::ErrorKind::NotFound => {
-                        debug!("file not found: {:?}", path.as_ref().display());
-                        reject::not_found()
-                    },
-                    _ => {
-                        error!("file open error (path={:?}): {} ", path.as_ref().display(), err);
-                        reject::not_found()
-                    },
-                };
-                Either::B(future::err(rej))
-            }
-        })
+fn file_reply(
+    path: ArcPath,
+    conditionals: Conditionals,
+) -> impl Future<Item = File, Error = Rejection> + Send {
+    TkFile::open(path.clone()).then(move |res| match res {
+        Ok(f) => Either::A(file_conditional(f, path, conditionals)),
+        Err(err) => {
+            let rej = match err.kind() {
+                io::ErrorKind::NotFound => {
+                    debug!("file not found: {:?}", path.as_ref().display());
+                    reject::not_found()
+                }
+                _ => {
+                    error!(
+                        "file open error (path={:?}): {} ",
+                        path.as_ref().display(),
+                        err
+                    );
+                    reject::not_found()
+                }
+            };
+            Either::B(future::err(rej))
+        }
+    })
 }
 
-fn file_metadata(f: TkFile) -> impl Future<Item=(TkFile, Metadata), Error=Rejection> {
+fn file_metadata(f: TkFile) -> impl Future<Item = (TkFile, Metadata), Error = Rejection> {
     let mut f = Some(f);
     future::poll_fn(move || {
         let meta = try_ready!(f.as_mut().unwrap().poll_metadata());
         Ok((f.take().unwrap(), meta).into())
     })
-        .map_err(|err: ::std::io::Error| {
-            debug!("file metadata error: {}", err);
-            reject::not_found()
-        })
+    .map_err(|err: ::std::io::Error| {
+        debug!("file metadata error: {}", err);
+        reject::not_found()
+    })
 }
 
-fn file_conditional(f: TkFile, path: ArcPath, conditionals: Conditionals) -> impl Future<Item=File, Error=Rejection> + Send {
+fn file_conditional(
+    f: TkFile,
+    path: ArcPath,
+    conditionals: Conditionals,
+) -> impl Future<Item = File, Error = Rejection> + Send {
     file_metadata(f).map(move |(file, meta)| {
         let mut len = meta.len();
         let modified = meta.modified().ok().map(LastModified::from);
-
 
         let mut resp = match conditionals.check(modified) {
             Cond::NoBody(resp) => resp,
@@ -286,8 +311,7 @@ fn file_conditional(f: TkFile, path: ArcPath, conditionals: Conditionals) -> imp
                         if sub_len != len {
                             *resp.status_mut() = StatusCode::PARTIAL_CONTENT;
                             resp.headers_mut().typed_insert(
-                                ContentRange::bytes(start..end, len)
-                                    .expect("valid ContentRange")
+                                ContentRange::bytes(start..end, len).expect("valid ContentRange"),
                             );
 
                             len = sub_len;
@@ -299,9 +323,8 @@ fn file_conditional(f: TkFile, path: ArcPath, conditionals: Conditionals) -> imp
                         // bad byte range
                         let mut resp = Response::new(Body::empty());
                         *resp.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
-                        resp.headers_mut().typed_insert(
-                            ContentRange::unsatisfied_bytes(len)
-                        );
+                        resp.headers_mut()
+                            .typed_insert(ContentRange::unsatisfied_bytes(len));
                         resp
                     })
             }
@@ -319,9 +342,7 @@ fn file_conditional(f: TkFile, path: ArcPath, conditionals: Conditionals) -> imp
             }
         }
 
-        File {
-            resp,
-        }
+        File { resp }
     })
 }
 
@@ -363,23 +384,23 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
     ret
 }
 
-fn file_stream(file: TkFile, buf_size: usize, (start, end): (u64, u64)) -> impl Stream<Item=Chunk, Error=io::Error> + Send {
+fn file_stream(
+    file: TkFile,
+    buf_size: usize,
+    (start, end): (u64, u64),
+) -> impl Stream<Item = Chunk, Error = io::Error> + Send {
     use std::io::SeekFrom;
 
     // seek
     let seek = if start != 0 {
         trace!("partial content; seeking ({}..{})", start, end);
-        Either::A(file
-            .seek(SeekFrom::Start(start))
-            .map(|(f, _pos)| f))
+        Either::A(file.seek(SeekFrom::Start(start)).map(|(f, _pos)| f))
     } else {
         Either::B(future::ok(file))
     };
 
-    seek
-        .into_stream()
+    seek.into_stream()
         .map(move |mut f| {
-
             let mut buf = BytesMut::new();
             let mut len = end - start;
             stream::poll_fn(move || {

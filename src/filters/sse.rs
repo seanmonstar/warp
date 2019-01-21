@@ -45,11 +45,13 @@ use serde::Serialize;
 use serde_json;
 use tokio::{clock::now, timer::Delay};
 
+use self::sealed::{
+    BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper,
+};
+use super::{header, header::MissingHeader};
 use filter::One;
 use reply::{ReplySealed, Response};
 use {Filter, Rejection, Reply};
-use super::{header, header::MissingHeader};
-use self::sealed::{BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper};
 
 /// Server-sent event message
 pub trait ServerSentEvent: SseFormat + Sized + Send + 'static {
@@ -437,9 +439,11 @@ where
 
         let mut res = Response::new(Body::wrap_stream(body_stream));
         // Set appropriate content type
-        res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
+        res.headers_mut()
+            .insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));
         // Disable response body caching
-        res.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+        res.headers_mut()
+            .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
         res
     }
 }

@@ -83,22 +83,26 @@
 //! [Filter]: trait.Filter.html
 
 extern crate bytes;
-#[macro_use] extern crate futures;
+#[macro_use]
+extern crate futures;
 extern crate headers_ext as headers;
 #[doc(hidden)]
 pub extern crate http;
 extern crate hyper;
-#[macro_use] extern crate log as logcrate;
+#[macro_use]
+extern crate log as logcrate;
 extern crate mime;
 extern crate mime_guess;
-#[macro_use] extern crate scoped_tls;
+#[macro_use]
+extern crate scoped_tls;
+#[cfg(feature = "tls")]
+extern crate rustls;
 extern crate serde;
 extern crate serde_json;
 extern crate serde_urlencoded;
 extern crate tokio;
 #[cfg_attr(feature = "tls", macro_use)]
 extern crate tokio_io;
-#[cfg(feature = "tls")] extern crate rustls;
 extern crate tokio_threadpool;
 extern crate tungstenite;
 extern crate urlencoding;
@@ -114,20 +118,21 @@ pub mod reply;
 mod route;
 mod server;
 pub mod test;
-#[cfg(feature = "tls")] mod tls;
+#[cfg(feature = "tls")]
+mod tls;
 mod transport;
 
 pub use self::error::Error;
-pub use self::filter::{Filter};
+pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::filters::{
+    addr,
     // any() function
     any::any,
-    addr,
     body,
     cookie,
     // cookie() function
@@ -143,9 +148,9 @@ pub use self::filters::{
     log,
     // log() function
     log::log,
-    method::{get, method, post, put, delete},
+    method::{delete, get, method, post, put},
+    method::{delete2, get2, post2, put2},
     method::{head, options, patch},
-    method::{get2, post2, put2, delete2},
     path,
     // the index() function
     path::index,
@@ -162,7 +167,7 @@ pub use self::filters::{
     ws::{ws, ws2},
 };
 #[doc(hidden)]
-pub use self::redirect::{redirect};
+pub use self::redirect::redirect;
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::reject::{reject, Rejection};
@@ -170,7 +175,6 @@ pub use self::reject::{reject, Rejection};
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
-
 
 #[doc(hidden)]
 pub use bytes::Buf;

@@ -1,5 +1,5 @@
-use std::net::SocketAddr;
 use std::io::{self, Read, Write};
+use std::net::SocketAddr;
 
 use bytes::Buf;
 use futures::Poll;
@@ -34,8 +34,7 @@ impl<T: Write> Write for LiftIo<T> {
     }
 }
 
-impl<T: AsyncRead> AsyncRead for LiftIo<T> {
-}
+impl<T: AsyncRead> AsyncRead for LiftIo<T> {}
 
 impl<T: AsyncWrite> AsyncWrite for LiftIo<T> {
     fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Poll<usize, io::Error> {

@@ -4,49 +4,34 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use futures::Poll;
-use rustls::{self, Session, ServerConfig, ServerSession, Stream};
+use rustls::{self, ServerConfig, ServerSession, Session, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use transport::Transport;
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
     let cert = {
-        let file = File::open(cert)
-            .unwrap_or_else(|e| {
-                panic!("tls cert file error: {}", e)
-            });
+        let file = File::open(cert).unwrap_or_else(|e| panic!("tls cert file error: {}", e));
         let mut rdr = BufReader::new(file);
         rustls::internal::pemfile::certs(&mut rdr)
-            .unwrap_or_else(|()| {
-                panic!("tls cert parse error")
-            })
+            .unwrap_or_else(|()| panic!("tls cert parse error"))
     };
 
     let key = {
         let mut pkcs8 = {
-            let file = File::open(&key)
-                .unwrap_or_else(|e| {
-                    panic!("tls key file error: {}", e)
-                });
+            let file = File::open(&key).unwrap_or_else(|e| panic!("tls key file error: {}", e));
             let mut rdr = BufReader::new(file);
             rustls::internal::pemfile::pkcs8_private_keys(&mut rdr)
-                .unwrap_or_else(|()| {
-                    panic!("tls key pkcs8 error")
-                })
+                .unwrap_or_else(|()| panic!("tls key pkcs8 error"))
         };
 
         if !pkcs8.is_empty() {
             pkcs8.remove(0)
         } else {
-            let file = File::open(key)
-                .unwrap_or_else(|e| {
-                    panic!("tls key file error: {}", e)
-                });
+            let file = File::open(key).unwrap_or_else(|e| panic!("tls key file error: {}", e));
             let mut rdr = BufReader::new(file);
             let mut rsa = rustls::internal::pemfile::rsa_private_keys(&mut rdr)
-                .unwrap_or_else(|()| {
-                    panic!("tls key rsa error")
-                });
+                .unwrap_or_else(|()| panic!("tls key rsa error"));
 
             if !rsa.is_empty() {
                 rsa.remove(0)
@@ -58,9 +43,7 @@ pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
 
     let mut tls = ServerConfig::new(rustls::NoClientAuth::new());
     tls.set_single_cert(cert, key)
-        .unwrap_or_else(|e| {
-            panic!("tls failed: {}", e)
-        });
+        .unwrap_or_else(|e| panic!("tls failed: {}", e));
     tls.set_protocols(&["h2".into(), "http/1.1".into()]);
     tls
 }
@@ -123,4 +106,3 @@ impl<T: Transport> Transport for TlsStream<T> {
         self.io.remote_addr()
     }
 }
-

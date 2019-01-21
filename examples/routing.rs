@@ -12,30 +12,22 @@ fn main() {
     // into super powers!
 
     // GET /hi
-    let hi = warp::path("hi").map(|| {
-        "Hello, World!"
-    });
+    let hi = warp::path("hi").map(|| "Hello, World!");
 
     // How about multiple segments? First, we could use the `path!` macro:
     //
     // GET /hello/from/warp
-    let hello_from_warp = path!("hello" / "from" / "warp").map(|| {
-        "Hello from warp!"
-    });
+    let hello_from_warp = path!("hello" / "from" / "warp").map(|| "Hello from warp!");
 
     // Fine, but how do I handle parameters in paths?
     //
     // GET /sum/:u32/:u32
-    let sum = path!("sum" / u32 / u32).map(|a, b| {
-        format!("{} + {} = {}", a, b, a + b)
-    });
+    let sum = path!("sum" / u32 / u32).map(|a, b| format!("{} + {} = {}", a, b, a + b));
 
     // Any type that implements FromStr can be used, and in any order:
     //
     // GET /:u16/times/:u16
-    let times = path!(u16 / "times" / u16).map(|a, b| {
-        format!("{} times {} = {}", a, b, a * b)
-    });
+    let times = path!(u16 / "times" / u16).map(|a, b| format!("{} times {} = {}", a, b, a * b));
 
     // Oh shoot, those math routes should be mounted at a different path,
     // is that possible? Yep.
@@ -52,9 +44,9 @@ fn main() {
     // fact, it's exactly what the `path!` macro has been doing internally.
     //
     // GET /bye/:string
-    let bye = warp::path("bye").and(warp::path::param()).map(|name: String| {
-        format!("Good bye, {}!", name)
-    });
+    let bye = warp::path("bye")
+        .and(warp::path::param())
+        .map(|name: String| format!("Good bye, {}!", name));
 
     // Ah, can filters do things besides `and`?
     //
@@ -66,16 +58,12 @@ fn main() {
     //
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
-    let math = warp::path("math")
-        .and(sum.or(times));
+    let math = warp::path("math").and(sum.or(times));
 
     // Let's let people know that the `sum` and `times` routes are under `math`.
-    let sum = sum.map(|output| {
-        format!("(This route has moved to /math/sum/:u16/:u16) {}", output)
-    });
-    let times = times.map(|output| {
-        format!("(This route has moved to /math/:u16/times/:u16) {}", output)
-    });
+    let sum = sum.map(|output| format!("(This route has moved to /math/sum/:u16/:u16) {}", output));
+    let times =
+        times.map(|output| format!("(This route has moved to /math/:u16/times/:u16) {}", output));
 
     // It turns out, using `or` is how you combine everything together into
     // a single API. (We also actually haven't been enforcing the that the
@@ -87,15 +75,7 @@ fn main() {
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
 
-    let routes = warp::get2().and(
-        hi
-            .or(hello_from_warp)
-            .or(bye)
-            .or(math)
-            .or(sum)
-            .or(times)
-    );
+    let routes = warp::get2().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }

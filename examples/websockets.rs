@@ -15,15 +15,11 @@ fn main() {
             ws.on_upgrade(|websocket| {
                 // Just echo all messages back...
                 let (tx, rx) = websocket.split();
-                rx.forward(tx)
-                    .map(|_| ())
-                    .map_err(|e| {
-                        eprintln!("websocket error: {:?}", e);
-                    })
+                rx.forward(tx).map(|_| ()).map_err(|e| {
+                    eprintln!("websocket error: {:?}", e);
+                })
             })
         });
 
-
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }

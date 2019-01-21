@@ -1,7 +1,7 @@
 #![deny(warnings)]
+extern crate futures;
 extern crate pretty_env_logger;
 extern crate warp;
-extern crate futures;
 
 use warp::{Filter, Future, Stream};
 
@@ -9,10 +9,7 @@ use warp::{Filter, Future, Stream};
 fn upgrade() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2()
-        .map(|ws: warp::ws::Ws2| {
-            ws.on_upgrade(|_| futures::future::ok(()))
-        });
+    let route = warp::ws2().map(|ws: warp::ws::Ws2| ws.on_upgrade(|_| futures::future::ok(())));
 
     // From https://tools.ietf.org/html/rfc6455#section-1.2
     let key = "dGhlIHNhbXBsZSBub25jZQ==";
@@ -55,9 +52,7 @@ fn fail() {
 fn text() {
     let _ = pretty_env_logger::try_init();
 
-    let mut client = warp::test::ws()
-        .handshake(ws_echo())
-        .expect("handshake");
+    let mut client = warp::test::ws().handshake(ws_echo()).expect("handshake");
 
     client.send_text("hello warp");
     let msg = client.recv().expect("recv");
@@ -68,9 +63,7 @@ fn text() {
 fn binary() {
     let _ = pretty_env_logger::try_init();
 
-    let mut client = warp::test::ws()
-        .handshake(ws_echo())
-        .expect("handshake");
+    let mut client = warp::test::ws().handshake(ws_echo()).expect("handshake");
 
     client.send(warp::ws::Message::binary(&b"bonk"[..]));
     let msg = client.recv().expect("recv");
@@ -82,33 +75,27 @@ fn binary() {
 fn closed() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2()
-        .map(|ws: warp::ws::Ws2| {
-            ws.on_upgrade(|websocket| {
-                websocket
-                    .close()
-                    .map_err(|e| panic!("close error: {:?}", e))
-            })
-        });
+    let route = warp::ws2().map(|ws: warp::ws::Ws2| {
+        ws.on_upgrade(|websocket| {
+            websocket
+                .close()
+                .map_err(|e| panic!("close error: {:?}", e))
+        })
+    });
 
-    let mut client = warp::test::ws()
-        .handshake(route)
-        .expect("handshake");
+    let mut client = warp::test::ws().handshake(route).expect("handshake");
 
     client.recv_closed().expect("closed");
 }
 
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> {
-    warp::ws2()
-        .map(|ws: warp::ws::Ws2| {
-            ws.on_upgrade(|websocket| {
-                // Just echo all messages back...
-                let (tx, rx) = websocket.split();
-                rx.forward(tx)
-                    .map(|_| ())
-                    .map_err(|e| {
-                        panic!("websocket error: {:?}", e);
-                    })
+    warp::ws2().map(|ws: warp::ws::Ws2| {
+        ws.on_upgrade(|websocket| {
+            // Just echo all messages back...
+            let (tx, rx) = websocket.split();
+            rx.forward(tx).map(|_| ()).map_err(|e| {
+                panic!("websocket error: {:?}", e);
             })
         })
+    })
 }

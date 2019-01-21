@@ -6,16 +6,9 @@ use warp::{http::Method, Filter};
 
 #[test]
 fn allow_methods() {
-    let cors = warp::cors()
-        .allow_methods(&[
-            Method::GET,
-            Method::POST,
-            Method::DELETE,
-        ]);
+    let cors = warp::cors().allow_methods(&[Method::GET, Method::POST, Method::DELETE]);
 
-    let route = warp::any()
-        .map(warp::reply)
-        .with(cors);
+    let route = warp::any().map(warp::reply).with(cors);
 
     let res = warp::test::request()
         .method("OPTIONS")
@@ -40,9 +33,7 @@ fn origin_not_allowed() {
         .allow_methods(&[Method::DELETE])
         .allow_origin("https://hyper.rs");
 
-    let route = warp::any()
-        .map(warp::reply)
-        .with(cors);
+    let route = warp::any().map(warp::reply).with(cors);
 
     let res = warp::test::request()
         .method("OPTIONS")
@@ -66,9 +57,7 @@ fn headers_not_allowed() {
         .allow_methods(&[Method::DELETE])
         .allow_headers(vec!["x-foo"]);
 
-    let route = warp::any()
-        .map(warp::reply)
-        .with(cors);
+    let route = warp::any().map(warp::reply).with(cors);
 
     let res = warp::test::request()
         .method("OPTIONS")
@@ -88,9 +77,7 @@ fn success() {
         .allow_methods(&[Method::POST, Method::DELETE])
         .max_age(30);
 
-    let route = warp::any()
-        .map(warp::reply)
-        .with(cors);
+    let route = warp::any().map(warp::reply).with(cors);
 
     // preflight
     let res = warp::test::request()
@@ -100,7 +87,10 @@ fn success() {
         .header("access-control-request-method", "DELETE")
         .reply(&route);
     assert_eq!(res.status(), 200);
-    assert_eq!(res.headers()["access-control-allow-origin"], "https://hyper.rs");
+    assert_eq!(
+        res.headers()["access-control-allow-origin"],
+        "https://hyper.rs"
+    );
     assert_eq!(res.headers()["access-control-allow-credentials"], "true");
     let headers = &res.headers()["access-control-allow-headers"];
     assert!(headers == "x-bar, x-foo" || headers == "x-foo, x-bar");
@@ -121,7 +111,10 @@ fn success() {
         .header("x-bar", "world")
         .reply(&route);
     assert_eq!(res.status(), 200);
-    assert_eq!(res.headers()["access-control-allow-origin"], "https://hyper.rs");
+    assert_eq!(
+        res.headers()["access-control-allow-origin"],
+        "https://hyper.rs"
+    );
     assert_eq!(res.headers()["access-control-allow-credentials"], "true");
     assert_eq!(res.headers().get("access-control-max-age"), None);
     assert_eq!(res.headers().get("access-control-allow-methods"), None);

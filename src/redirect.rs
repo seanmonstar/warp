@@ -5,9 +5,8 @@
 
 use http::{header, StatusCode};
 
-use reply::{self, Reply};
 use self::sealed::AsLocation;
-
+use reply::{self, Reply};
 
 /// A simple `301` redirect to a different location.
 ///
@@ -45,8 +44,7 @@ mod sealed {
     impl Sealed for Uri {
         fn header_value(self) -> HeaderValue {
             let bytes = Bytes::from(self.to_string());
-            HeaderValue::from_shared(bytes)
-                .expect("Uri is a valid HeaderValue")
+            HeaderValue::from_shared(bytes).expect("Uri is a valid HeaderValue")
         }
     }
 }
