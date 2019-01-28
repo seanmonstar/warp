@@ -60,6 +60,65 @@ fn param() {
 }
 
 #[test]
+fn end() {
+    let _ = pretty_env_logger::try_init();
+
+    let foo = warp::path("foo");
+    let end = warp::path::end();
+    let foo_end = foo.and(end);
+
+    assert!(
+        warp::test::request()
+            .path("/")
+            .matches(&end),
+        "end() matches /"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("http://localhost:1234")
+            .matches(&end),
+        "end() matches /"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("http://localhost:1234?q=2")
+            .matches(&end),
+        "end() matches empty path"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("localhost:1234")
+            .matches(&end),
+        "end() matches authority-form"
+    );
+
+    assert!(
+        !warp::test::request()
+            .path("/foo")
+            .matches(&end),
+        "end() doesn't match /foo"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("/foo")
+            .matches(&foo_end),
+        "path().and(end()) matches /foo"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("/foo/")
+            .matches(&foo_end),
+        "path().and(end()) matches /foo/"
+    );
+
+}
+
+#[test]
 fn tail() {
     let tail = warp::path::tail();
 
@@ -290,3 +349,4 @@ fn peek_segments() {
     let segs = ex.segments().collect::<Vec<_>>();
     assert_eq!(segs, Vec::<&str>::new());
 }
+

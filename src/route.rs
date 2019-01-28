@@ -43,18 +43,18 @@ enum BodyState {
 
 impl Route {
     pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
-        debug_assert_eq!(
-            req.uri().path().as_bytes()[0],
-            b'/',
-            "path should start with /"
-        );
+        let segments_index = if req.uri().path().starts_with("/") {
+            // Skip the beginning slash.
+            1
+        } else {
+            0
+        };
 
         RefCell::new(Route {
             body: BodyState::Ready,
             remote_addr,
             req,
-            // always start at 1, since paths are `/...`.
-            segments_index: 1,
+            segments_index,
         })
     }
 
@@ -98,7 +98,7 @@ impl Route {
         if path.len() == index {
             self.segments_index = index;
         } else {
-            debug_assert_eq!(path.as_bytes()[index], b'/',);
+            debug_assert_eq!(path.as_bytes()[index], b'/');
 
             self.segments_index = index + 1;
         }
