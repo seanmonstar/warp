@@ -53,11 +53,11 @@ pub fn header<T: FromStr + Send>(
 pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 {
     filter_fn_one(move |route| {
-        trace!("header2({:?})", T::NAME);
+        trace!("header2({:?})", T::name());
         route
             .headers()
             .typed_get()
-            .ok_or_else(|| reject::known(InvalidHeader(T::NAME.as_str())))
+            .ok_or_else(|| reject::known(InvalidHeader(T::name().as_str())))
     })
 }
 

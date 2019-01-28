@@ -85,7 +85,7 @@
 extern crate bytes;
 #[macro_use]
 extern crate futures;
-extern crate headers_ext as headers;
+extern crate headers;
 #[doc(hidden)]
 pub extern crate http;
 extern crate hyper;
