@@ -171,12 +171,6 @@ pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + C
     })
 }
 
-#[doc(hidden)]
-#[deprecated(note = "renamed to warp::path::end")]
-pub fn index() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    end()
-}
-
 /// Matches the end of a route.
 ///
 /// # Example

@@ -128,7 +128,6 @@ pub use self::filter::Filter;
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
 #[doc(hidden)]
-#[allow(deprecated)]
 pub use self::filters::{
     addr,
     // any() function
@@ -150,8 +149,6 @@ pub use self::filters::{
     log::log,
     method::{delete, get, head, method, options, patch, post, put},
     path,
-    // the index() function
-    path::index,
     // path() function
     path::path,
     query,
