@@ -1,6 +1,6 @@
 //! Redirect requests to a new location.
 //!
-//! The types in this module are helpers that implement [`Reply`][], and easy
+//! The types in this module are helpers that implement [`Reply`](Reply), and easy
 //! to use in order to setup redirects.
 
 use http::{header, StatusCode};
