@@ -64,7 +64,7 @@ pub fn ws2() -> impl Filter<Extract = One<Ws2>, Error = Rejection> + Copy {
         })
         .untuple_one();
 
-    ::get2()
+    ::get()
         .and(connection_has_upgrade)
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))

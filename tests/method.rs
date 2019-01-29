@@ -7,7 +7,7 @@ use warp::Filter;
 #[test]
 fn method() {
     let _ = pretty_env_logger::try_init();
-    let get = warp::get2().map(warp::reply);
+    let get = warp::get().map(warp::reply);
 
     let req = warp::test::request();
     assert!(req.matches(&get));
@@ -23,8 +23,8 @@ fn method() {
 #[test]
 fn method_not_allowed_trumps_not_found() {
     let _ = pretty_env_logger::try_init();
-    let get = warp::get2().and(warp::path("hello").map(warp::reply));
-    let post = warp::post2().and(warp::path("bye").map(warp::reply));
+    let get = warp::get().and(warp::path("hello").map(warp::reply));
+    let post = warp::post().and(warp::path("bye").map(warp::reply));
 
     let routes = get.or(post);
 
@@ -38,11 +38,11 @@ fn method_not_allowed_trumps_not_found() {
 #[test]
 fn bad_request_trumps_method_not_allowed() {
     let _ = pretty_env_logger::try_init();
-    let get = warp::get2()
+    let get = warp::get()
         .and(warp::path("hello"))
         .and(warp::header::exact("foo", "bar"))
         .map(warp::reply);
-    let post = warp::post2().and(warp::path("bye")).map(warp::reply);
+    let post = warp::post().and(warp::path("bye")).map(warp::reply);
 
     let routes = get.or(post);
 

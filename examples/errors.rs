@@ -51,7 +51,7 @@ fn main() {
     let nope =
         warp::path("nope").and_then(|| Err::<StatusCode, _>(warp::reject::custom(Error::Nope)));
 
-    let routes = warp::get2()
+    let routes = warp::get()
         .and(hello.or(oops).or(nope))
         .recover(customize_error);
 

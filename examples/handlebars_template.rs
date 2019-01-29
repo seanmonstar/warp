@@ -50,7 +50,7 @@ fn main() {
     let handlebars = move |with_template| render(with_template, hb.clone());
 
     //GET /
-    let route = warp::get2()
+    let route = warp::get()
         .and(warp::path::end())
         .map(|| WithTemplate {
             name: "template.html",

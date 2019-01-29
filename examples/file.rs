@@ -7,7 +7,7 @@ use warp::Filter;
 fn main() {
     pretty_env_logger::init();
 
-    let readme = warp::get2()
+    let readme = warp::get()
         .and(warp::path::end())
         .and(warp::fs::file("./README.md"));
 

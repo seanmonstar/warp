@@ -40,7 +40,7 @@ fn main() {
 
     // POST /chat -> send message
     let chat_send = warp::path("chat")
-        .and(warp::post2())
+        .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
         .and(warp::body::concat().and_then(|body: warp::body::FullBody| {

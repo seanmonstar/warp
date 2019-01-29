@@ -148,9 +148,7 @@ pub use self::filters::{
     log,
     // log() function
     log::log,
-    method::{delete, get, method, post, put},
-    method::{delete2, get2, post2, put2},
-    method::{head, options, patch},
+    method::{delete, get, head, method, options, patch, post, put},
     path,
     // the index() function
     path::index,

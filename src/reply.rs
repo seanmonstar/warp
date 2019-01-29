@@ -29,8 +29,8 @@
 //! });
 //!
 //! // GET requests return the empty 200, POST return the custom.
-//! let routes = warp::get2().and(empty_200)
-//!     .or(warp::post2().and(custom));
+//! let routes = warp::get().and(empty_200)
+//!     .or(warp::post().and(custom));
 //! ```
 
 use std::error::Error as StdError;

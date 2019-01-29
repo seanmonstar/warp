@@ -89,7 +89,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 /// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
-    ::get2()
+    ::get()
         .and(path_from_tail(base))
         .and(conditionals())
         .and_then(file_reply)

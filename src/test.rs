@@ -21,7 +21,7 @@
 //! }
 //!
 //! fn math() -> impl Filter<Extract = (String,), Error = warp::Rejection> + Copy {
-//!     warp::post2()
+//!     warp::post()
 //!         .and(sum())
 //!         .map(|z: u32| {
 //!             format!("Sum = {}", z)
@@ -287,8 +287,8 @@ impl RequestBuilder {
     /// # Example
     ///
     /// ```no_run
-    /// let get = warp::get2();
-    /// let post = warp::post2();
+    /// let get = warp::get();
+    /// let post = warp::post();
     ///
     /// assert!(
     ///     warp::test::request()

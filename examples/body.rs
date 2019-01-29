@@ -17,7 +17,7 @@ fn main() {
     pretty_env_logger::init();
 
     // POST /employees/:rate  {"name":"Sean","rate":2}
-    let promote = warp::post2()
+    let promote = warp::post()
         .and(warp::path("employees"))
         .and(warp::path::param::<u32>())
         // Only accept bodies smaller than 16kb...

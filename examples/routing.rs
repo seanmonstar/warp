@@ -75,7 +75,7 @@ fn main() {
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
 
-    let routes = warp::get2().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
+    let routes = warp::get().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }

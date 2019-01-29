@@ -318,7 +318,7 @@ where
 /// - Header `content-type: text/event-stream`
 /// - Header `cache-control: no-cache`.
 pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
-    ::get2()
+    ::get()
         .and(
             header::exact_ignore_case("connection", "keep-alive").or_else(
                 |rejection: Rejection| {
