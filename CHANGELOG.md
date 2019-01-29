@@ -1,3 +1,10 @@
+### v0.1.12 (January 29, 2019)
+
+- **Features**:
+  - Implement `PartialEq`, `Eq`, and `Clone` for `warp::ws::Message`.
+- **Fixes**:
+  - Fix panic when incoming request URI may not have a path (such as `CONNECT` requests).
+
 ### v0.1.11 (January 14, 2019)
 
 - **Features**:
