@@ -9,7 +9,7 @@ use warp::{Filter, Future, Stream};
 fn upgrade() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2().map(|ws: warp::ws::Ws2| ws.on_upgrade(|_| futures::future::ok(())));
+    let route = warp::ws().map(|ws: warp::ws::Ws| ws.on_upgrade(|_| futures::future::ok(())));
 
     // From https://tools.ietf.org/html/rfc6455#section-1.2
     let key = "dGhlIHNhbXBsZSBub25jZQ==";
@@ -75,7 +75,7 @@ fn binary() {
 fn closed() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2().map(|ws: warp::ws::Ws2| {
+    let route = warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             websocket
                 .close()
@@ -89,7 +89,7 @@ fn closed() {
 }
 
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> {
-    warp::ws2().map(|ws: warp::ws::Ws2| {
+    warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();

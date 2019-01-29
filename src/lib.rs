@@ -162,7 +162,7 @@ pub use self::filters::{
     sse::sse,
     ws,
     // ws() function
-    ws::{ws, ws2},
+    ws::ws,
 };
 #[doc(hidden)]
 pub use self::redirect::redirect;

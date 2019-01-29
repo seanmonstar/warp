@@ -34,10 +34,10 @@ fn main() {
 
     // GET /chat -> websocket upgrade
     let chat = warp::path("chat")
-        // The `ws2()` filter will prepare Websocket handshake...
-        .and(warp::ws2())
+        // The `ws()` filter will prepare Websocket handshake...
+        .and(warp::ws())
         .and(users)
-        .map(|ws: warp::ws::Ws2, users| {
+        .map(|ws: warp::ws::Ws, users| {
             // This will call our function if the handshake succeeds.
             ws.on_upgrade(move |socket| user_connected(socket, users))
         });

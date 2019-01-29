@@ -386,6 +386,8 @@ impl Rejections {
                     StatusCode::BAD_REQUEST
                 } else if e.is::<::body::BodyDeserializeError>() {
                     StatusCode::BAD_REQUEST
+                } else if e.is::<::ws::MissingConnectionUpgrade>() {
+                    StatusCode::BAD_REQUEST
                 } else if e.is::<::cors::CorsForbidden>() {
                     StatusCode::FORBIDDEN
                 } else if e.is::<::ext::MissingExtension>() {

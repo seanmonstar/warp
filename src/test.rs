@@ -417,8 +417,8 @@ impl WsBuilder {
     /// # fn main() {
     ///
     /// // Some route that accepts websockets (but drops them immediately).
-    /// let route = warp::ws2()
-    ///     .map(|ws: warp::ws::Ws2| {
+    /// let route = warp::ws()
+    ///     .map(|ws: warp::ws::Ws| {
     ///         ws.on_upgrade(|_| future::ok(()))
     ///     });
     ///
