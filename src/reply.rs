@@ -162,12 +162,6 @@ impl StdError for ReplyJsonError {
 ///         warp::reply::html(body)
 ///     });
 /// ```
-///
-/// # Note
-///
-/// If a type fails to be serialized into JSON, the error is logged at the
-/// `error` level, and the returned `impl Reply` will be an empty
-/// `500 Internal Server Error` response.
 pub fn html<T>(body: T) -> impl Reply
 where
     Body: From<T>,
