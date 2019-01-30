@@ -455,7 +455,21 @@ mod sealed {
         }
     }
 
+    impl ReplySealed for Vec<u8> {
+        #[inline]
+        fn into_response(self) -> Response {
+            Response::new(Body::from(self))
+        }
+    }
+
     impl ReplySealed for &'static str {
+        #[inline]
+        fn into_response(self) -> Response {
+            Response::new(Body::from(self))
+        }
+    }
+
+    impl ReplySealed for &'static [u8] {
         #[inline]
         fn into_response(self) -> Response {
             Response::new(Body::from(self))
