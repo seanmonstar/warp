@@ -20,7 +20,7 @@ where
     <F::Output as IntoFuture>::Future: Send,
 {
     type Extract = (<F::Output as IntoFuture>::Item,);
-    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::One;
     type Future = AndThenFuture<T, F>;
     #[inline]
     fn filter(&self) -> Self::Future {
@@ -64,7 +64,7 @@ where
     <F::Output as IntoFuture>::Future: Send,
 {
     type Item = (<F::Output as IntoFuture>::Item,);
-    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::One;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex1 = match self.state {

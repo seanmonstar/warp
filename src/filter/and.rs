@@ -21,7 +21,7 @@ where
     U::Error: CombineRejection<T::Error>,
 {
     type Extract = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
-    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <U::Error as CombineRejection<T::Error>>::One;
     type Future = AndFuture<T, U>;
 
     fn filter(&self) -> Self::Future {
@@ -52,7 +52,7 @@ where
 {
     //type Item = <T::Extract as Combine<U::Extract>>::Output;
     type Item = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
-    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <U::Error as CombineRejection<T::Error>>::One;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let ex1 = match self.state {
