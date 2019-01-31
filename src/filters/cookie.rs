@@ -3,7 +3,7 @@
 use headers::Cookie;
 
 use super::header;
-use filter::{filter_fn_one, Filter, One};
+use filter::{Filter, One};
 use never::Never;
 use reject::Rejection;
 
@@ -28,25 +28,6 @@ pub fn optional(
 ) -> impl Filter<Extract = One<Option<String>>, Error = Never> + Copy {
     header::optional2()
         .map(move |opt: Option<Cookie>| opt.and_then(|cookie| cookie.get(name).map(String::from)))
-}
-
-#[doc(hidden)]
-#[deprecated(note = "optional filters will be generalized")]
-pub fn optional_value<U, F>(
-    name: &'static str,
-    func: F,
-) -> impl Filter<Extract = One<Option<U>>, Error = Never> + Copy
-where
-    F: Fn(&str) -> U + Copy,
-    U: Send,
-{
-    use headers::HeaderMapExt;
-    filter_fn_one(move |route| {
-        Ok(route
-            .headers()
-            .typed_get()
-            .and_then(|cookie: Cookie| cookie.get(name).map(func)))
-    })
 }
 
 // ===== Rejections =====
