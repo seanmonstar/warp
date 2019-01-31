@@ -220,42 +220,6 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract = One<T>, Error = Rejec
     })
 }
 
-/// Extract a parameter from a path segment.
-///
-/// This will try to parse a value from the current request path
-/// segment, and if successful, the value is returned as the `Filter`'s
-/// "extracted" value.
-///
-/// If the value could not be parsed, rejects with a `404 Not Found`. In
-/// contrast of `param` method, it reports an error cause in response.
-///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::path::param2()
-///     .map(|id: u32| {
-///         format!("You asked for /{}", id)
-///     });
-/// ```
-pub fn param2<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
-where
-    T: FromStr + Send,
-    T::Err: Into<::reject::Cause>,
-{
-    segment(|seg| {
-        trace!("param?: {:?}", seg);
-        if seg.is_empty() {
-            return Err(reject::not_found());
-        }
-        T::from_str(seg).map(one).map_err(|err| {
-            #[allow(deprecated)]
-            reject::not_found().with(err.into())
-        })
-    })
-}
-
 /// Extract the unmatched tail of the path.
 ///
 /// This will return a `Tail`, which allows access to the rest of the path
