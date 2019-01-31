@@ -112,7 +112,6 @@ pub trait Filter: FilterBase {
     fn and<F>(self, other: F) -> And<Self, F>
     where
         Self: Sized,
-        //Self::Extract: HList + Combine<F::Extract>,
         <Self::Extract as Tuple>::HList: Combine<<F::Extract as Tuple>::HList>,
         F: Filter + Clone,
         F::Error: CombineRejection<Self::Error>,
@@ -137,7 +136,7 @@ pub trait Filter: FilterBase {
     /// ```
     fn or<F>(self, other: F) -> Or<Self, F>
     where
-        Self: Sized,
+        Self: Filter<Error=Rejection> + Sized,
         F: Filter,
         F::Error: CombineRejection<Self::Error>,
     {
@@ -240,8 +239,8 @@ pub trait Filter: FilterBase {
     /// same item and error types.
     fn or_else<F>(self, fun: F) -> OrElse<Self, F>
     where
-        Self: Sized,
-        F: Func<Self::Error>,
+        Self: Filter<Error=Rejection> + Sized,
+        F: Func<Rejection>,
         F::Output: IntoFuture<Item = Self::Extract, Error = Self::Error> + Send,
         <F::Output as IntoFuture>::Future: Send,
     {
@@ -260,8 +259,8 @@ pub trait Filter: FilterBase {
     /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/errors.rs
     fn recover<F>(self, fun: F) -> Recover<Self, F>
     where
-        Self: Sized,
-        F: Func<Self::Error>,
+        Self: Filter<Error=Rejection> + Sized,
+        F: Func<Rejection>,
         F::Output: IntoFuture<Error = Self::Error> + Send,
         <F::Output as IntoFuture>::Future: Send,
     {

@@ -87,10 +87,14 @@ fn map() {
 fn unify() {
     let _ = pretty_env_logger::try_init();
 
-    let a = warp::any().map(|| 1);
-    let b = warp::any().map(|| 2);
+    let a = warp::path::param::<u32>();
+    let b = warp::path::param::<u32>();
     let f = a.or(b).unify();
 
-    let ex = warp::test::request().filter(&f).unwrap();
+    let ex = warp::test::request()
+        .path("/1")
+        .filter(&f)
+        .unwrap();
+
     assert_eq!(ex, 1);
 }
