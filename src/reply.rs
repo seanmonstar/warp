@@ -362,7 +362,7 @@ mod sealed {
     use generic::{Either, One};
     use reject::Reject;
 
-    use super::Reply;
+    use super::{HeaderValue, Reply, CONTENT_TYPE};
 
     pub type Response = ::http::Response<Body>;
 
@@ -445,28 +445,52 @@ mod sealed {
     impl ReplySealed for String {
         #[inline]
         fn into_response(self) -> Response {
-            Response::new(Body::from(self))
+            ::http::Response::builder()
+                .header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                )
+                .body(Body::from(self))
+                .unwrap()
         }
     }
 
     impl ReplySealed for Vec<u8> {
         #[inline]
         fn into_response(self) -> Response {
-            Response::new(Body::from(self))
+            ::http::Response::builder()
+                .header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/octet-stream"),
+                )
+                .body(Body::from(self))
+                .unwrap()
         }
     }
 
     impl ReplySealed for &'static str {
         #[inline]
         fn into_response(self) -> Response {
-            Response::new(Body::from(self))
+            ::http::Response::builder()
+                .header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                )
+                .body(Body::from(self))
+                .unwrap()
         }
     }
 
     impl ReplySealed for &'static [u8] {
         #[inline]
         fn into_response(self) -> Response {
-            Response::new(Body::from(self))
+            ::http::Response::builder()
+                .header(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/octet-stream"),
+                )
+                .body(Body::from(self))
+                .unwrap()
         }
     }
 
