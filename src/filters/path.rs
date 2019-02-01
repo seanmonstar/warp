@@ -497,7 +497,10 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// Any number of either type identifiers or string expressions can be passed,
 /// each separated by a forward slash (`/`). Strings will be used to match
 /// path segments exactly, and type identifiers are used just like
-/// [`param`](filters::path::param) filters.
+/// [`param`](filters::path::param) filters. If a type parameter is wrapped in
+/// square brackets, it will accept a comma-delimited list of values and be
+/// returned as a `Vec` of that type, just like
+/// [`multi_param`](filters::path::multi_param) filters.
 ///
 /// # Example
 ///
@@ -536,6 +539,9 @@ macro_rules! path {
         )*
         __p
     });
+    (@segment [$param:ty]) => (
+        $crate::path::multi_param::<$param>()
+    );
     (@segment $param:ty) => (
         $crate::path::param::<$param>()
     );
