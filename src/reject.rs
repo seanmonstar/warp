@@ -414,8 +414,10 @@ impl Rejections {
             Rejections::Known(ref e) => {
                 let mut res = http::Response::new(Body::from(e.to_string()));
                 *res.status_mut() = self.status();
-                res.headers_mut()
-                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
                 res
             }
             Rejections::KnownStatus(ref s) => {
@@ -426,8 +428,10 @@ impl Rejections {
                 let mut res = rej.into_response();
 
                 let bytes = e.to_string();
-                res.headers_mut()
-                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
                 *res.body_mut() = Body::from(bytes);
 
                 res
@@ -440,8 +444,10 @@ impl Rejections {
                 let body = format!("Unhandled rejection: {}", e);
                 let mut res = http::Response::new(Body::from(body));
                 *res.status_mut() = self.status();
-                res.headers_mut()
-                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
                 res
             }
             Rejections::Combined(ref a, ref b) => preferred(a, b).into_response(),
@@ -745,7 +751,10 @@ mod tests {
     fn into_response_with_some_cause() {
         let resp = server_error().with("boom").into_response();
         assert_eq!(500, resp.status());
-        assert_eq!("text/plain", resp.headers().get(CONTENT_TYPE).unwrap());
+        assert_eq!(
+            "text/plain; charset=utf-8",
+            resp.headers().get(CONTENT_TYPE).unwrap()
+        );
         assert_eq!("boom", response_body_string(resp))
     }
 
