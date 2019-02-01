@@ -262,6 +262,51 @@ where
     })
 }
 
+/// Extract a comma-delimited list of same-type parameters from a path segment.
+///
+/// This will try to parse `n` values of the specified type from the current
+/// request path segment, and if successful, the values are returned in a `Vec`
+/// as the `Filter`'s "extracted" value.
+///
+/// If the one or more of the elements could not be parsed, rejects with a
+/// `404 Not Found`. Reports an error cause in the response.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path::multi_param()
+///     .map(|ids: Vec<u32>| {
+///         let stringified_ids = ids
+///             .iter()
+///             .map(ToString::to_string)
+///             .collect::<Vec<_>>()
+///             .join(", ");
+///         format!("You asked for these ids: {}", stringified_ids)
+///     });
+/// ```
+pub fn multi_param<T>() -> impl Filter<Extract = One<Vec<T>>, Error = Rejection> + Copy
+where
+    T: FromStr + Send,
+    T::Err: Into<::reject::Cause>,
+{
+    segment(|seg| {
+        trace!("param?: {:?}", seg);
+        if seg.is_empty() {
+            return Err(reject::not_found());
+        }
+        seg.split(',')
+            .map(T::from_str)
+            .collect::<Result<Vec<_>, _>>()
+            .map(one)
+            .map_err(|err| {
+                #[allow(deprecated)]
+                reject::not_found().with(err.into())
+            })
+    })
+}
+
 /// Extract the unmatched tail of the path.
 ///
 /// This will return a `Tail`, which allows access to the rest of the path
