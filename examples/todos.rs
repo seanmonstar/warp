@@ -49,7 +49,7 @@ fn main() {
     // Just the path segment "todos"...
     let todos = warp::path("todos");
 
-    // Combined with `index`, this means nothing comes after "todos".
+    // Combined with `end`, this means nothing comes after "todos".
     // So, for example: `GET /todos`, but not `GET /todos/32`.
     let todos_index = todos.and(warp::path::end());
 
