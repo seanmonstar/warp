@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use headers::{AccessControlAllowHeaders, AccessControlAllowMethods, HeaderMapExt};
+use headers::{AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlExposeHeaders, HeaderMapExt};
 use http::{
     self,
     header::{self, HeaderName, HeaderValue},
@@ -37,7 +37,8 @@ use self::internal::{CorsFilter, IntoOrigin, Seconds};
 pub fn cors() -> Cors {
     Cors {
         credentials: false,
-        headers: HashSet::new(),
+        allowed_headers: HashSet::new(),
+        exposed_headers: HashSet::new(),
         max_age: None,
         methods: HashSet::new(),
         origins: None,
@@ -48,7 +49,8 @@ pub fn cors() -> Cors {
 #[derive(Clone, Debug)]
 pub struct Cors {
     credentials: bool,
-    headers: HashSet<HeaderName>,
+    allowed_headers: HashSet<HeaderName>,
+    exposed_headers: HashSet<HeaderName>,
     max_age: Option<u64>,
     methods: HashSet<http::Method>,
     origins: Option<HashSet<HeaderValue>>,
@@ -109,7 +111,7 @@ impl Cors {
             Ok(m) => m,
             Err(_) => panic!("illegal Header"),
         };
-        self.headers.insert(header);
+        self.allowed_headers.insert(header);
         self
     }
 
@@ -127,7 +129,42 @@ impl Cors {
             Ok(h) => h,
             Err(_) => panic!("illegal Method"),
         });
-        self.headers.extend(iter);
+        self.allowed_headers.extend(iter);
+        self
+    }
+
+    /// Adds a header to the list of exposed headers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided argument is not a valid `http::header::HeaderName`.
+    pub fn expose_header<H>(mut self, header: H) -> Self
+    where
+        HeaderName: HttpTryFrom<H>,
+    {
+        let header = match HttpTryFrom::try_from(header) {
+            Ok(m) => m,
+            Err(_) => panic!("illegal Header"),
+        };
+        self.exposed_headers.insert(header);
+        self
+    }
+
+    /// Adds multiple headers to the list of exposed headers.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the headers are not a valid `http::header::HeaderName`.
+    pub fn expose_headers<I>(mut self, headers: I) -> Self
+    where
+        I: IntoIterator,
+        HeaderName: HttpTryFrom<I::Item>,
+    {
+        let iter = headers.into_iter().map(|h| match HttpTryFrom::try_from(h) {
+            Ok(h) => h,
+            Err(_) => panic!("illegal Method"),
+        });
+        self.exposed_headers.extend(iter);
         self
     }
 
@@ -205,9 +242,16 @@ where
     type Wrapped = CorsFilter<F>;
 
     fn wrap(&self, inner: F) -> Self::Wrapped {
+        let expose_headers_header =
+            if self.exposed_headers.is_empty() {
+                None
+            } else {
+                Some(self.exposed_headers.iter().map(|m| m.clone()).collect())
+            };
         let config = Arc::new(Configured {
             cors: self.clone(),
-            headers_header: self.headers.iter().map(|m| m.clone()).collect(),
+            allowed_headers_header: self.allowed_headers.iter().map(|m| m.clone()).collect(),
+            expose_headers_header,
             methods_header: self.methods.iter().map(|m| m.clone()).collect(),
         });
 
@@ -248,7 +292,8 @@ impl ::std::error::Error for CorsForbidden {
 #[derive(Clone, Debug)]
 struct Configured {
     cors: Cors,
-    headers_header: AccessControlAllowHeaders,
+    allowed_headers_header: AccessControlAllowHeaders,
+    expose_headers_header: Option<AccessControlExposeHeaders>,
     methods_header: AccessControlAllowMethods,
 }
 
@@ -319,7 +364,7 @@ impl Configured {
 
     fn is_header_allowed(&self, header: &str) -> bool {
         HeaderName::from_bytes(header.as_bytes())
-            .map(|header| self.cors.headers.contains(&header))
+            .map(|header| self.cors.allowed_headers.contains(&header))
             .unwrap_or(false)
     }
 
@@ -334,7 +379,7 @@ impl Configured {
     fn append_preflight_headers(&self, headers: &mut http::HeaderMap) {
         self.append_common_headers(headers);
 
-        headers.typed_insert(self.headers_header.clone());
+        headers.typed_insert(self.allowed_headers_header.clone());
         headers.typed_insert(self.methods_header.clone());
 
         if let Some(max_age) = self.cors.max_age {
@@ -348,6 +393,9 @@ impl Configured {
                 header::ACCESS_CONTROL_ALLOW_CREDENTIALS,
                 HeaderValue::from_static("true"),
             );
+        }
+        if let Some(expose_headers_header) = &self.expose_headers_header {
+            headers.typed_insert(expose_headers_header.clone())
         }
     }
 }
