@@ -52,6 +52,30 @@ fn origin_not_allowed() {
 }
 
 #[test]
+fn headers_not_exposed() {
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(&[Method::GET]);
+
+    let route = warp::any().map(warp::reply).with(cors);
+
+    let res = warp::test::request()
+        .method("OPTIONS")
+        .header("origin", "https://warp.rs")
+        .header("access-control-request-method", "GET")
+        .reply(&route);
+
+    assert_eq!(res.headers().contains_key("access-control-expose-headers"), false);
+
+    let res = warp::test::request()
+        .method("GET")
+        .header("origin", "https://warp.rs")
+        .reply(&route);
+
+    assert_eq!(res.headers().contains_key("access-control-expose-headers"), false);
+}
+
+#[test]
 fn headers_not_allowed() {
     let cors = warp::cors()
         .allow_methods(&[Method::DELETE])
@@ -75,6 +99,8 @@ fn success() {
         .allow_credentials(true)
         .allow_headers(vec!["x-foo", "x-bar"])
         .allow_methods(&[Method::POST, Method::DELETE])
+        .expose_header("x-header1")
+        .expose_headers(vec!["x-header2"])
         .max_age(30);
 
     let route = warp::any().map(warp::reply).with(cors);
@@ -92,8 +118,10 @@ fn success() {
         "https://hyper.rs"
     );
     assert_eq!(res.headers()["access-control-allow-credentials"], "true");
-    let headers = &res.headers()["access-control-allow-headers"];
-    assert!(headers == "x-bar, x-foo" || headers == "x-foo, x-bar");
+    let allowed_headers = &res.headers()["access-control-allow-headers"];
+    assert!(allowed_headers == "x-bar, x-foo" || allowed_headers == "x-foo, x-bar");
+    let exposed_headers = &res.headers()["access-control-expose-headers"];
+    assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
     assert_eq!(res.headers()["access-control-max-age"], "30");
     let methods = &res.headers()["access-control-allow-methods"];
     assert!(
@@ -118,4 +146,7 @@ fn success() {
     assert_eq!(res.headers()["access-control-allow-credentials"], "true");
     assert_eq!(res.headers().get("access-control-max-age"), None);
     assert_eq!(res.headers().get("access-control-allow-methods"), None);
+    let exposed_headers = &res.headers()["access-control-expose-headers"];
+    assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
+
 }
