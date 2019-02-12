@@ -121,7 +121,7 @@ fn success() {
     let allowed_headers = &res.headers()["access-control-allow-headers"];
     assert!(allowed_headers == "x-bar, x-foo" || allowed_headers == "x-foo, x-bar");
     let exposed_headers = &res.headers()["access-control-expose-headers"];
-    assert!(exposed_headers == "x-header1, x-header2" || allowed_headers == "x-header2, x-header1");
+    assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
     assert_eq!(res.headers()["access-control-max-age"], "30");
     let methods = &res.headers()["access-control-allow-methods"];
     assert!(
@@ -147,6 +147,6 @@ fn success() {
     assert_eq!(res.headers().get("access-control-max-age"), None);
     assert_eq!(res.headers().get("access-control-allow-methods"), None);
     let exposed_headers = &res.headers()["access-control-expose-headers"];
-    assert!(exposed_headers == "x-header1, x-header2" || allowed_headers == "x-header2, x-header1");
+    assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
 
 }
