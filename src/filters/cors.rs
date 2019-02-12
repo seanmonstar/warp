@@ -127,7 +127,7 @@ impl Cors {
     {
         let iter = headers.into_iter().map(|h| match HttpTryFrom::try_from(h) {
             Ok(h) => h,
-            Err(_) => panic!("illegal Method"),
+            Err(_) => panic!("illegal Header"),
         });
         self.allowed_headers.extend(iter);
         self
@@ -162,7 +162,7 @@ impl Cors {
     {
         let iter = headers.into_iter().map(|h| match HttpTryFrom::try_from(h) {
             Ok(h) => h,
-            Err(_) => panic!("illegal Method"),
+            Err(_) => panic!("illegal Header"),
         });
         self.exposed_headers.extend(iter);
         self
