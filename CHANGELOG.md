@@ -1,3 +1,10 @@
+### v0.1.13 (February 13, 2019)
+
+- **Features**:
+  - Implement `Reply` for `Vec<u8>` and `&'static [u8]`.
+  - Set `content-type` header automatically for string and bytes replies.
+  - Add `expose_headers` to `warp::cors` filter.
+
 ### v0.1.12 (January 29, 2019)
 
 - **Features**:
