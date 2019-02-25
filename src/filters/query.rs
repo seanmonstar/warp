@@ -12,12 +12,15 @@ use reject::{self, Rejection};
 pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 {
     filter_fn_one(|route| {
-        route
-            .query()
-            .or(Some(""))
-            .and_then(|q| serde_urlencoded::from_str(q).ok())
-            .map(Ok)
-            .unwrap_or_else(|| Err(reject::known(InvalidQuery)))
+        let query_string = route.query().unwrap_or_else(|| {
+            debug!("route was called without a query string, defaulting to empty");
+            ""
+        });
+
+        serde_urlencoded::from_str(query_string).map_err(|e| {
+            debug!("failed to decode query string '{}': {:?}", query_string, e);
+            reject::known(InvalidQuery)
+        })
     })
 }
 
