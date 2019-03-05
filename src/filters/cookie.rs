@@ -26,7 +26,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract = One<String>, Error = 
 pub fn optional(
     name: &'static str,
 ) -> impl Filter<Extract = One<Option<String>>, Error = Never> + Copy {
-    header::optional()
+    header::optional2()
         .map(move |opt: Option<Cookie>| opt.and_then(|cookie| cookie.get(name).map(String::from)))
 }
 
