@@ -213,10 +213,10 @@ impl Conditionals {
 }
 
 fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Never> + Copy {
-    ::header::optional()
-        .and(::header::optional())
-        .and(::header::optional())
-        .and(::header::optional())
+    ::header::optional2()
+        .and(::header::optional2())
+        .and(::header::optional2())
+        .and(::header::optional2())
         .map(
             |if_modified_since, if_unmodified_since, if_range, range| Conditionals {
                 if_modified_since,

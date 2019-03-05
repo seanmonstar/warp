@@ -39,3 +39,29 @@ fn exact_rejections() {
     assert_eq!(res.status(), 400);
     assert_eq!(res.body(), "Missing request header 'host'");
 }
+
+#[test]
+fn optional() {
+    let _ = pretty_env_logger::try_init();
+
+    let con_len = warp::header::optional::<u64>("content-length");
+
+    let val = warp::test::request()
+        .filter(&con_len)
+        .expect("missing header matches");
+    assert_eq!(val, None);
+
+    let val = warp::test::request()
+        .header("content-length", "5")
+        .filter(&con_len)
+        .expect("existing header matches");
+
+    assert_eq!(val, Some(5));
+
+    assert!(
+        !warp::test::request()
+            .header("content-length", "boom")
+            .matches(&con_len),
+        "invalid optional header still rejects",
+    );
+}

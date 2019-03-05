@@ -61,6 +61,49 @@ pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract = One<T>, Error
     })
 }
 
+/// Create a `Filter` that tries to parse the specified header, if it exists.
+///
+/// If the header does not exist, it yields `None`. Otherwise, it will try to
+/// parse as a `T`, and if it fails, a invalid header rejection is return. If
+/// successful, the filter yields `Some(T)`.
+///
+/// # Example
+///
+/// ```
+/// // Grab the `authorization` header if it exists.
+/// let opt_auth = warp::header::optional::<String>("authorization");
+/// ```
+pub fn optional<T>(
+    name: &'static str,
+) -> impl Filter<Extract = One<Option<T>>, Error = Rejection> + Copy
+where
+    T: FromStr + Send,
+{
+    filter_fn_one(move |route| {
+        trace!("optional({:?})", name);
+        let result = route.headers().get(name).map(|value| {
+            value
+                .to_str()
+                .map_err(|_| reject::known(InvalidHeader(name)))?
+                .parse::<T>()
+                .map_err(|_| reject::known(InvalidHeader(name)))
+        });
+
+        match result {
+            Some(Ok(t)) => Ok(Some(t)),
+            Some(Err(e)) => Err(e),
+            None => Ok(None),
+        }
+    })
+}
+
+pub(crate) fn optional2<T>() -> impl Filter<Extract = One<Option<T>>, Error = Never> + Copy
+where
+    T: Header + Send,
+{
+    filter_fn_one(move |route| Ok(route.headers().typed_get()))
+}
+
 /* TODO
 pub fn exact2<T>(header: T) -> impl FilterClone<Extract=(), Error=Rejection>
 where
@@ -156,13 +199,6 @@ pub fn exact_ignore_case(
 /// ```
 pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Never> + Copy {
     filter_fn_one(|route| Ok(route.headers().clone()))
-}
-
-pub(crate) fn optional<T>() -> impl Filter<Extract = One<Option<T>>, Error = Never> + Copy
-where
-    T: Header + Send,
-{
-    filter_fn_one(move |route| Ok(route.headers().typed_get()))
 }
 
 // ===== Rejections =====
