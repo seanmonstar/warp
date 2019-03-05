@@ -31,10 +31,7 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 ## Example
 
 ```rust
-#[macro_use]
-extern crate warp;
-
-use warp::Filter;
+use warp::{Filter, path};
 
 fn main() {
     // GET /hello/warp => 200 OK with body "Hello, warp!"
