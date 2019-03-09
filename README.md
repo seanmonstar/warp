@@ -31,11 +31,11 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 ## Example
 
 ```rust
-use warp::Filter;
+use warp::{self, path, Filter};
 
 fn main() {
     // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello = warp::path!("hello" / String)
+    let hello = path!("hello" / String)
         .map(|name| format!("Hello, {}!", name));
 
     warp::serve(hello)
