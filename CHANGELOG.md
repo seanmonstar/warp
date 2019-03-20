@@ -1,3 +1,14 @@
+### v0.2.0 (March 20, 2019)
+
+- **Features**:
+  - Configurable tls support
+
+- **Changes**
+  - Expose `tls` module
+  - Add `tls::config`, `tls::config_from_path`, `tls::config_from_der_data`
+  - Change `tls` method of `wrap::Server` to take `ServerConfig` instead of path only
+  - Removed `tls::configure` function
+
 ### v0.1.14 (March 19, 2019)
 
 - **Features**:
