@@ -1,3 +1,8 @@
+### v0.1.14 (March 19, 2019)
+
+- **Features**:
+  - Add `warp::header::optional` filter.
+
 ### v0.1.13 (February 13, 2019)
 
 - **Features**:
