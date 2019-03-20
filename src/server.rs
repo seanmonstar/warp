@@ -243,7 +243,18 @@ where
     ///
     /// *This function requires the `"tls"` feature.*
     #[cfg(feature = "tls")]
-    pub fn tls(self, config: rustls::ServerConfig) -> TlsServer<S> {
+    #[doc(hidden)]
+    #[deprecated(note = "warp::tls2() is meant to replace tls()")]
+    pub fn tls(self, cert: impl AsRef<std::path::Path>, key: impl AsRef<std::path::Path>) -> TlsServer<S> {
+        let tls = ::tls::configure(cert.as_ref(), key.as_ref());
+        TlsServer { server: self, tls }
+    }
+
+    /// Configure a server to use TLS.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    #[cfg(feature = "tls")]
+    pub fn tls2(self, config: rustls::ServerConfig) -> TlsServer<S> {
         TlsServer { server: self, tls: config }
     }
 }

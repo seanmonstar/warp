@@ -1,13 +1,15 @@
-### v0.2.0 (March 20, 2019)
+### v0.1.15 (March 20, 2019)
 
 - **Features**:
   - Configurable tls support
 
 - **Changes**
   - Expose `tls` module
-  - Add `tls::config`, `tls::config_from_path`, `tls::config_from_der_data`
-  - Change `tls` method of `wrap::Server` to take `ServerConfig` instead of path only
-  - Removed `tls::configure` function
+  - Add `tls::config`, `tls::config_from_path`, `tls::config_from_der_data`.
+  - Add `tls2` method on `warp::Server` to take `ServerConfig` instead of path only
+    `tls` variant.
+  - `tls::configure` has been deprecated
+  - `tls` method of `warp::Server` has been deprecated.
 
 ### v0.1.14 (March 19, 2019)
 

@@ -67,6 +67,10 @@ pub fn config(cert_chain: Vec<rustls::Certificate>, key: rustls::PrivateKey) -> 
     tls
 }
 
+pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
+    config_from_path(cert, key)
+}
+
 /// A TlsStream that lazily does ths TLS handshake.
 #[derive(Debug)]
 pub(crate) struct TlsStream<T> {

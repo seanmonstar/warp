@@ -12,7 +12,7 @@ fn main() {
     let routes = warp::any().map(|| "Hello, World!");
 
     warp::serve(routes)
-        .tls(tls::config_from_path("examples/tls/cert.pem", "examples/tls/key.rsa"))
+        .tls2(tls::config_from_path("examples/tls/cert.pem", "examples/tls/key.rsa"))
         .run(([127, 0, 0, 1], 3030));
 }
 
