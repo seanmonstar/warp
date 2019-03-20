@@ -1,3 +1,4 @@
+//! This module provides helpers for enabling tls  
 use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
 use std::net::SocketAddr;
@@ -9,8 +10,12 @@ use tokio_io::{AsyncRead, AsyncWrite};
 
 use transport::Transport;
 
-pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
-    let cert = {
+/// Create a rustls ServerConfig from filesystem paths. This targets the most
+/// commonly used case of single certificate in the chain. 
+/// 
+/// For anything else, use the `config` fn.
+pub fn config_from_path(cert: impl AsRef<Path>, key: impl AsRef<Path>) -> ServerConfig {
+    let cert_chain = {
         let file = File::open(cert).unwrap_or_else(|e| panic!("tls cert file error: {}", e));
         let mut rdr = BufReader::new(file);
         rustls::internal::pemfile::certs(&mut rdr)
@@ -40,9 +45,23 @@ pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
             }
         }
     };
+    config(cert_chain, key)
+}
 
+/// Create a rustls ServerConfig from raw DER data. This targets the most
+/// commonly used case of single certificate in the chain. 
+/// 
+/// For anything else, use the `config` fn.
+pub fn config_from_der_data(cert: Vec<u8>, key: Vec<u8>) -> ServerConfig {
+    let cert = rustls::Certificate(cert);
+    let key = rustls::PrivateKey(key);
+    config(vec![cert], key)
+}
+
+/// Create a rustls ServerConfig from cert chain and private key 
+pub fn config(cert_chain: Vec<rustls::Certificate>, key: rustls::PrivateKey) -> ServerConfig {
     let mut tls = ServerConfig::new(rustls::NoClientAuth::new());
-    tls.set_single_cert(cert, key)
+    tls.set_single_cert(cert_chain, key)
         .unwrap_or_else(|e| panic!("tls failed: {}", e));
     tls.set_protocols(&["h2".into(), "http/1.1".into()]);
     tls

@@ -6,12 +6,13 @@ extern crate warp;
 #[cfg(feature = "tls")]
 fn main() {
     use warp::Filter;
+    use warp::tls;
 
     // Match any request and return hello world!
     let routes = warp::any().map(|| "Hello, World!");
 
     warp::serve(routes)
-        .tls("examples/tls/cert.pem", "examples/tls/key.rsa")
+        .tls(tls::config_from_path("examples/tls/cert.pem", "examples/tls/key.rsa"))
         .run(([127, 0, 0, 1], 3030));
 }
 
