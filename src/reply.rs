@@ -357,6 +357,8 @@ impl<T: Reply> ReplySealed for WithHeader<T> {
 
 // Seal the `Reply` trait and the `Reply_` wrapper type for now.
 mod sealed {
+    use std::borrow::Cow;
+
     use hyper::Body;
 
     use generic::{Either, One};
@@ -478,6 +480,16 @@ mod sealed {
                 )
                 .body(Body::from(self))
                 .unwrap()
+        }
+    }
+
+    impl ReplySealed for Cow<'static, str> {
+        #[inline]
+        fn into_response(self) -> Response {
+            match self {
+                Cow::Borrowed(s) => s.into_response(),
+                Cow::Owned(s) => s.into_response()
+            }
         }
     }
 
