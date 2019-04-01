@@ -1,6 +1,7 @@
 //! Logger Filters
 
 use std::fmt;
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use http::{self, header, StatusCode};
@@ -42,18 +43,8 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
             info.path(),
             info.route.version(),
             info.status().as_u16(),
-            OptFmt(
-                info.route
-                    .headers()
-                    .get(header::REFERER)
-                    .and_then(|v| v.to_str().ok())
-            ),
-            OptFmt(
-                info.route
-                    .headers()
-                    .get(header::USER_AGENT)
-                    .and_then(|v| v.to_str().ok())
-            ),
+            OptFmt(info.referer()),
+            OptFmt(info.user_agent()),
             info.elapsed(),
         );
     };
@@ -119,6 +110,11 @@ where
 }
 
 impl<'a> Info<'a> {
+    /// View the remote `SocketAddr` of the request.
+    pub fn remote_addr(&self) -> Option<SocketAddr> {
+        self.route.remote_addr()
+    }
+
     /// View the `http::Method` of the request.
     pub fn method(&self) -> &http::Method {
         self.route.method()
@@ -139,7 +135,24 @@ impl<'a> Info<'a> {
         self.status
     }
 
-    fn elapsed(&self) -> Duration {
+    /// View the referer of the request.
+    pub fn referer(&self) -> Option<&str> {
+        self.route
+            .headers()
+            .get(header::REFERER)
+            .and_then(|v| v.to_str().ok())
+    }
+
+    /// View the user agent of the request.
+    pub fn user_agent(&self) -> Option<&str> {
+        self.route
+            .headers()
+            .get(header::USER_AGENT)
+            .and_then(|v| v.to_str().ok())
+    }
+
+    /// View the `Duration` that elapsed for the request.
+    pub fn elapsed(&self) -> Duration {
         clock::now() - self.start
     }
 }
