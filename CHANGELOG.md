@@ -1,3 +1,9 @@
+### v0.1.15 (April 2, 2019)
+
+- **Features**:
+  - Add more accessors to `warp::log::Info` type for building custom log formats.
+  - Implement `Reply` for `Cow<'static, str>`.
+
 ### v0.1.14 (March 19, 2019)
 
 - **Features**:
