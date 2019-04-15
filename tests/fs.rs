@@ -118,13 +118,16 @@ fn not_modified() {
     let file = warp::fs::file("README.md");
 
     let req = warp::test::request();
+    let body = fs::read("README.md").unwrap();
     let res1 = req.reply(&file);
     assert_eq!(res1.status(), 200);
+    assert_eq!(res1.headers()["content-length"], body.len().to_string());
 
     // if-modified-since
     let res = warp::test::request()
         .header("if-modified-since", &res1.headers()["last-modified"])
         .reply(&file);
+    assert_eq!(res.headers().get("content-length"), None);
     assert_eq!(res.status(), 304);
     assert_eq!(res.body(), "");
 
@@ -133,7 +136,8 @@ fn not_modified() {
         .header("if-modified-since", "Sun, 07 Nov 1994 01:00:00 GMT")
         .reply(&file);
     assert_eq!(res.status(), 200);
-    assert_eq!(res.body(), &*fs::read("README.md").unwrap());
+    assert_eq!(res.body(), &body);
+    assert_eq!(res1.headers()["content-length"], body.len().to_string());
 }
 
 #[test]
