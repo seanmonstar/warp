@@ -296,7 +296,7 @@ fn file_conditional(
         let mut len = meta.len();
         let modified = meta.modified().ok().map(LastModified::from);
 
-        let mut resp = match conditionals.check(modified) {
+        let resp = match conditionals.check(modified) {
             Cond::NoBody(resp) => resp,
             Cond::WithBody(range) => {
                 bytes_range(range, len)
@@ -317,6 +317,16 @@ fn file_conditional(
                             len = sub_len;
                         }
 
+                        let mime = mime_guess::guess_mime_type(path.as_ref());
+
+                        resp.headers_mut().typed_insert(ContentLength(len));
+                        resp.headers_mut().typed_insert(ContentType::from(mime));
+                        resp.headers_mut().typed_insert(AcceptRanges::bytes());
+
+                        if let Some(last_modified) = modified {
+                            resp.headers_mut().typed_insert(last_modified);
+                        }
+
                         resp
                     })
                     .unwrap_or_else(|BadRange| {
@@ -329,18 +339,6 @@ fn file_conditional(
                     })
             }
         };
-
-        if resp.status() != StatusCode::RANGE_NOT_SATISFIABLE {
-            let mime = mime_guess::guess_mime_type(path.as_ref());
-
-            resp.headers_mut().typed_insert(ContentLength(len));
-            resp.headers_mut().typed_insert(ContentType::from(mime));
-            resp.headers_mut().typed_insert(AcceptRanges::bytes());
-
-            if let Some(last_modified) = modified {
-                resp.headers_mut().typed_insert(last_modified);
-            }
-        }
 
         File { resp }
     })
