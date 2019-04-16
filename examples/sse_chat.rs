@@ -62,7 +62,7 @@ fn main() {
             .map(|sse: warp::sse::Sse, users| {
                 // reply using server-sent events
                 let stream = user_connected(users);
-                sse.reply(warp::sse::keep(stream, None))
+                sse.reply(warp::sse::keep_alive().stream(stream))
             });
 
     // GET / -> index html
