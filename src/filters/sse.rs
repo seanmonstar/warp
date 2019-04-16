@@ -517,6 +517,9 @@ where
 /// as shown below.
 ///
 /// ```
+/// extern crate pretty_env_logger;
+/// extern crate tokio;
+/// extern crate warp;
 /// use std::time::Duration;
 /// use tokio::{clock::now, timer::Interval};
 /// use warp::{Filter, Stream};
@@ -536,7 +539,6 @@ where
 ///                           .with_interval(Duration::from_secs(5))
 ///                           .with_text("thump".to_string()))
 ///         });
-///     warp::serve(routes).run(([127, 0, 0, 1], 3030));
 /// }
 /// ```
 ///
