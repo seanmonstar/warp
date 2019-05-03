@@ -24,15 +24,18 @@
 //!             warp::sse::retry(Duration::from_millis(5000)),
 //!         ).into_b().into_b(),
 //!     ]);
-//!     sse.reply(warp::sse::keep(events, None))
+//!     sse.reply(warp::sse::keep_alive().stream(events))
 //! });
 //! ```
 //!
 //! Each field already is event which can be sent to client.
 //! The events with multiple fields can be created by combining fields using tuples.
 //!
-//! See also [EventSource](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) API.
+//! See also the [EventSource](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) API,
+//! which specifies the expected behavior of Server Sent Events.
 //!
+
+use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter, Write};
 use std::str::FromStr;
@@ -448,22 +451,64 @@ where
     }
 }
 
+/// Configure the interval between keep-alive messages, the content
+/// of each message, and the associated stream.
+#[derive(Debug)]
+pub struct KeepAlive {
+    comment_text: Cow<'static, str>,
+    max_interval: Duration,
+}
+
+impl KeepAlive {
+    /// Customize the interval between keep-alive messages.
+    ///
+    /// Default is 15 seconds.
+    pub fn interval(mut self, time: Duration) -> Self {
+        self.max_interval = time;
+        self
+    }
+
+    /// Customize the text of the keep-alive message.
+    ///
+    /// Default is an empty comment.
+    pub fn text(mut self, text: impl Into<Cow<'static, str>>) -> Self {
+        self.comment_text = text.into();
+        self
+    }
+
+    /// Wrap an event stream with keep-alive functionality.
+    ///
+    /// See [`keep_alive`](super::keep_alive) for more.
+    pub fn stream<S>(self, event_stream: S) -> impl Stream<
+        Item = impl ServerSentEvent + Send + 'static,
+        Error = impl StdError + Send + Sync + 'static,
+    > + Send + 'static
+    where
+        S: Stream + Send + 'static,
+        S::Item: ServerSentEvent + Send,
+        S::Error: StdError + Send + Sync + 'static,
+    {
+        let alive_timer = Delay::new(now() + self.max_interval);
+        SseKeepAlive {
+            event_stream,
+            comment_text: self.comment_text,
+            max_interval: self.max_interval,
+            alive_timer,
+        }
+    }
+}
+
 #[allow(missing_debug_implementations)]
 struct SseKeepAlive<S> {
     event_stream: S,
+    comment_text: Cow<'static, str>,
     max_interval: Duration,
     alive_timer: Delay,
 }
 
-/// Keeps event source connection when no events sent over a some time.
-///
-/// Some proxy servers may drop HTTP connection after a some timeout of inactivity.
-/// This function helps to prevent such behavior by sending dummy events with single
-/// empty comment field (i.e. ":" only) each `keep_interval` of inactivity.
-///
-/// By default this time interval between events equals to 15 seconds.
-///
-/// See [notes](https://www.w3.org/TR/2009/WD-eventsource-20090421/#notes).
+
+#[doc(hidden)]
+#[deprecated(note = "use warp::see:keep_alive() instead")]
 pub fn keep<S>(
     event_stream: S,
     keep_interval: impl Into<Option<Duration>>,
@@ -483,8 +528,55 @@ where
     let alive_timer = Delay::new(now() + max_interval);
     SseKeepAlive {
         event_stream,
+        comment_text: Cow::Borrowed(""),
         max_interval,
         alive_timer,
+    }
+}
+
+/// Keeps event source connection alive when no events sent over a some time.
+///
+/// Some proxy servers may drop HTTP connection after a some timeout of inactivity.
+/// This function helps to prevent such behavior by sending comment events every
+/// `keep_interval` of inactivity.
+///
+/// By default the comment is `:` (an empty comment) and the time interval between
+/// events is 15 seconds. Both may be customized using the builder pattern
+/// as shown below.
+///
+/// ```
+/// extern crate pretty_env_logger;
+/// extern crate tokio;
+/// extern crate warp;
+/// use std::time::Duration;
+/// use tokio::{clock::now, timer::Interval};
+/// use warp::{Filter, Stream};
+///
+/// fn main() {
+///     let routes = warp::path("ticks")
+///         .and(warp::sse())
+///         .map(|sse: warp::sse::Sse| {
+///             let mut counter: u64 = 0;
+///             let event_stream = Interval::new(now(), Duration::from_secs(15)).map(move |_| {
+///                 counter += 1;
+///                 // create server-sent event
+///                 warp::sse::data(counter)
+///             });
+///             // reply using server-sent events
+///             let stream = warp::sse::keep_alive()
+///                 .interval(Duration::from_secs(5))
+///                 .text("thump".to_string())
+///                 .stream(event_stream);
+///             sse.reply(stream)
+///         });
+/// }
+/// ```
+///
+/// See [notes](https://www.w3.org/TR/2009/WD-eventsource-20090421/#notes).
+pub fn keep_alive() -> KeepAlive {
+    KeepAlive {
+        comment_text: Cow::Borrowed(""),
+        max_interval: Duration::from_secs(15),
     }
 }
 
@@ -494,7 +586,7 @@ where
     S::Item: ServerSentEvent,
     S::Error: StdError + Send + Sync + 'static,
 {
-    type Item = EitherServerSentEvent<S::Item, SseComment<&'static str>>;
+    type Item = EitherServerSentEvent<S::Item, SseComment<Cow<'static, str>>>;
     type Error = SseError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -504,7 +596,10 @@ where
                 Ok(Async::Ready(_)) => {
                     // restart timer
                     self.alive_timer.reset(now() + self.max_interval);
-                    Ok(Async::Ready(Some(EitherServerSentEvent::B(SseComment("")))))
+                    let comment_str = self.comment_text.clone();
+                    Ok(Async::Ready(Some(EitherServerSentEvent::B(SseComment(
+                        comment_str,
+                    )))))
                 }
                 Err(error) => {
                     error!("sse::keep error: {}", error);
