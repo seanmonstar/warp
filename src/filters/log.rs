@@ -155,6 +155,14 @@ impl<'a> Info<'a> {
     pub fn elapsed(&self) -> Duration {
         clock::now() - self.start
     }
+
+    /// View the host of the request
+    pub fn host(&self) -> Option<&str> {
+        self.route
+            .headers()
+            .get(header::HOST)
+            .and_then(|v| v.to_str().ok())
+    }
 }
 
 struct OptFmt<T>(Option<T>);
