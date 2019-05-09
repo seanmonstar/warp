@@ -7,8 +7,8 @@ pub fn assets_filter() -> BoxedFilter<(impl Reply,)> {
     warp::path("assets").and(warp::fs::dir("./assets")).boxed()
 }
 
-// Option 2: impl Filter
-pub fn index_filter() -> impl Filter<Extract = (&'static str,), Error = Rejection> {
+// Option 2: impl Filter + Clone
+pub fn index_filter() -> impl Filter<Extract = (&'static str,), Error = Rejection> + Clone {
     warp::path::end().map(|| "Index page")
 }
 
