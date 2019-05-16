@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use futures::{Future, Poll};
 
-use reject::Reject;
+use reject::IsReject;
 use reply::Reply;
 use route::{self, Route};
 use server::{IntoWarpService, WarpService};
@@ -17,7 +17,7 @@ impl<F> WarpService for FilteredService<F>
 where
     F: Filter,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reject,
+    <F::Future as Future>::Error: IsReject,
 {
     type Reply = FilteredFuture<F::Future>;
 
@@ -60,7 +60,7 @@ impl<F> IntoWarpService for FilteredService<F>
 where
     F: Filter + Send + Sync + 'static,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reject,
+    <F::Future as Future>::Error: IsReject,
 {
     type Service = FilteredService<F>;
 
@@ -74,7 +74,7 @@ impl<F> IntoWarpService for F
 where
     F: Filter + Send + Sync + 'static,
     <F::Future as Future>::Item: Reply,
-    <F::Future as Future>::Error: Reject,
+    <F::Future as Future>::Error: IsReject,
 {
     type Service = FilteredService<F>;
 

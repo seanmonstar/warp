@@ -100,7 +100,7 @@ use serde_json;
 use tokio::runtime::{Builder as RtBuilder, Runtime};
 
 use filter::Filter;
-use reject::Reject;
+use reject::IsReject;
 use reply::{Reply, ReplySealed};
 use route::{self, Route};
 use Request;
@@ -319,7 +319,7 @@ impl RequestBuilder {
     where
         F: Filter + 'static,
         F::Extract: Reply + Send,
-        F::Error: Reject + Send,
+        F::Error: IsReject + Send,
     {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
@@ -431,7 +431,7 @@ impl WsBuilder {
     where
         F: Filter + Send + Sync + 'static,
         F::Extract: Reply + Send,
-        F::Error: Reject + Send,
+        F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
         let (wr_tx, wr_rx) = mpsc::unbounded();

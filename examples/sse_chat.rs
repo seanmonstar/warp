@@ -23,6 +23,10 @@ enum Message {
     Reply(String),
 }
 
+#[derive(Debug)]
+struct NotUtf8;
+impl warp::reject::Reject for NotUtf8 {}
+
 /// Our state of currently connected users.
 ///
 /// - Key is their id
@@ -46,7 +50,7 @@ fn main() {
         .and(warp::body::concat().and_then(|body: warp::body::FullBody| {
             std::str::from_utf8(body.bytes())
                 .map(String::from)
-                .map_err(warp::reject::custom)
+                .map_err(|_e| warp::reject::custom(NotUtf8))
         }))
         .and(users.clone())
         .map(|my_id, msg, users| {

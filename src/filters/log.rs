@@ -8,7 +8,7 @@ use http::{self, header, StatusCode};
 use tokio::clock;
 
 use filter::{Filter, WrapSealed};
-use reject::Reject;
+use reject::IsReject;
 use reply::Reply;
 use route::Route;
 
@@ -97,7 +97,7 @@ where
     FN: Fn(Info) + Clone + Send,
     F: Filter + Clone + Send,
     F::Extract: Reply,
-    F::Error: Reject,
+    F::Error: IsReject,
 {
     type Wrapped = WithLog<FN, F>;
 
@@ -184,7 +184,7 @@ mod internal {
 
     use super::{Info, Log};
     use filter::{Filter, FilterBase};
-    use reject::Reject;
+    use reject::IsReject;
     use reply::{Reply, ReplySealed, Response};
     use route;
 
@@ -210,7 +210,7 @@ mod internal {
         FN: Fn(Info) + Clone + Send,
         F: Filter + Clone + Send,
         F::Extract: Reply,
-        F::Error: Reject,
+        F::Error: IsReject,
     {
         type Extract = (Logged,);
         type Error = F::Error;
@@ -238,7 +238,7 @@ mod internal {
         FN: Fn(Info),
         F: Future,
         F::Item: Reply,
-        F::Error: Reject,
+        F::Error: IsReject,
     {
         type Item = (Logged,);
         type Error = F::Error;

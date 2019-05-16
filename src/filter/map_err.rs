@@ -1,7 +1,7 @@
 use futures::{Future, Poll};
 
 use super::{Filter, FilterBase};
-use reject::Reject;
+use reject::IsReject;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapErr<T, F> {
@@ -13,7 +13,7 @@ impl<T, F, E> FilterBase for MapErr<T, F>
 where
     T: Filter,
     F: Fn(T::Error) -> E + Clone + Send,
-    E: Reject,
+    E: IsReject,
 {
     type Extract = T::Extract;
     type Error = E;

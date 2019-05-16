@@ -10,6 +10,10 @@ use warp::{Filter, Future};
 /// A newtype to enforce our maximum allowed seconds.
 struct Seconds(u64);
 
+#[derive(Debug)]
+struct ServerTimerGone;
+impl warp::reject::Reject for ServerTimerGone {}
+
 impl FromStr for Seconds {
     type Err = ();
     fn from_str(src: &str) -> Result<Self, Self::Err> {
@@ -34,7 +38,7 @@ fn main() {
                 // An error from `Delay` means a big problem with the server...
                 .map_err(|timer_err| {
                     eprintln!("timer error: {}", timer_err);
-                    warp::reject::custom(timer_err)
+                    warp::reject::custom(ServerTimerGone)
                 })
         })
         .map(|seconds| format!("I waited {} seconds!", seconds));

@@ -5,51 +5,35 @@ extern crate serde_derive;
 extern crate pretty_env_logger;
 extern crate warp;
 
-use std::error::Error as StdError;
-use std::fmt::{self, Display};
-
 use warp::http::StatusCode;
-use warp::{Filter, Rejection, Reply};
+use warp::{reject, Filter, Rejection, Reply};
 
-#[derive(Copy, Clone, Debug)]
+/// A custom `Reject` type.
+#[derive(Debug)]
 enum Error {
     Oops,
     Nope,
 }
 
+impl reject::Reject for Error {}
+
+/// A serialized message to report in JSON format.
 #[derive(Serialize)]
-struct ErrorMessage {
+struct ErrorMessage<'a> {
     code: u16,
-    message: String,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
-    }
-}
-
-impl StdError for Error {
-    fn description(&self) -> &str {
-        match self {
-            Error::Oops => ":fire: this is fine",
-            Error::Nope => "Nope!",
-        }
-    }
-
-    fn cause(&self) -> Option<&StdError> {
-        None
-    }
+    message: &'a str,
 }
 
 fn main() {
     let hello = warp::path::end().map(warp::reply);
 
-    let oops =
-        warp::path("oops").and_then(|| Err::<StatusCode, _>(warp::reject::custom(Error::Oops)));
+    let oops = warp::path("oops").and_then(|| {
+        Err::<StatusCode, _>(reject::custom(Error::Oops))
+    });
 
-    let nope =
-        warp::path("nope").and_then(|| Err::<StatusCode, _>(warp::reject::custom(Error::Nope)));
+    let nope = warp::path("nope").and_then(|| {
+        Err::<StatusCode, _>(reject::custom(Error::Nope))
+    });
 
     let routes = warp::get()
         .and(hello.or(oops).or(nope))
@@ -61,12 +45,11 @@ fn main() {
 // This function receives a `Rejection` and tries to return a custom
 // value, othewise simply passes the rejection along.
 fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
-    if let Some(&err) = err.find_cause::<Error>() {
-        let code = match err {
-            Error::Nope => StatusCode::BAD_REQUEST,
-            Error::Oops => StatusCode::INTERNAL_SERVER_ERROR,
+    if let Some(err) = err.find::<Error>() {
+        let (code, msg) = match err {
+            Error::Nope => (StatusCode::BAD_REQUEST, "Nope!"),
+            Error::Oops => (StatusCode::INTERNAL_SERVER_ERROR, ":fire: this is fine"),
         };
-        let msg = err.to_string();
 
         let json = warp::reply::json(&ErrorMessage {
             code: code.as_u16(),

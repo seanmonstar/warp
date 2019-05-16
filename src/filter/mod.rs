@@ -14,7 +14,7 @@ mod wrap;
 use futures::{future, Future, IntoFuture};
 
 pub(crate) use generic::{one, Combine, Either, Func, HList, One, Tuple};
-use reject::{CombineRejection, Reject, Rejection};
+use reject::{CombineRejection, IsReject, Rejection};
 use route::{self, Route};
 
 pub(crate) use self::and::And;
@@ -33,7 +33,7 @@ pub(crate) use self::wrap::{Wrap, WrapSealed};
 // signatures without it being a breaking change.
 pub trait FilterBase {
     type Extract: Tuple; // + Send;
-    type Error: Reject;
+    type Error: IsReject;
     type Future: Future<Item = Self::Extract, Error = Self::Error> + Send;
 
     fn filter(&self) -> Self::Future;
@@ -418,7 +418,7 @@ where
     F: Fn(&mut Route) -> U,
     U: IntoFuture,
     U::Item: Tuple,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     FilterFn { func }
 }
@@ -429,7 +429,7 @@ pub(crate) fn filter_fn_one<F, U>(
 where
     F: Fn(&mut Route) -> U + Copy,
     U: IntoFuture,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     filter_fn(move |route| func(route).into_future().map(tup_one as _))
 }
@@ -451,7 +451,7 @@ where
     U: IntoFuture,
     U::Future: Send,
     U::Item: Tuple,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     type Extract = U::Item;
     type Error = U::Error;

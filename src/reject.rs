@@ -40,7 +40,7 @@ use hyper::Body;
 
 use never::Never;
 
-pub(crate) use self::sealed::{CombineRejection, Reject};
+pub(crate) use self::sealed::{CombineRejection, IsReject};
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
@@ -89,37 +89,56 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 /// or else this will be returned as a `500 Internal Server Error`.
 ///
 /// [`recover`]: ../../trait.Filter.html#method.recover
-pub fn custom<T: Any + fmt::Debug + Send + Sync>(err: T) -> Rejection {
+pub fn custom<T: Reject>(err: T) -> Rejection {
     Rejection::custom(Box::new(err))
 }
 
-trait Cause: Any + Send + Sync {
+
+/// Protect against re-rejecting a rejection.
+///
+/// ```compile_fail
+/// fn with(r: warp::Rejection) {
+///     let _wat = warp::reject::custom(r);
+/// }
+/// ```
+fn __reject_custom_compilefail() {}
+
+/// A marker trait to ensure proper types are used for custom rejections.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, reject::Reject};
+///
+/// #[derive(Debug)]
+/// struct RateLimited;
+///
+/// impl Reject for RateLimited {}
+///
+/// let route = warp::any().and_then(|| {
+///     Err::<(), _>(warp::reject::custom(RateLimited))
+/// });
+/// ```
+// Require `Sized` for now to prevent passing a `Box<dyn Reject>`, since we
+// would be double-boxing it, and the downcasting wouldn't work as expected.
+pub trait Reject: fmt::Debug + Sized + Send + Sync + 'static {}
+
+trait Cause: fmt::Debug + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
-    fn fmt_debug(&self, f: &mut fmt::Formatter) -> fmt::Result;
 }
 
 impl<T> Cause for T
 where
-    T: Any + fmt::Debug + Send + Sync,
+    T: fmt::Debug + Send + Sync + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    fn fmt_debug(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
     }
 }
 
 impl dyn Cause {
     fn downcast_ref<T: Any>(&self) -> Option<&T> {
         self.as_any().downcast_ref::<T>()
-    }
-}
-
-impl fmt::Debug for Box<Cause> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        (&**self).fmt_debug(f)
     }
 }
 
@@ -240,21 +259,20 @@ impl Rejection {
     /// # Example
     ///
     /// ```
-    /// use std::io;
+    /// #[derive(Debug)]
+    /// struct Nope;
     ///
-    /// let err = io::Error::new(
-    ///     io::ErrorKind::Other,
-    ///     "could be any std::error::Error"
-    /// );
-    /// let reject = warp::reject::custom(err);
+    /// impl warp::reject::Reject for Nope {}
     ///
-    /// if let Some(cause) = reject.find_cause::<io::Error>() {
-    ///    println!("found the io::Error: {}", cause);
+    /// let reject = warp::reject::custom(Nope);
+    ///
+    /// if let Some(nope) = reject.find::<Nope>() {
+    ///    println!("found it: {:?}", nope);
     /// }
     /// ```
-    pub fn find_cause<T: 'static>(&self) -> Option<&T> {
+    pub fn find<T: 'static>(&self) -> Option<&T> {
         if let Reason::Other(ref rejections) = self.reason {
-            return rejections.find_cause();
+            return rejections.find();
         }
         None
     }
@@ -264,7 +282,7 @@ impl Rejection {
     /// # Example
     ///
     /// ```
-    /// let rejection = warp::reject::not_found();
+    /// let rejection = warp::reject();
     ///
     /// assert!(rejection.is_not_found());
     /// ```
@@ -284,7 +302,7 @@ impl From<Never> for Rejection {
     }
 }
 
-impl Reject for Never {
+impl IsReject for Never {
     fn status(&self) -> StatusCode {
         match *self {}
     }
@@ -294,7 +312,7 @@ impl Reject for Never {
     }
 }
 
-impl Reject for Rejection {
+impl IsReject for Rejection {
     fn status(&self) -> StatusCode {
         match self.reason {
             Reason::NotFound => StatusCode::NOT_FOUND,
@@ -387,11 +405,11 @@ impl Rejections {
         }
     }
 
-    pub fn find_cause<T: 'static>(&self) -> Option<&T> {
+    fn find<T: 'static>(&self) -> Option<&T> {
         match *self {
             Rejections::Known(ref e) => e.inner_as_any().downcast_ref(),
             Rejections::Custom(ref e) => e.downcast_ref(),
-            Rejections::Combined(ref a, ref b) => a.find_cause().or_else(|| b.find_cause()),
+            Rejections::Combined(ref a, ref b) => a.find().or_else(|| b.find()),
         }
     }
 }
@@ -493,13 +511,13 @@ mod sealed {
     // This sealed trait exists to allow Filters to return either `Rejection`
     // or `Never` (to be replaced with `!`). There are no other types that make
     // sense, and so it is sealed.
-    pub trait Reject: fmt::Debug + Send + Sync {
+    pub trait IsReject: fmt::Debug + Send + Sync {
         fn status(&self) -> StatusCode;
         fn into_response(&self) -> ::reply::Response;
     }
 
     fn _assert_object_safe() {
-        fn _assert(_: &Reject) {}
+        fn _assert(_: &IsReject) {}
     }
 
     // This weird trait is to allow optimizations of propagating when a
@@ -525,11 +543,11 @@ mod sealed {
         /// 3. `warp::path()` rejects with `Rejection`. It may return `Rejection`.
         ///
         /// Thus, if the above filter rejects, it will definitely be `Rejection`.
-        type One: Reject + From<Self> + From<E> + Into<Rejection>;
+        type One: IsReject + From<Self> + From<E> + Into<Rejection>;
 
         /// The type that should be returned when both rejections occur,
         /// and need to be combined.
-        type Combined: Reject;
+        type Combined: IsReject;
 
         fn combine(self, other: E) -> Self::Combined;
     }
@@ -594,6 +612,9 @@ mod tests {
     #[derive(Debug, PartialEq)]
     struct Right;
 
+    impl Reject for Left {}
+    impl Reject for Right {}
+
     #[test]
     fn rejection_status() {
         assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
@@ -607,7 +628,7 @@ mod tests {
             unsupported_media_type().status(),
             StatusCode::UNSUPPORTED_MEDIA_TYPE
         );
-        assert_eq!(custom("boom").status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(custom(Left).status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]
@@ -674,29 +695,16 @@ mod tests {
     fn find_cause() {
         let rej = custom(Left);
 
-        assert_eq!(rej.find_cause::<Left>(), Some(&Left));
+        assert_eq!(rej.find::<Left>(), Some(&Left));
 
         let rej = rej.combine(method_not_allowed());
 
-        assert_eq!(rej.find_cause::<Left>(), Some(&Left));
+        assert_eq!(rej.find::<Left>(), Some(&Left));
         assert!(
-            rej.find_cause::<MethodNotAllowed>().is_some(),
+            rej.find::<MethodNotAllowed>().is_some(),
             "MethodNotAllowed"
         );
     }
-
-    /*
-    XXX: Should this test be true?
-    #[test]
-    fn find_cause_box_error() {
-        use std::io;
-
-        let err: Box<StdError + Send + Sync> = Box::new(io::Error::new(io::ErrorKind::Other, "boom"));
-        let rej = custom(err);
-
-        assert!(rej.find_cause::<io::Error>().is_some());
-    }
-    */
 
     #[test]
     fn size_of_rejection() {

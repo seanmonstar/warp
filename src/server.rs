@@ -10,7 +10,7 @@ use hyper::{rt, Server as HyperServer};
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use never::Never;
-use reject::Reject;
+use reject::IsReject;
 use reply::{Reply, ReplySealed};
 use transport::Transport;
 use Request;
@@ -100,7 +100,7 @@ impl<S> Server<S>
 where
     S: IntoWarpService + 'static,
     <<S::Service as WarpService>::Reply as Future>::Item: Reply + Send,
-    <<S::Service as WarpService>::Reply as Future>::Error: Reject + Send,
+    <<S::Service as WarpService>::Reply as Future>::Error: IsReject + Send,
 {
     /// Run this `Server` forever on the current thread.
     pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
@@ -259,7 +259,7 @@ impl<S> TlsServer<S>
 where
     S: IntoWarpService + 'static,
     <<S::Service as WarpService>::Reply as Future>::Item: Reply + Send,
-    <<S::Service as WarpService>::Reply as Future>::Error: Reject + Send,
+    <<S::Service as WarpService>::Reply as Future>::Error: IsReject + Send,
 {
     /// Run this `TlsServer` forever on the current thread.
     ///
@@ -352,7 +352,7 @@ impl<F> Future for ReplyFuture<F>
 where
     F: Future,
     F::Item: Reply,
-    F::Error: Reject,
+    F::Error: IsReject,
 {
     type Item = ::reply::Response;
     type Error = Never;

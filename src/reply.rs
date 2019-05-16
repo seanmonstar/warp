@@ -42,7 +42,7 @@ use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use reject::Reject;
+use reject::IsReject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::{ReplyHttpError, ReplySealed, Reply_, Response};
 #[doc(hidden)]
@@ -362,7 +362,7 @@ mod sealed {
     use hyper::Body;
 
     use generic::{Either, One};
-    use reject::Reject;
+    use reject::IsReject;
 
     use super::{HeaderValue, Reply, CONTENT_TYPE};
 

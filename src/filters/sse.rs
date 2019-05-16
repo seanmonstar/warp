@@ -293,7 +293,7 @@ where
     header::header("last-event-id")
         .map(Some)
         .or_else(|rejection: Rejection| {
-            if rejection.find_cause::<MissingHeader>().is_some() {
+            if rejection.find::<MissingHeader>().is_some() {
                 return Ok((None,));
             }
             Err(rejection)
@@ -322,7 +322,7 @@ pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
         .and(
             header::exact_ignore_case("connection", "keep-alive").or_else(
                 |rejection: Rejection| {
-                    if rejection.find_cause::<MissingHeader>().is_some() {
+                    if rejection.find::<MissingHeader>().is_some() {
                         return Ok(());
                     }
                     Err(rejection)
