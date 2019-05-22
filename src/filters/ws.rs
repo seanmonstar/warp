@@ -241,8 +241,8 @@ impl Stream for WebSocket {
                 Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
                     return Ok(Async::NotReady);
                 }
-                Err(::tungstenite::Error::ConnectionClosed(frame)) => {
-                    trace!("websocket closed: {:?}", frame);
+                Err(::tungstenite::Error::ConnectionClosed) => {
+                    trace!("websocket closed");
                     return Ok(Async::Ready(None));
                 }
                 Err(e) => {
@@ -254,6 +254,7 @@ impl Stream for WebSocket {
             match msg {
                 msg @ protocol::Message::Text(..)
                 | msg @ protocol::Message::Binary(..)
+                | msg @ protocol::Message::Close(..)
                 | msg @ protocol::Message::Ping(..) => {
                     return Ok(Async::Ready(Some(Message { inner: msg })));
                 }
@@ -320,9 +321,8 @@ impl Sink for WebSocket {
             Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
                 Ok(Async::NotReady)
             }
-            Err(::tungstenite::Error::ConnectionClosed(frame)) => {
-                trace!("websocket closed: {:?}", frame);
-                return Ok(Async::Ready(()));
+            Err(::tungstenite::Error::ConnectionClosed) => {
+                Ok(Async::Ready(()))
             }
             Err(err) => {
                 debug!("websocket close error: {}", err);
@@ -372,6 +372,11 @@ impl Message {
     /// Returns true if this message is a Binary message.
     pub fn is_binary(&self) -> bool {
         self.inner.is_binary()
+    }
+
+    /// Returns true if this message a is a Close message.
+    pub fn is_close(&self) -> bool {
+        self.inner.is_close()
     }
 
     /// Returns true if this message is a Ping message.
