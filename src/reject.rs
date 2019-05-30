@@ -127,7 +127,7 @@ pub(crate) fn known(err: impl Into<Cause>) -> Rejection {
 
 /// Rejection of a request by a [`Filter`](::Filter).
 ///
-/// See the [`reject`](reject) documentation for more.
+/// See the [`reject`](index.html) documentation for more.
 pub struct Rejection {
     reason: Reason,
 }
