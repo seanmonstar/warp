@@ -9,9 +9,9 @@ use std::str::FromStr;
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
 
-use filter::{filter_fn, filter_fn_one, Filter, One};
-use never::Never;
-use reject::{self, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, Filter, One};
+use crate::never::Never;
+use crate::reject::{self, Rejection};
 
 /// Create a `Filter` that tries to parse the specified header.
 ///

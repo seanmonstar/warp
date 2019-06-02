@@ -21,10 +21,10 @@ use tokio::io::AsyncRead;
 use tokio_threadpool;
 use urlencoding::decode;
 
-use filter::{Filter, FilterClone, One};
-use never::Never;
-use reject::{self, Rejection};
-use reply::{ReplySealed, Response};
+use crate::filter::{Filter, FilterClone, One};
+use crate::never::Never;
+use crate::reject::{self, Rejection};
+use crate::reply::{ReplySealed, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 ///
@@ -50,7 +50,7 @@ use reply::{ReplySealed, Response};
 /// if starting a runtime manually.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let path = Arc::new(path.into());
-    ::any()
+    crate::any()
         .map(move || {
             trace!("file: {:?}", path);
             ArcPath(path.clone())
@@ -89,7 +89,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 /// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
-    ::get2()
+    crate::get2()
         .and(path_from_tail(base))
         .and(conditionals())
         .and_then(file_reply)
@@ -98,8 +98,8 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Er
 fn path_from_tail(
     base: Arc<PathBuf>,
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
-    ::path::tail()
-        .and_then(move |tail: ::path::Tail| {
+    crate::path::tail()
+        .and_then(move |tail: crate::path::Tail| {
             let mut buf = PathBuf::from(base.as_ref());
             let p = match decode(tail.as_str()) {
                 Ok(p) => p,
@@ -213,10 +213,10 @@ impl Conditionals {
 }
 
 fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Never> + Copy {
-    ::header::optional2()
-        .and(::header::optional2())
-        .and(::header::optional2())
-        .and(::header::optional2())
+    crate::header::optional2()
+        .and(crate::header::optional2())
+        .and(crate::header::optional2())
+        .and(crate::header::optional2())
         .map(
             |if_modified_since, if_unmodified_since, if_range, range| Conditionals {
                 if_modified_since,

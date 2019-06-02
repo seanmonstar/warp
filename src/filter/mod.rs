@@ -13,9 +13,9 @@ mod wrap;
 
 use futures::{future, Future, IntoFuture};
 
-pub(crate) use generic::{one, Combine, Either, Func, HList, One, Tuple};
-use reject::{CombineRejection, Reject, Rejection};
-use route::{self, Route};
+pub(crate) use crate::generic::{one, Combine, Either, Func, HList, One, Tuple};
+use crate::reject::{CombineRejection, Reject, Rejection};
+use crate::route::{self, Route};
 
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
@@ -65,7 +65,7 @@ pub trait FilterBase {
 /// ```
 pub fn __warp_filter_compilefail_doctest() {
     // Duplicate code to make sure the code is otherwise valid.
-    let _ = ::any().filter();
+    let _ = crate::any().filter();
 }
 
 /// Composable request filters.

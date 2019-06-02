@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 use http::{self, header, StatusCode};
 use tokio::clock;
 
-use filter::{Filter, WrapSealed};
-use reject::Reject;
-use reply::Reply;
-use route::Route;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::Reject;
+use crate::reply::Reply;
+use crate::route::Route;
 
 use self::internal::WithLog;
 
@@ -183,10 +183,10 @@ mod internal {
     use futures::{Async, Future, Poll};
 
     use super::{Info, Log};
-    use filter::{Filter, FilterBase};
-    use reject::Reject;
-    use reply::{Reply, ReplySealed, Response};
-    use route;
+    use crate::filter::{Filter, FilterBase};
+    use crate::reject::Reject;
+    use crate::reply::{Reply, ReplySealed, Response};
+    use crate::route;
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);

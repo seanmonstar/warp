@@ -4,7 +4,7 @@ use std::fmt;
 use hyper::Error as HyperError;
 use tungstenite::Error as WsError;
 
-use never::Never;
+use crate::never::Never;
 
 /// Errors that can happen inside warp.
 pub struct Error(Box<Kind>);

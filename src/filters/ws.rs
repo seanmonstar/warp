@@ -11,10 +11,10 @@ use http;
 use tungstenite::protocol::{self, WebSocketConfig};
 
 use super::{body, header};
-use error::Kind;
-use filter::{Filter, FilterClone, One};
-use reject::Rejection;
-use reply::{Reply, ReplySealed, Response};
+use crate::error::Kind;
+use crate::filter::{Filter, FilterClone, One};
+use crate::reject::Rejection;
+use crate::reply::{Reply, ReplySealed, Response};
 
 #[doc(hidden)]
 #[deprecated(note = "will be replaced by ws2")]
@@ -59,12 +59,12 @@ pub fn ws2() -> impl Filter<Extract = One<Ws2>, Error = Rejection> + Copy {
             if conn.contains("upgrade") {
                 Ok(())
             } else {
-                Err(::reject::bad_request())
+                Err(crate::reject::bad_request())
             }
         })
         .untuple_one();
 
-    ::get2()
+    crate::get2()
         .and(connection_has_upgrade)
         .and(header::exact_ignore_case("upgrade", "websocket"))
         .and(header::exact("sec-websocket-version", "13"))
@@ -225,14 +225,14 @@ impl WebSocket {
     }
 
     /// Gracefully close this websocket.
-    pub fn close(mut self) -> impl Future<Item = (), Error = ::Error> {
+    pub fn close(mut self) -> impl Future<Item = (), Error = crate::Error> {
         future::poll_fn(move || Sink::close(&mut self))
     }
 }
 
 impl Stream for WebSocket {
     type Item = Message;
-    type Error = ::Error;
+    type Error = crate::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         loop {
@@ -267,7 +267,7 @@ impl Stream for WebSocket {
 
 impl Sink for WebSocket {
     type SinkItem = Message;
-    type SinkError = ::Error;
+    type SinkError = crate::Error;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
         match item.inner {

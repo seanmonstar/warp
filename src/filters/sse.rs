@@ -52,9 +52,9 @@ use self::sealed::{
     BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper,
 };
 use super::{header, header::MissingHeader};
-use filter::One;
-use reply::{ReplySealed, Response};
-use {Filter, Rejection, Reply};
+use crate::filter::One;
+use crate::reply::{ReplySealed, Response};
+use crate::{Filter, Rejection, Reply};
 
 /// Server-sent event message
 pub trait ServerSentEvent: SseFormat + Sized + Send + 'static {
@@ -318,7 +318,7 @@ where
 /// - Header `content-type: text/event-stream`
 /// - Header `cache-control: no-cache`.
 pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
-    ::get2()
+    crate::get2()
         .and(
             header::exact_ignore_case("connection", "keep-alive").or_else(
                 |rejection: Rejection| {

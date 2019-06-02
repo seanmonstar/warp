@@ -9,11 +9,11 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{rt, Server as HyperServer};
 use tokio_io::{AsyncRead, AsyncWrite};
 
-use never::Never;
-use reject::Reject;
-use reply::{Reply, ReplySealed};
-use transport::Transport;
-use Request;
+use crate::never::Never;
+use crate::reject::Reject;
+use crate::reply::{Reply, ReplySealed};
+use crate::transport::Transport;
+use crate::Request;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
@@ -121,7 +121,7 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
-        self.run_incoming2(incoming.map(::transport::LiftIo));
+        self.run_incoming2(incoming.map(crate::transport::LiftIo));
     }
 
     fn run_incoming2<I>(self, incoming: I)
@@ -215,7 +215,7 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
-        let incoming = incoming.map(::transport::LiftIo);
+        let incoming = incoming.map(crate::transport::LiftIo);
         self.serve_incoming2(incoming)
     }
 
@@ -354,7 +354,7 @@ where
     F::Item: Reply,
     F::Error: Reject,
 {
-    type Item = ::reply::Response;
+    type Item = crate::reply::Response;
     type Error = Never;
 
     #[inline]

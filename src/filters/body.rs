@@ -16,8 +16,8 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use filter::{filter_fn, filter_fn_one, Filter, FilterBase};
-use reject::{self, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use crate::reject::{self, Rejection};
 
 // Extracts the `Body` Stream from the route.
 //
@@ -46,7 +46,7 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 ///     .and(warp::body::concat());
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    ::filters::header::header2()
+    crate::filters::header::header2()
         .map_err(|_| {
             debug!("content-length missing");
             reject::length_required()
@@ -269,13 +269,13 @@ pub struct BodyStream {
 
 impl Stream for BodyStream {
     type Item = StreamBuf;
-    type Error = ::Error;
+    type Error = crate::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         let opt_item = try_ready!(self
             .body
             .poll()
-            .map_err(|e| ::Error::from(::error::Kind::Hyper(e))));
+            .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e))));
 
         Ok(opt_item.map(|chunk| StreamBuf { chunk }).into())
     }

@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use http;
 use hyper::Body;
 
-use Request;
+use crate::Request;
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
 

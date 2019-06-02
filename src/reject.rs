@@ -39,7 +39,7 @@ use hyper::Body;
 use serde;
 use serde_json;
 
-use never::Never;
+use crate::never::Never;
 
 pub(crate) use self::sealed::{CombineRejection, Reject};
 
@@ -231,7 +231,7 @@ impl Rejection {
 
     #[doc(hidden)]
     #[deprecated(note = "Use warp::reply::json and warp::reply::with_status instead.")]
-    pub fn json(&self) -> ::reply::Response {
+    pub fn json(&self) -> crate::reply::Response {
         let code = self.status();
         let mut res = http::Response::default();
         *res.status_mut() = code;
@@ -289,7 +289,7 @@ impl Reject for Never {
         match *self {}
     }
 
-    fn into_response(&self) -> ::reply::Response {
+    fn into_response(&self) -> crate::reply::Response {
         match *self {}
     }
 
@@ -306,7 +306,7 @@ impl Reject for Rejection {
         }
     }
 
-    fn into_response(&self) -> ::reply::Response {
+    fn into_response(&self) -> crate::reply::Response {
         match self.reason {
             Reason::NotFound => {
                 let mut res = http::Response::default();
@@ -368,13 +368,13 @@ impl Rejections {
             Rejections::Known(ref e) => {
                 if e.is::<MethodNotAllowed>() {
                     StatusCode::METHOD_NOT_ALLOWED
-                } else if e.is::<::header::InvalidHeader>() {
+                } else if e.is::<crate::header::InvalidHeader>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::header::MissingHeader>() {
+                } else if e.is::<crate::header::MissingHeader>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::cookie::MissingCookie>() {
+                } else if e.is::<crate::cookie::MissingCookie>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::query::InvalidQuery>() {
+                } else if e.is::<crate::query::InvalidQuery>() {
                     StatusCode::BAD_REQUEST
                 } else if e.is::<LengthRequired>() {
                     StatusCode::LENGTH_REQUIRED
@@ -382,21 +382,21 @@ impl Rejections {
                     StatusCode::PAYLOAD_TOO_LARGE
                 } else if e.is::<UnsupportedMediaType>() {
                     StatusCode::UNSUPPORTED_MEDIA_TYPE
-                } else if e.is::<::body::BodyReadError>() {
+                } else if e.is::<crate::body::BodyReadError>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::body::BodyDeserializeError>() {
+                } else if e.is::<crate::body::BodyDeserializeError>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::cors::CorsForbidden>() {
+                } else if e.is::<crate::cors::CorsForbidden>() {
                     StatusCode::FORBIDDEN
-                } else if e.is::<::ext::MissingExtension>() {
+                } else if e.is::<crate::ext::MissingExtension>() {
                     StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<::reply::ReplyHttpError>() {
+                } else if e.is::<crate::reply::ReplyHttpError>() {
                     StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<::reply::ReplyJsonError>() {
+                } else if e.is::<crate::reply::ReplyJsonError>() {
                     StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<::body::BodyConsumedMultipleTimes>() {
+                } else if e.is::<crate::body::BodyConsumedMultipleTimes>() {
                     StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<::fs::FsNeedsTokioThreadpool>() {
+                } else if e.is::<crate::fs::FsNeedsTokioThreadpool>() {
                     StatusCode::INTERNAL_SERVER_ERROR
                 } else {
                     unreachable!("unexpected 'Known' rejection: {:?}", e);
@@ -409,7 +409,7 @@ impl Rejections {
         }
     }
 
-    fn into_response(&self) -> ::reply::Response {
+    fn into_response(&self) -> crate::reply::Response {
         match *self {
             Rejections::Known(ref e) => {
                 let mut res = http::Response::new(Body::from(e.to_string()));
@@ -421,7 +421,7 @@ impl Rejections {
                 res
             }
             Rejections::KnownStatus(ref s) => {
-                use reply::ReplySealed;
+                use crate::reply::ReplySealed;
                 s.into_response()
             }
             Rejections::With(ref rej, ref e) => {
@@ -572,12 +572,12 @@ trait Typed: StdError + 'static {
 mod sealed {
     use super::{Cause, Reason, Rejection, Rejections};
     use http::StatusCode;
-    use never::Never;
+    use crate::never::Never;
     use std::fmt;
 
     pub trait Reject: fmt::Debug + Send + Sync {
         fn status(&self) -> StatusCode;
-        fn into_response(&self) -> ::reply::Response;
+        fn into_response(&self) -> crate::reply::Response;
         fn cause(&self) -> Option<&Cause> {
             None
         }
@@ -783,7 +783,7 @@ mod tests {
         assert_eq!(expected, response_body_string(resp))
     }
 
-    fn response_body_string(resp: ::reply::Response) -> String {
+    fn response_body_string(resp: crate::reply::Response) -> String {
         use futures::{Async, Future, Stream};
 
         let (_, body) = resp.into_parts();

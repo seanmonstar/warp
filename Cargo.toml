@@ -9,6 +9,7 @@ documentation = "https://docs.rs/warp"
 repository = "https://github.com/seanmonstar/warp"
 categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
+edition = "2018"
 
 [dependencies]
 bytes = "0.4.8"

@@ -10,9 +10,9 @@ use http::{
     HttpTryFrom,
 };
 
-use filter::{Filter, WrapSealed};
-use reject::{CombineRejection, Rejection};
-use reply::Reply;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::{CombineRejection, Rejection};
+use crate::reply::Reply;
 
 use self::internal::{CorsFilter, IntoOrigin, Seconds};
 
@@ -408,10 +408,10 @@ mod internal {
     use http::header;
 
     use super::{Configured, CorsForbidden, Validated};
-    use filter::{Filter, FilterBase, One};
-    use generic::Either;
-    use reject::{CombineRejection, Rejection};
-    use route;
+    use crate::filter::{Filter, FilterBase, One};
+    use crate::generic::Either;
+    use crate::reject::{CombineRejection, Rejection};
+    use crate::route;
 
     #[derive(Debug)]
     pub struct CorsFilter<F> {
@@ -454,7 +454,7 @@ mod internal {
                     wrapped: None,
                 }),
                 Err(err) => {
-                    let rejection = ::reject::known(CorsForbidden { kind: err });
+                    let rejection = crate::reject::known(CorsForbidden { kind: err });
                     future::Either::A(future::err(rejection.into()))
                 }
             }
@@ -467,9 +467,9 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl ::reply::ReplySealed for Preflight {
-        fn into_response(self) -> ::reply::Response {
-            let mut res = ::reply::Response::default();
+    impl crate::reply::ReplySealed for Preflight {
+        fn into_response(self) -> crate::reply::Response {
+            let mut res = crate::reply::Response::default();
             self.config.append_preflight_headers(res.headers_mut());
             res.headers_mut()
                 .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, self.origin);
@@ -484,11 +484,11 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl<R> ::reply::ReplySealed for Wrapped<R>
+    impl<R> crate::reply::ReplySealed for Wrapped<R>
     where
-        R: ::reply::ReplySealed,
+        R: crate::reply::ReplySealed,
     {
-        fn into_response(self) -> ::reply::Response {
+        fn into_response(self) -> crate::reply::Response {
             let mut res = self.inner.into_response();
             self.config.append_common_headers(res.headers_mut());
             res.headers_mut()

@@ -1,7 +1,7 @@
 //! Request Extensions
 
-use filter::{filter_fn_one, Filter};
-use reject::{self, Rejection};
+use crate::filter::{filter_fn_one, Filter};
+use crate::reject::{self, Rejection};
 
 /// Get a previously set extension of the current route.
 ///
@@ -26,7 +26,7 @@ pub fn get<T: Clone + Send + Sync + 'static>(
 ///
 /// This function panics if not called within the context of a `Filter`.
 pub fn set<T: Send + Sync + 'static>(val: T) {
-    ::route::with(move |route| {
+    crate::route::with(move |route| {
         route.extensions_mut().insert(val);
     });
 }

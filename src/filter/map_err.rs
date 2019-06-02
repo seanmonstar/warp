@@ -1,7 +1,7 @@
 use futures::{Future, Poll};
 
 use super::{Filter, FilterBase};
-use reject::Reject;
+use crate::reject::Reject;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapErr<T, F> {

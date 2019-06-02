@@ -4,7 +4,7 @@ use std::sync::Arc;
 use futures::Future;
 
 use super::{Filter, FilterBase, Tuple};
-use reject::Rejection;
+use crate::reject::Rejection;
 
 /// A type representing a boxed `Filter` trait object.
 ///

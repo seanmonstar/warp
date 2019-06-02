@@ -42,11 +42,11 @@ use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use reject::Reject;
+use crate::reject::Reject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::{ReplyHttpError, ReplySealed, Reply_, Response};
 #[doc(hidden)]
-pub use filters::reply as with;
+pub use crate::filters::reply as with;
 
 /// Returns an empty `Reply` with status code `200 OK`.
 ///
@@ -119,7 +119,7 @@ impl ReplySealed for Json {
                     .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
                 res
             }
-            Err(()) => ::reject::known(ReplyJsonError).into_response(),
+            Err(()) => crate::reject::known(ReplyJsonError).into_response(),
         }
     }
 }
@@ -361,8 +361,8 @@ mod sealed {
 
     use hyper::Body;
 
-    use generic::{Either, One};
-    use reject::Reject;
+    use crate::generic::{Either, One};
+    use crate::reject::Reject;
 
     use super::{HeaderValue, Reply, CONTENT_TYPE};
 
@@ -380,7 +380,7 @@ mod sealed {
     /// ```
     pub fn __warp_replysealed_compilefail_doctest() {
         // Duplicate code to make sure the code is otherwise valid.
-        let _ = ::reply().into_response();
+        let _ = crate::reply().into_response();
     }
 
     // An opaque type to return `impl Reply` from trait methods.
@@ -423,7 +423,7 @@ mod sealed {
                 Ok(t) => t.into_response(),
                 Err(e) => {
                     error!("reply error: {:?}", e);
-                    ::reject::known(ReplyHttpError(e)).into_response()
+                    crate::reject::known(ReplyHttpError(e)).into_response()
                 }
             }
         }
@@ -530,7 +530,7 @@ mod sealed {
         }
     }
 
-    impl ReplySealed for ::never::Never {
+    impl ReplySealed for crate::never::Never {
         #[inline(always)]
         fn into_response(self) -> Response {
             match self {}
