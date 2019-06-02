@@ -7,7 +7,7 @@ use futures::Poll;
 use rustls::{self, ServerConfig, ServerSession, Session, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 
-use transport::Transport;
+use crate::transport::Transport;
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
     let cert = {
