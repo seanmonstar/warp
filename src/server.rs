@@ -14,6 +14,7 @@ use crate::reject::Reject;
 use crate::reply::{Reply, ReplySealed};
 use crate::transport::Transport;
 use crate::Request;
+use crate::tls as Tls;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
@@ -85,7 +86,7 @@ macro_rules! bind_inner {
         let tls = Arc::new($this.tls);
         let incoming = incoming.map(move |sock| {
             let session = ::rustls::ServerSession::new(&tls);
-            ::tls::TlsStream::new(sock, session)
+            Tls::TlsStream::new(sock, session)
         });
         let srv = HyperServer::builder(incoming)
             .http1_pipeline_flush($this.server.pipeline)
@@ -246,7 +247,7 @@ where
     /// *This function requires the `"tls"` feature.*
     #[cfg(feature = "tls")]
     pub fn tls(self, cert: impl AsRef<Path>, key: impl AsRef<Path>) -> TlsServer<S> {
-        let tls = ::tls::configure(cert.as_ref(), key.as_ref());
+        let tls = Tls::configure(cert.as_ref(), key.as_ref());
 
         TlsServer { server: self, tls }
     }
