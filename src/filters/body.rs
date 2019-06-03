@@ -319,7 +319,7 @@ impl fmt::Debug for StreamBuf {
 /// An error used in rejections when deserializing a request body fails.
 #[derive(Debug)]
 pub struct BodyDeserializeError {
-    cause: Box<StdError + Send + Sync>,
+    cause: Box<dyn StdError + Send + Sync>,
 }
 
 impl fmt::Display for BodyDeserializeError {

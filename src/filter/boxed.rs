@@ -27,10 +27,10 @@ use reject::Rejection;
 ///
 pub struct BoxedFilter<T: Tuple> {
     filter: Arc<
-        Filter<
+        dyn Filter<
                 Extract = T,
                 Error = Rejection,
-                Future = Box<Future<Item = T, Error = Rejection> + Send>,
+                Future = Box<dyn Future<Item = T, Error = Rejection> + Send>,
             > + Send
             + Sync,
     >,
@@ -72,7 +72,7 @@ fn _assert_send() {
 impl<T: Tuple + Send> FilterBase for BoxedFilter<T> {
     type Extract = T;
     type Error = Rejection;
-    type Future = Box<Future<Item = T, Error = Rejection> + Send>;
+    type Future = Box<dyn Future<Item = T, Error = Rejection> + Send>;
 
     fn filter(&self) -> Self::Future {
         self.filter.filter()
@@ -90,7 +90,7 @@ where
 {
     type Extract = F::Extract;
     type Error = F::Error;
-    type Future = Box<Future<Item = Self::Extract, Error = Self::Error> + Send>;
+    type Future = Box<dyn Future<Item = Self::Extract, Error = Self::Error> + Send>;
 
     fn filter(&self) -> Self::Future {
         Box::new(self.filter.filter())

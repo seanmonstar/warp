@@ -34,7 +34,7 @@ impl StdError for Error {
     }
 
     #[allow(deprecated)]
-    fn cause(&self) -> Option<&StdError> {
+    fn cause(&self) -> Option<&dyn StdError> {
         match self.0.as_ref() {
             Kind::Hyper(ref e) => e.cause(),
             Kind::Ws(ref e) => e.cause(),

@@ -119,7 +119,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
-        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         self.run_incoming2(incoming.map(::transport::LiftIo));
     }
@@ -128,7 +128,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: Transport + Send + 'static,
-        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         let fut = self.serve_incoming2(incoming);
 
@@ -213,7 +213,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
-        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         let incoming = incoming.map(::transport::LiftIo);
         self.serve_incoming2(incoming)
@@ -223,7 +223,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: Transport + Send + 'static,
-        I::Error: Into<Box<::std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         let service = into_service!(self.service);
         HyperServer::builder(incoming)

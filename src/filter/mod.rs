@@ -409,7 +409,7 @@ pub trait FilterClone: Filter + Clone {}
 impl<T: Filter + Clone> FilterClone for T {}
 
 fn _assert_object_safe() {
-    fn _assert(_f: &Filter<Extract = (), Error = (), Future = future::FutureResult<(), ()>>) {}
+    fn _assert(_f: &dyn Filter<Extract = (), Error = (), Future = future::FutureResult<(), ()>>) {}
 }
 
 // ===== FilterFn =====

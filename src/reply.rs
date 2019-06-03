@@ -264,7 +264,7 @@ pub trait Reply: ReplySealed {
 impl<T: ReplySealed> Reply for T {}
 
 fn _assert_object_safe() {
-    fn _assert(_: &Reply) {}
+    fn _assert(_: &dyn Reply) {}
 }
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
