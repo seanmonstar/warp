@@ -14,7 +14,7 @@ use super::{body, header};
 use error::Kind;
 use filter::{Filter, FilterClone, One};
 use reject::Rejection;
-use reply::{Reply, ReplySealed, Response};
+use reply::{Reply, Response};
 
 #[doc(hidden)]
 #[deprecated(note = "will be replaced by ws2")]
@@ -111,7 +111,7 @@ pub struct Ws {
 }
 
 #[allow(deprecated)]
-impl ReplySealed for Ws {
+impl Reply for Ws {
     fn into_response(self) -> Response {
         let mut res = http::Response::default();
 
@@ -178,7 +178,7 @@ struct WsReply<F> {
     on_upgrade: F,
 }
 
-impl<F, U> ReplySealed for WsReply<F>
+impl<F, U> Reply for WsReply<F>
 where
     F: FnOnce(WebSocket) -> U + Send + 'static,
     U: Future<Item = (), Error = ()> + Send + 'static,

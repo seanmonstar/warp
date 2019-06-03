@@ -24,7 +24,7 @@ use urlencoding::decode;
 use filter::{Filter, FilterClone, One};
 use never::Never;
 use reject::{self, Rejection};
-use reply::{ReplySealed, Response};
+use reply::{Reply, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 ///
@@ -243,7 +243,7 @@ impl AsRef<Path> for ArcPath {
     }
 }
 
-impl ReplySealed for File {
+impl Reply for File {
     fn into_response(self) -> Response {
         self.resp
     }

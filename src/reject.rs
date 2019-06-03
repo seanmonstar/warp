@@ -421,7 +421,7 @@ impl Rejections {
                 res
             }
             Rejections::KnownStatus(ref s) => {
-                use reply::ReplySealed;
+                use reply::Reply;
                 s.into_response()
             }
             Rejections::With(ref rej, ref e) => {

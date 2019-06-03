@@ -11,7 +11,7 @@ use tokio_io::{AsyncRead, AsyncWrite};
 
 use never::Never;
 use reject::Reject;
-use reply::{Reply, ReplySealed};
+use reply::Reply;
 use transport::Transport;
 use Request;
 
