@@ -216,9 +216,7 @@ where
 ///
 /// impl warp::Reply for Message {
 ///     fn into_response(self) -> warp::reply::Response {
-///         Response::builder()
-///             .body(format!("message: {}", self.msg).into())
-///             .unwrap()
+///         Response::new(format!("message: {}", self.msg).into())
 ///     }
 /// }
 ///
