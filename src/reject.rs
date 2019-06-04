@@ -571,8 +571,8 @@ trait Typed: StdError + 'static {
 
 mod sealed {
     use super::{Cause, Reason, Rejection, Rejections};
-    use http::StatusCode;
     use crate::never::Never;
+    use http::StatusCode;
     use std::fmt;
 
     pub trait Reject: fmt::Debug + Send + Sync {

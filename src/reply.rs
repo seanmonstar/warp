@@ -488,7 +488,7 @@ mod sealed {
         fn into_response(self) -> Response {
             match self {
                 Cow::Borrowed(s) => s.into_response(),
-                Cow::Owned(s) => s.into_response()
+                Cow::Owned(s) => s.into_response(),
             }
         }
     }
