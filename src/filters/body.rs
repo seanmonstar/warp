@@ -319,7 +319,7 @@ impl fmt::Debug for StreamBuf {
 /// An error used in rejections when deserializing a request body fails.
 #[derive(Debug)]
 pub struct BodyDeserializeError {
-    cause: Box<StdError + Send + Sync>,
+    cause: Box<dyn StdError + Send + Sync>,
 }
 
 impl fmt::Display for BodyDeserializeError {
@@ -343,7 +343,7 @@ impl ::std::fmt::Display for BodyReadError {
     }
 }
 
-impl ::std::error::Error for BodyReadError {
+impl StdError for BodyReadError {
     fn description(&self) -> &str {
         "Request body read error"
     }
@@ -358,7 +358,7 @@ impl ::std::fmt::Display for BodyConsumedMultipleTimes {
     }
 }
 
-impl ::std::error::Error for BodyConsumedMultipleTimes {
+impl StdError for BodyConsumedMultipleTimes {
     fn description(&self) -> &str {
         "Request body consumed multiple times"
     }

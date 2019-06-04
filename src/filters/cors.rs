@@ -1,6 +1,7 @@
 //! CORS Filters
 
 use std::collections::HashSet;
+use std::error::Error as StdError;
 use std::sync::Arc;
 
 use headers::{
@@ -284,7 +285,7 @@ impl ::std::fmt::Display for CorsForbidden {
     }
 }
 
-impl ::std::error::Error for CorsForbidden {
+impl StdError for CorsForbidden {
     fn description(&self) -> &str {
         "CORS request forbidden"
     }

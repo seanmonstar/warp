@@ -714,7 +714,7 @@ mod sealed {
     }
 
     #[allow(missing_debug_implementations)]
-    pub struct BoxedServerSentEvent(pub(super) Box<SseFormat + Send>);
+    pub struct BoxedServerSentEvent(pub(super) Box<dyn SseFormat + Send>);
 
     impl SseFormat for BoxedServerSentEvent {
         fn fmt_field(&self, f: &mut Formatter, k: &SseField) -> fmt::Result {

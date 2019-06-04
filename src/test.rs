@@ -148,7 +148,7 @@ pub struct WsClient {
 /// An error from Websocket filter tests.
 #[derive(Debug)]
 pub struct WsError {
-    cause: Box<StdError + Send + Sync>,
+    cause: Box<dyn StdError + Send + Sync>,
 }
 
 impl RequestBuilder {
@@ -570,7 +570,7 @@ impl fmt::Debug for WsClient {
 // ===== impl WsError =====
 
 impl WsError {
-    fn new<E: Into<Box<StdError + Send + Sync>>>(cause: E) -> Self {
+    fn new<E: Into<Box<dyn StdError + Send + Sync>>>(cause: E) -> Self {
         WsError {
             cause: cause.into(),
         }

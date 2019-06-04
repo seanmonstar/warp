@@ -1,5 +1,7 @@
 //! Query Filters
 
+use std::error::Error as StdError;
+
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
 
@@ -44,7 +46,7 @@ impl ::std::fmt::Display for InvalidQuery {
     }
 }
 
-impl ::std::error::Error for InvalidQuery {
+impl StdError for InvalidQuery {
     fn description(&self) -> &str {
         "Invalid query string"
     }

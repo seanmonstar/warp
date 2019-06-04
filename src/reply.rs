@@ -293,7 +293,7 @@ pub trait Reply: Send {
 }
 
 fn _assert_object_safe() {
-    fn _assert(_: &Reply) {}
+    fn _assert(_: &dyn Reply) {}
 }
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
@@ -428,7 +428,7 @@ impl ::std::fmt::Display for ReplyHttpError {
     }
 }
 
-impl ::std::error::Error for ReplyHttpError {
+impl StdError for ReplyHttpError {
     fn description(&self) -> &str {
         "http::Response::builder error"
     }

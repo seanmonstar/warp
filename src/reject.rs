@@ -46,7 +46,7 @@ pub(crate) use self::sealed::{CombineRejection, Reject};
 //TODO(v0.2): This should just be `type Cause = StdError + Send + Sync + 'static`,
 //and not include the `Box`.
 #[doc(hidden)]
-pub type Cause = Box<StdError + Send + Sync>;
+pub type Cause = Box<dyn StdError + Send + Sync>;
 
 #[doc(hidden)]
 #[deprecated(
@@ -584,7 +584,7 @@ mod sealed {
     }
 
     fn _assert_object_safe() {
-        fn _assert(_: &Reject) {}
+        fn _assert(_: &dyn Reject) {}
     }
 
     pub trait CombineRejection<E>: Send + Sized {

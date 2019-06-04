@@ -1,6 +1,7 @@
 //! File System Filters
 
 use std::cmp;
+use std::error::Error as StdError;
 use std::fs::Metadata;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -464,7 +465,7 @@ impl ::std::fmt::Display for FsNeedsTokioThreadpool {
     }
 }
 
-impl ::std::error::Error for FsNeedsTokioThreadpool {
+impl StdError for FsNeedsTokioThreadpool {
     fn description(&self) -> &str {
         "File system operations require tokio threadpool runtime"
     }
