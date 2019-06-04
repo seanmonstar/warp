@@ -1,8 +1,8 @@
+use std::error::Error as StdError;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
 use std::sync::Arc;
-use std::error::Error as StdError;
 
 use futures::{Async, Future, Poll, Stream};
 use hyper::server::conn::AddrIncoming;
