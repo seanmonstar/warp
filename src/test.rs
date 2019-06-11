@@ -494,6 +494,9 @@ impl WsBuilder {
                     .map(|_| ());
 
                 let read = rx
+                    .take_while(|m| {
+                        futures::future::ok(!m.is_close())
+                    })
                     .then(|result| Ok(result))
                     .forward(rd_tx.sink_map_err(|_| ()))
                     .map(|_| ());
