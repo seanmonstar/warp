@@ -1,3 +1,12 @@
+### v0.1.16 (June 11, 2019)
+
+- **Features**:
+  - Unseal the `Reply` trait: custom types can now implement `Reply`.
+  - Add `warp::sse::keep_alive()` replacement for `warp::sse::keep()` which allows customizing keep-alive behavior.
+  - Add `warp::log::Info::host()` accessor.
+- **Fixes**:
+  - Fix `warp::fs` filters from sending some headers for `304` responses.
+
 ### v0.1.15 (April 2, 2019)
 
 - **Features**:
