@@ -25,22 +25,14 @@ struct ErrorMessage {
 
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
-    }
-}
-
-impl StdError for Error {
-    fn description(&self) -> &str {
-        match self {
+        f.write_str(match self {
             Error::Oops => ":fire: this is fine",
             Error::Nope => "Nope!",
-        }
-    }
-
-    fn cause(&self) -> Option<&StdError> {
-        None
+        })
     }
 }
+
+impl StdError for Error {}
 
 fn main() {
     let hello = warp::path::end().map(warp::reply);
