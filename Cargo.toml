@@ -28,7 +28,7 @@ tokio-io = "0.1"
 rustls = { version = "0.15", optional = true }
 tokio-threadpool = "0.1.7"
 # tls is enabled by default, we don't want that yet
-tungstenite = { default-features = false, version = "0.6" }
+tungstenite = { default-features = false, version = "0.8" }
 urlencoding = "1.0.0"
 
 [dev-dependencies]

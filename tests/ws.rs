@@ -93,7 +93,13 @@ fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection>
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
-            rx.forward(tx).map(|_| ()).map_err(|e| {
+            rx
+            .take_while(|m| {
+                futures::future::ok(!m.is_close())
+            })
+            .forward(tx)
+            .map(|_| ())
+            .map_err(|e| {
                 panic!("websocket error: {:?}", e);
             })
         })
