@@ -101,7 +101,7 @@ use tokio::runtime::{Builder as RtBuilder, Runtime};
 
 use filter::Filter;
 use reject::Reject;
-use reply::{Reply, ReplySealed};
+use reply::Reply;
 use route::{self, Route};
 use Request;
 

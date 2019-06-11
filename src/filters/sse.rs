@@ -53,7 +53,7 @@ use self::sealed::{
 };
 use super::{header, header::MissingHeader};
 use filter::One;
-use reply::{ReplySealed, Response};
+use reply::Response;
 use {Filter, Rejection, Reply};
 
 /// Server-sent event message
@@ -423,7 +423,7 @@ struct SseReply<S> {
     event_stream: S,
 }
 
-impl<S> ReplySealed for SseReply<S>
+impl<S> Reply for SseReply<S>
 where
     S: Stream + Send + 'static,
     S::Item: ServerSentEvent,
@@ -479,10 +479,14 @@ impl KeepAlive {
     /// Wrap an event stream with keep-alive functionality.
     ///
     /// See [`keep_alive`](super::keep_alive) for more.
-    pub fn stream<S>(self, event_stream: S) -> impl Stream<
+    pub fn stream<S>(
+        self,
+        event_stream: S,
+    ) -> impl Stream<
         Item = impl ServerSentEvent + Send + 'static,
         Error = impl StdError + Send + Sync + 'static,
-    > + Send + 'static
+    > + Send
+                 + 'static
     where
         S: Stream + Send + 'static,
         S::Item: ServerSentEvent + Send,
@@ -505,7 +509,6 @@ struct SseKeepAlive<S> {
     max_interval: Duration,
     alive_timer: Delay,
 }
-
 
 #[doc(hidden)]
 #[deprecated(note = "use warp::see:keep_alive() instead")]

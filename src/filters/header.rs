@@ -5,6 +5,7 @@
 //! they don't extract any values. The `header` filter allows parsing
 //! a type from any header.
 use std::str::FromStr;
+use std::error::Error as StdError;
 
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
@@ -212,7 +213,7 @@ impl ::std::fmt::Display for MissingHeader {
     }
 }
 
-impl ::std::error::Error for MissingHeader {
+impl StdError for MissingHeader {
     fn description(&self) -> &str {
         "Missing request header"
     }
@@ -227,7 +228,7 @@ impl ::std::fmt::Display for InvalidHeader {
     }
 }
 
-impl ::std::error::Error for InvalidHeader {
+impl StdError for InvalidHeader {
     fn description(&self) -> &str {
         "Invalid request header"
     }

@@ -1,5 +1,7 @@
 //! Request Extensions
 
+use std::error::Error as StdError;
+
 use filter::{filter_fn_one, Filter};
 use reject::{self, Rejection};
 
@@ -43,7 +45,7 @@ impl ::std::fmt::Display for MissingExtension {
     }
 }
 
-impl ::std::error::Error for MissingExtension {
+impl StdError for MissingExtension {
     fn description(&self) -> &str {
         "Missing request extension"
     }

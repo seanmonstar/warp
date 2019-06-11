@@ -1,5 +1,7 @@
 //! Cookie Filters
 
+use std::error::Error as StdError;
+
 use headers::Cookie;
 
 use super::header;
@@ -60,7 +62,7 @@ impl ::std::fmt::Display for MissingCookie {
     }
 }
 
-impl ::std::error::Error for MissingCookie {
+impl StdError for MissingCookie {
     fn description(&self) -> &str {
         "Missing request cookie"
     }

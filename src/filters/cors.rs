@@ -1,9 +1,12 @@
 //! CORS Filters
 
 use std::collections::HashSet;
+use std::error::Error as StdError;
 use std::sync::Arc;
 
-use headers::{AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlExposeHeaders, HeaderMapExt};
+use headers::{
+    AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlExposeHeaders, HeaderMapExt,
+};
 use http::{
     self,
     header::{self, HeaderName, HeaderValue},
@@ -242,12 +245,11 @@ where
     type Wrapped = CorsFilter<F>;
 
     fn wrap(&self, inner: F) -> Self::Wrapped {
-        let expose_headers_header =
-            if self.exposed_headers.is_empty() {
-                None
-            } else {
-                Some(self.exposed_headers.iter().map(|m| m.clone()).collect())
-            };
+        let expose_headers_header = if self.exposed_headers.is_empty() {
+            None
+        } else {
+            Some(self.exposed_headers.iter().map(|m| m.clone()).collect())
+        };
         let config = Arc::new(Configured {
             cors: self.clone(),
             allowed_headers_header: self.allowed_headers.iter().map(|m| m.clone()).collect(),
@@ -283,7 +285,7 @@ impl ::std::fmt::Display for CorsForbidden {
     }
 }
 
-impl ::std::error::Error for CorsForbidden {
+impl StdError for CorsForbidden {
     fn description(&self) -> &str {
         "CORS request forbidden"
     }
@@ -467,7 +469,7 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl ::reply::ReplySealed for Preflight {
+    impl ::reply::Reply for Preflight {
         fn into_response(self) -> ::reply::Response {
             let mut res = ::reply::Response::default();
             self.config.append_preflight_headers(res.headers_mut());
@@ -484,9 +486,9 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl<R> ::reply::ReplySealed for Wrapped<R>
+    impl<R> ::reply::Reply for Wrapped<R>
     where
-        R: ::reply::ReplySealed,
+        R: ::reply::Reply,
     {
         fn into_response(self) -> ::reply::Response {
             let mut res = self.inner.into_response();

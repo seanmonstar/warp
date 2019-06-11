@@ -185,13 +185,13 @@ mod internal {
     use super::{Info, Log};
     use filter::{Filter, FilterBase};
     use reject::Reject;
-    use reply::{Reply, ReplySealed, Response};
+    use reply::{Reply, Response};
     use route;
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);
 
-    impl ReplySealed for Logged {
+    impl Reply for Logged {
         #[inline]
         fn into_response(self) -> Response {
             self.0

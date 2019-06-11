@@ -1,3 +1,4 @@
+use std::error::Error as StdError;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
@@ -11,7 +12,7 @@ use tokio_io::{AsyncRead, AsyncWrite};
 
 use never::Never;
 use reject::Reject;
-use reply::{Reply, ReplySealed};
+use reply::Reply;
 use transport::Transport;
 use Request;
 
@@ -119,7 +120,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
-        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         self.run_incoming2(incoming.map(::transport::LiftIo));
     }
@@ -128,7 +129,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: Transport + Send + 'static,
-        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         let fut = self.serve_incoming2(incoming);
 
@@ -213,7 +214,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
-        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         let incoming = incoming.map(::transport::LiftIo);
         self.serve_incoming2(incoming)
@@ -223,7 +224,7 @@ where
     where
         I: Stream + Send + 'static,
         I::Item: Transport + Send + 'static,
-        I::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         let service = into_service!(self.service);
         HyperServer::builder(incoming)

@@ -343,7 +343,7 @@ impl ::std::fmt::Display for BodyReadError {
     }
 }
 
-impl ::std::error::Error for BodyReadError {
+impl StdError for BodyReadError {
     fn description(&self) -> &str {
         "Request body read error"
     }
@@ -358,7 +358,7 @@ impl ::std::fmt::Display for BodyConsumedMultipleTimes {
     }
 }
 
-impl ::std::error::Error for BodyConsumedMultipleTimes {
+impl StdError for BodyConsumedMultipleTimes {
     fn description(&self) -> &str {
         "Request body consumed multiple times"
     }
