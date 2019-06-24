@@ -98,7 +98,7 @@ pub fn reply() -> impl Reply {
 /// If a type fails to be serialized into JSON, the error is logged at the
 /// `error` level, and the returned `impl Reply` will be an empty
 /// `500 Internal Server Error` response.
-pub fn json<T>(val: &T) -> impl Reply
+pub fn json<T>(val: &T) -> Json
 where
     T: Serialize,
 {
@@ -109,8 +109,9 @@ where
     }
 }
 
+/// A JSON formatted reply.
 #[allow(missing_debug_implementations)]
-struct Json {
+pub struct Json {
     inner: Result<Vec<u8>, ()>,
 }
 
