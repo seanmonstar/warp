@@ -204,8 +204,9 @@ pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Never> 
 
 // ===== Rejections =====
 
+/// Missing request header
 #[derive(Debug)]
-pub(crate) struct MissingHeader(&'static str);
+pub struct MissingHeader(&'static str);
 
 impl ::std::fmt::Display for MissingHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
@@ -219,8 +220,9 @@ impl StdError for MissingHeader {
     }
 }
 
+/// Invalid request header
 #[derive(Debug)]
-pub(crate) struct InvalidHeader(&'static str);
+pub struct InvalidHeader(&'static str);
 
 impl ::std::fmt::Display for InvalidHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {

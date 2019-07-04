@@ -37,8 +37,9 @@ pub fn raw() -> impl Filter<Extract = One<String>, Error = Rejection> + Copy {
     })
 }
 
+/// Invalid query
 #[derive(Debug)]
-pub(crate) struct InvalidQuery;
+pub struct InvalidQuery;
 
 impl ::std::fmt::Display for InvalidQuery {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {

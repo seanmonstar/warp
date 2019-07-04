@@ -53,8 +53,9 @@ where
 
 // ===== Rejections =====
 
+/// Missing cookie
 #[derive(Debug)]
-pub(crate) struct MissingCookie(&'static str);
+pub struct MissingCookie(&'static str);
 
 impl ::std::fmt::Display for MissingCookie {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {

@@ -505,8 +505,9 @@ impl fmt::Debug for Rejections {
     }
 }
 
+/// HTTP method not allowed
 #[derive(Debug)]
-struct MethodNotAllowed;
+pub struct MethodNotAllowed;
 
 impl fmt::Display for MethodNotAllowed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -520,8 +521,9 @@ impl StdError for MethodNotAllowed {
     }
 }
 
+/// A content-length header is required
 #[derive(Debug)]
-struct LengthRequired;
+pub struct LengthRequired;
 
 impl fmt::Display for LengthRequired {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -535,8 +537,9 @@ impl StdError for LengthRequired {
     }
 }
 
+/// The request payload is too large
 #[derive(Debug)]
-struct PayloadTooLarge;
+pub struct PayloadTooLarge;
 
 impl fmt::Display for PayloadTooLarge {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -550,8 +553,9 @@ impl StdError for PayloadTooLarge {
     }
 }
 
+/// The request's content-type is not supported
 #[derive(Debug)]
-struct UnsupportedMediaType;
+pub struct UnsupportedMediaType;
 
 impl fmt::Display for UnsupportedMediaType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
