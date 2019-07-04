@@ -81,19 +81,19 @@ pub fn not_found() -> Rejection {
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
-    known(MethodNotAllowed)
+    known(MethodNotAllowed(()))
 }
 
 // 411 Length Required
 #[inline]
 pub(crate) fn length_required() -> Rejection {
-    known(LengthRequired)
+    known(LengthRequired(()))
 }
 
 // 413 Payload Too Large
 #[inline]
 pub(crate) fn payload_too_large() -> Rejection {
-    known(PayloadTooLarge)
+    known(PayloadTooLarge(()))
 }
 
 // 415 Unsupported Media Type
@@ -102,7 +102,7 @@ pub(crate) fn payload_too_large() -> Rejection {
 // what can be deserialized.
 #[inline]
 pub(crate) fn unsupported_media_type() -> Rejection {
-    known(UnsupportedMediaType)
+    known(UnsupportedMediaType(()))
 }
 
 #[doc(hidden)]
@@ -507,7 +507,7 @@ impl fmt::Debug for Rejections {
 
 /// HTTP method not allowed
 #[derive(Debug)]
-pub struct MethodNotAllowed;
+pub struct MethodNotAllowed(());
 
 impl fmt::Display for MethodNotAllowed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -523,7 +523,7 @@ impl StdError for MethodNotAllowed {
 
 /// A content-length header is required
 #[derive(Debug)]
-pub struct LengthRequired;
+pub struct LengthRequired(());
 
 impl fmt::Display for LengthRequired {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -539,7 +539,7 @@ impl StdError for LengthRequired {
 
 /// The request payload is too large
 #[derive(Debug)]
-pub struct PayloadTooLarge;
+pub struct PayloadTooLarge(());
 
 impl fmt::Display for PayloadTooLarge {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -555,7 +555,7 @@ impl StdError for PayloadTooLarge {
 
 /// The request's content-type is not supported
 #[derive(Debug)]
-pub struct UnsupportedMediaType;
+pub struct UnsupportedMediaType(());
 
 impl fmt::Display for UnsupportedMediaType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
