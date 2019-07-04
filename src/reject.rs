@@ -78,6 +78,30 @@ pub fn not_found() -> Rejection {
     }
 }
 
+// 400 Bad Request
+#[inline]
+pub(crate) fn invalid_query() -> Rejection {
+    known(InvalidQuery(()))
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn missing_header(name: &'static str) -> Rejection {
+    known(MissingHeader(name))
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn invalid_header(name: &'static str) -> Rejection {
+    known(InvalidHeader(name))
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
+    known(MissingCookie(name))
+}
+
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
@@ -368,13 +392,13 @@ impl Rejections {
             Rejections::Known(ref e) => {
                 if e.is::<MethodNotAllowed>() {
                     StatusCode::METHOD_NOT_ALLOWED
-                } else if e.is::<::header::InvalidHeader>() {
+                } else if e.is::<InvalidHeader>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::header::MissingHeader>() {
+                } else if e.is::<MissingHeader>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::cookie::MissingCookie>() {
+                } else if e.is::<MissingCookie>() {
                     StatusCode::BAD_REQUEST
-                } else if e.is::<::query::InvalidQuery>() {
+                } else if e.is::<InvalidQuery>() {
                     StatusCode::BAD_REQUEST
                 } else if e.is::<LengthRequired>() {
                     StatusCode::LENGTH_REQUIRED
@@ -505,6 +529,22 @@ impl fmt::Debug for Rejections {
     }
 }
 
+/// Invalid query
+#[derive(Debug)]
+struct InvalidQuery(());
+
+impl ::std::fmt::Display for InvalidQuery {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.write_str("Invalid query string")
+    }
+}
+
+impl StdError for InvalidQuery {
+    fn description(&self) -> &str {
+        "Invalid query string"
+    }
+}
+
 /// HTTP method not allowed
 #[derive(Debug)]
 pub struct MethodNotAllowed(());
@@ -566,6 +606,55 @@ impl fmt::Display for UnsupportedMediaType {
 impl StdError for UnsupportedMediaType {
     fn description(&self) -> &str {
         "The request's content-type is not supported"
+    }
+}
+
+/// Missing request header
+#[derive(Debug)]
+pub struct MissingHeader(&'static str);
+
+impl ::std::fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request header '{}'", self.0)
+    }
+}
+
+impl StdError for MissingHeader {
+    fn description(&self) -> &str {
+        "Missing request header"
+    }
+}
+
+/// Invalid request header
+#[derive(Debug)]
+pub struct InvalidHeader(&'static str);
+
+impl ::std::fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Invalid request header '{}'", self.0)
+    }
+}
+
+impl StdError for InvalidHeader {
+    fn description(&self) -> &str {
+        "Invalid request header"
+    }
+}
+
+
+/// Missing cookie
+#[derive(Debug)]
+pub struct MissingCookie(&'static str);
+
+impl ::std::fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request cookie '{}'", self.0)
+    }
+}
+
+impl StdError for MissingCookie {
+    fn description(&self) -> &str {
+        "Missing request cookie"
     }
 }
 
