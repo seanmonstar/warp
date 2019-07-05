@@ -153,7 +153,7 @@ use route::Route;
 /// let hello = warp::path("hello")
 ///     .map(|| "Hello, World!");
 /// ```
-pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Copy {
+pub fn path<'a>(p: &'a str) -> impl Filter<Extract = (), Error = Rejection> + Copy +'a {
     assert!(!p.is_empty(), "exact path segments should not be empty");
     assert!(
         !p.contains('/'),
