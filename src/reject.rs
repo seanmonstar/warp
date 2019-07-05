@@ -531,7 +531,7 @@ impl fmt::Debug for Rejections {
 
 /// Invalid query
 #[derive(Debug)]
-struct InvalidQuery(());
+pub struct InvalidQuery(());
 
 impl ::std::fmt::Display for InvalidQuery {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
