@@ -1,7 +1,5 @@
 //! Query Filters
 
-use std::error::Error as StdError;
-
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
 
@@ -21,7 +19,7 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract = One<T>, Erro
 
         serde_urlencoded::from_str(query_string).map_err(|e| {
             debug!("failed to decode query string '{}': {:?}", query_string, e);
-            reject::known(InvalidQuery)
+            reject::invalid_query()
         })
     })
 }
@@ -33,21 +31,6 @@ pub fn raw() -> impl Filter<Extract = One<String>, Error = Rejection> + Copy {
             .query()
             .map(|q| q.to_owned())
             .map(Ok)
-            .unwrap_or_else(|| Err(reject::known(InvalidQuery)))
+            .unwrap_or_else(|| Err(reject::invalid_query()))
     })
-}
-
-#[derive(Debug)]
-pub(crate) struct InvalidQuery;
-
-impl ::std::fmt::Display for InvalidQuery {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.write_str("Invalid query string")
-    }
-}
-
-impl StdError for InvalidQuery {
-    fn description(&self) -> &str {
-        "Invalid query string"
-    }
 }

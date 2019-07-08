@@ -5,7 +5,6 @@
 //! they don't extract any values. The `header` filter allows parsing
 //! a type from any header.
 use std::str::FromStr;
-use std::error::Error as StdError;
 
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
@@ -41,13 +40,13 @@ pub fn header<T: FromStr + Send>(
         route
             .headers()
             .get(name)
-            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .ok_or_else(|| reject::missing_header(name))
             .and_then(|value| {
                 value
                     .to_str()
-                    .map_err(|_| reject::known(InvalidHeader(name)))
+                    .map_err(|_| reject::invalid_header(name))
             })
-            .and_then(|s| T::from_str(s).map_err(|_| reject::known(InvalidHeader(name))))
+            .and_then(|s| T::from_str(s).map_err(|_| reject::invalid_header(name)))
     })
 }
 
@@ -58,7 +57,7 @@ pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract = One<T>, Error
         route
             .headers()
             .typed_get()
-            .ok_or_else(|| reject::known(InvalidHeader(T::name().as_str())))
+            .ok_or_else(|| reject::invalid_header(T::name().as_str()))
     })
 }
 
@@ -85,9 +84,9 @@ where
         let result = route.headers().get(name).map(|value| {
             value
                 .to_str()
-                .map_err(|_| reject::known(InvalidHeader(name)))?
+                .map_err(|_| reject::invalid_header(name))?
                 .parse::<T>()
-                .map_err(|_| reject::known(InvalidHeader(name)))
+                .map_err(|_| reject::invalid_header(name))
         });
 
         match result {
@@ -144,12 +143,12 @@ pub fn exact(
         route
             .headers()
             .get(name)
-            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .ok_or_else(|| reject::missing_header(name))
             .and_then(|val| {
                 if val == value {
                     Ok(())
                 } else {
-                    Err(reject::known(InvalidHeader(name)))
+                    Err(reject::invalid_header(name))
                 }
             })
     })
@@ -175,12 +174,12 @@ pub fn exact_ignore_case(
         route
             .headers()
             .get(name)
-            .ok_or_else(|| reject::known(MissingHeader(name)))
+            .ok_or_else(|| reject::missing_header(name))
             .and_then(|val| {
                 if val.as_bytes().eq_ignore_ascii_case(value.as_bytes()) {
                     Ok(())
                 } else {
-                    Err(reject::known(InvalidHeader(name)))
+                    Err(reject::invalid_header(name))
                 }
             })
     })
@@ -200,36 +199,4 @@ pub fn exact_ignore_case(
 /// ```
 pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Never> + Copy {
     filter_fn_one(|route| Ok(route.headers().clone()))
-}
-
-// ===== Rejections =====
-
-#[derive(Debug)]
-pub(crate) struct MissingHeader(&'static str);
-
-impl ::std::fmt::Display for MissingHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Missing request header '{}'", self.0)
-    }
-}
-
-impl StdError for MissingHeader {
-    fn description(&self) -> &str {
-        "Missing request header"
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct InvalidHeader(&'static str);
-
-impl ::std::fmt::Display for InvalidHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Invalid request header '{}'", self.0)
-    }
-}
-
-impl StdError for InvalidHeader {
-    fn description(&self) -> &str {
-        "Invalid request header"
-    }
 }

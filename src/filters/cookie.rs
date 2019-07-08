@@ -1,7 +1,5 @@
 //! Cookie Filters
 
-use std::error::Error as StdError;
-
 use headers::Cookie;
 
 use super::header;
@@ -17,7 +15,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract = One<String>, Error = 
         cookie
             .get(name)
             .map(String::from)
-            .ok_or_else(|| ::reject::known(MissingCookie(name)))
+            .ok_or_else(|| ::reject::missing_cookie(name))
     })
 }
 
@@ -49,21 +47,4 @@ where
             .typed_get()
             .and_then(|cookie: Cookie| cookie.get(name).map(func)))
     })
-}
-
-// ===== Rejections =====
-
-#[derive(Debug)]
-pub(crate) struct MissingCookie(&'static str);
-
-impl ::std::fmt::Display for MissingCookie {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Missing request cookie '{}'", self.0)
-    }
-}
-
-impl StdError for MissingCookie {
-    fn description(&self) -> &str {
-        "Missing request cookie"
-    }
 }
