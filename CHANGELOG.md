@@ -1,3 +1,9 @@
+### v0.1.17 (July 8, 2019)
+
+- **Features**:
+  - Export all built-in Rejection causes in the `warp::reject` module.
+  - Add `Server::try_bind` as fallible bind methods.
+
 ### v0.1.16 (June 11, 2019)
 
 - **Features**:
