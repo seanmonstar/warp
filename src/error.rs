@@ -1,5 +1,6 @@
 use std::error::Error as StdError;
 use std::fmt;
+use std::io;
 
 use hyper::Error as HyperError;
 use tungstenite::Error as WsError;
@@ -20,23 +21,18 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0.as_ref() {
             Kind::Hyper(ref e) => fmt::Display::fmt(e, f),
+            Kind::Multipart(ref e) => fmt::Display::fmt(e, f),
             Kind::Ws(ref e) => fmt::Display::fmt(e, f),
         }
     }
 }
 
 impl StdError for Error {
-    fn description(&self) -> &str {
-        match self.0.as_ref() {
-            Kind::Hyper(ref e) => e.description(),
-            Kind::Ws(ref e) => e.description(),
-        }
-    }
-
     #[allow(deprecated)]
     fn cause(&self) -> Option<&dyn StdError> {
         match self.0.as_ref() {
             Kind::Hyper(ref e) => e.cause(),
+            Kind::Multipart(ref e) => e.cause(),
             Kind::Ws(ref e) => e.cause(),
         }
     }
@@ -44,6 +40,7 @@ impl StdError for Error {
 
 pub(crate) enum Kind {
     Hyper(HyperError),
+    Multipart(io::Error),
     Ws(WsError),
 }
 
@@ -51,6 +48,7 @@ impl fmt::Debug for Kind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Kind::Hyper(ref e) => fmt::Debug::fmt(e, f),
+            Kind::Multipart(ref e) => fmt::Debug::fmt(e, f),
             Kind::Ws(ref e) => fmt::Debug::fmt(e, f),
         }
     }
