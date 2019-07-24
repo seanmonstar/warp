@@ -222,6 +222,12 @@ pub struct FullBody {
     chunk: Chunk,
 }
 
+impl FullBody {
+    pub(super) fn into_chunk(self) -> Chunk {
+        self.chunk
+    }
+}
+
 impl Buf for FullBody {
     #[inline]
     fn remaining(&self) -> usize {

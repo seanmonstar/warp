@@ -93,6 +93,7 @@ extern crate hyper;
 extern crate log as logcrate;
 extern crate mime;
 extern crate mime_guess;
+extern crate multipart as multipart_c;
 #[macro_use]
 extern crate scoped_tls;
 #[cfg(feature = "tls")]
@@ -151,6 +152,7 @@ pub use self::filters::{
     method::{delete, get, method, post, put},
     method::{delete2, get2, post2, put2},
     method::{head, options, patch},
+    multipart,
     path,
     // the index() function
     path::index,
