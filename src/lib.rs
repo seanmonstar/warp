@@ -13,6 +13,7 @@
 //! - Header requirements and extraction
 //! - Query string deserialization
 //! - JSON and Form bodies
+//! - Multipart form data
 //! - Static Files and Directories
 //! - Websockets
 //! - Access logging
