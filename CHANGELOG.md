@@ -1,3 +1,8 @@
+### v0.1.18 (July 25, 2019)
+
+- **Features**:
+  - Add `warp::multipart` support.
+
 ### v0.1.17 (July 8, 2019)
 
 - **Features**:
