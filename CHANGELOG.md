@@ -1,3 +1,8 @@
+### v0.1.19
+
+- **Fixes**:
+  - Update some private dependencies.
+
 ### v0.1.18 (July 25, 2019)
 
 - **Features**:

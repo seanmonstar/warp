@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.1.18" # don't forget to update html_root_url
+version = "0.1.19" # don't forget to update html_root_url
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
@@ -23,13 +23,13 @@ multipart = { version = "0.16", default-features = false, features = ["server"] 
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
-serde_urlencoded = "0.5.3"
+serde_urlencoded = "0.6"
 tokio = "0.1.11"
 tokio-io = "0.1"
 rustls = { version = "0.15", optional = true }
 tokio-threadpool = "0.1.7"
 # tls is enabled by default, we don't want that yet
-tungstenite = { default-features = false, version = "0.8" }
+tungstenite = { default-features = false, version = "0.9" }
 urlencoding = "1.0.0"
 
 [dev-dependencies]
