@@ -412,3 +412,10 @@ impl fmt::Debug for Message {
         fmt::Debug::fmt(&self.inner, f)
     }
 }
+
+
+impl Into<Vec<u8>> for Message {
+    fn into(self) -> Vec<u8> {
+        self.into_bytes()
+    }
+}
