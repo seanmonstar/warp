@@ -400,6 +400,11 @@ impl Message {
             _ => unreachable!(),
         }
     }
+
+    /// Destructure this message into binary data.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.inner.into_data()
+    }
 }
 
 impl fmt::Debug for Message {
