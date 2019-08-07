@@ -318,7 +318,7 @@ fn file_conditional(
                             len = sub_len;
                         }
 
-                        let mime = mime_guess::guess_mime_type(path.as_ref());
+                        let mime = mime_guess::from_path(path.as_ref()).first_or_octet_stream();
 
                         resp.headers_mut().typed_insert(ContentLength(len));
                         resp.headers_mut().typed_insert(ContentType::from(mime));
