@@ -7,7 +7,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate warp;
 
-use std::env;
+use std::{env, cmp};
 use std::sync::{Arc, Mutex};
 use warp::{http::StatusCode, Filter};
 
@@ -15,7 +15,7 @@ use warp::{http::StatusCode, Filter};
 /// a simple in-memory DB, a vector synchronized by a mutex.
 type Db = Arc<Mutex<Vec<Todo>>>;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Todo {
     id: u64,
     text: String,
@@ -61,11 +61,14 @@ fn main() {
     // (and to reject huge payloads)...
     let json_body = warp::body::content_length_limit(1024 * 16).and(warp::body::json());
 
+    let list_options = warp::filters::query::query::<ListOptions>();
+
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
     let list = warp::get2()
         .and(todos_index)
+        .and(list_options)
         .and(db.clone())
         .map(list_todos);
 
@@ -104,10 +107,22 @@ fn main() {
 // with the exact arguments we'd expect from each filter in the chain.
 // No tuples are needed, it's auto flattened for the functions.
 
+// The query parameters for list_todos.
+#[derive(Debug, Deserialize)]
+struct ListOptions {
+    offset: Option<usize>,
+    limit: Option<usize>,
+}
+
 /// GET /todos
-fn list_todos(db: Db) -> impl warp::Reply {
-    // Just return a JSON array of all Todos.
-    warp::reply::json(&*db.lock().unwrap())
+fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
+    // Just return a JSON array of todos, applying the limit and offset (while making sure there
+    // are no out of bounds slicing).
+    let guard = db.lock().unwrap();
+    let todos = &*guard;
+    let start = cmp::min(cmp::max(opts.offset.unwrap_or(0), 0), todos.len());
+    let end = cmp::min(opts.limit.map(|l| l + start).unwrap_or(std::usize::MAX), todos.len());
+    warp::reply::json(&todos[start..end].to_vec())
 }
 
 /// POST /todos with JSON body
