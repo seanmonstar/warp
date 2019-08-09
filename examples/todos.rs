@@ -118,8 +118,13 @@ struct ListOptions {
 fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
     // Just return a JSON array of todos, applying the limit and offset (while making sure there
     // are no out of bounds slicing).
-    let guard = db.lock().unwrap();
-    let todos: Vec<Todo> = guard.clone().into_iter().skip(opts.offset.unwrap_or(0)).take(opts.limit.unwrap_or(std::usize::MAX)).collect();
+    let todos = db.lock().unwrap();
+    let todos: Vec<Todo> = todos
+        .clone()
+        .into_iter()
+        .skip(opts.offset.unwrap_or(0))
+        .take(opts.limit.unwrap_or(std::usize::MAX))
+        .collect();
     warp::reply::json(&todos)
 }
 
