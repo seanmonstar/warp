@@ -7,7 +7,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate warp;
 
-use std::{env, cmp};
+use std::env;
 use std::sync::{Arc, Mutex};
 use warp::{http::StatusCode, Filter};
 
@@ -119,10 +119,8 @@ fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
     // Just return a JSON array of todos, applying the limit and offset (while making sure there
     // are no out of bounds slicing).
     let guard = db.lock().unwrap();
-    let todos = &*guard;
-    let start = cmp::min(cmp::max(opts.offset.unwrap_or(0), 0), todos.len());
-    let end = cmp::min(opts.limit.map(|l| l + start).unwrap_or(std::usize::MAX), todos.len());
-    warp::reply::json(&todos[start..end].to_vec())
+    let todos: Vec<Todo> = guard.clone().into_iter().skip(opts.offset.unwrap_or(0)).take(opts.limit.unwrap_or(std::usize::MAX)).collect();
+    warp::reply::json(&todos)
 }
 
 /// POST /todos with JSON body
