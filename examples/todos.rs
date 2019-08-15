@@ -115,7 +115,7 @@ struct ListOptions {
     limit: Option<usize>,
 }
 
-/// GET /todos with optional query parameters of limit and offset
+/// GET /todos?offset=3&limit=5
 fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
     // Just return a JSON array of todos, applying the limit and offset.
     let todos = db.lock().unwrap();
