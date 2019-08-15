@@ -61,7 +61,7 @@ fn main() {
     // (and to reject huge payloads)...
     let json_body = warp::body::content_length_limit(1024 * 16).and(warp::body::json());
 
-    let list_options = warp::filters::query::query::<ListOptions>();
+    let list_options = warp::query::<ListOptions>();
 
     // Next, we'll define each our 4 endpoints:
 
