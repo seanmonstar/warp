@@ -61,6 +61,7 @@ fn main() {
     // (and to reject huge payloads)...
     let json_body = warp::body::content_length_limit(1024 * 16).and(warp::body::json());
 
+    // For `GET /todos` also allow optional query parameters to allow for paging of TODOs.
     let list_options = warp::query::<ListOptions>();
 
     // Next, we'll define each our 4 endpoints:
@@ -114,10 +115,9 @@ struct ListOptions {
     limit: Option<usize>,
 }
 
-/// GET /todos
+/// GET /todos with optional query parameters of limit and offset
 fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
-    // Just return a JSON array of todos, applying the limit and offset (while making sure there
-    // are no out of bounds slicing).
+    // Just return a JSON array of todos, applying the limit and offset.
     let todos = db.lock().unwrap();
     let todos: Vec<Todo> = todos
         .clone()
