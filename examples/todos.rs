@@ -61,7 +61,7 @@ fn main() {
     // (and to reject huge payloads)...
     let json_body = warp::body::content_length_limit(1024 * 16).and(warp::body::json());
 
-    // For `GET /todos` also allow optional query parameters to allow for paging of TODOs.
+    // For `GET /todos` also allow optional query parameters to allow for paging of Todos.
     let list_options = warp::query::<ListOptions>();
 
     // Next, we'll define each our 4 endpoints:
