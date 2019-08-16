@@ -31,7 +31,7 @@ tokio-io = "0.1"
 rustls = { version = "0.15", optional = true }
 tokio-threadpool = "0.1.7"
 # tls is enabled by default, we don't want that yet
-tungstenite = { default-features = false, version = "0.9" }
+tungstenite = { default-features = false, version = "0.9", optional = true }
 urlencoding = "1.0.0"
 
 [dev-dependencies]
@@ -40,7 +40,8 @@ serde_derive = "1.0"
 handlebars = "1.0.0"
 
 [features]
-default = ["multipart"]
+default = ["multipart", "websocket"]
+websocket = ["tungstenite"]
 tls = ["rustls"]
 
 [package.metadata.docs.rs]
@@ -57,3 +58,15 @@ incremental = false
 [[test]]
 name = "multipart"
 required-features = ["multipart"]
+
+[[test]]
+name = "ws"
+required-features = ["websocket"]
+
+[[example]]
+name = "websockets"
+required-features = ["websocket"]
+
+[[example]]
+name = "websockets_chat"
+required-features = ["websocket"]
