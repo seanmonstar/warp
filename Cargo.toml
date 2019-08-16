@@ -9,6 +9,8 @@ documentation = "https://docs.rs/warp"
 repository = "https://github.com/seanmonstar/warp"
 categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
+autotests = true
+autoexamples = true
 
 [dependencies]
 bytes = "0.4.8"
@@ -19,7 +21,7 @@ hyper = "0.12.18"
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
-multipart = { version = "0.16", default-features = false, features = ["server"] }
+multipart = { version = "0.16", default-features = false, features = ["server"], optional = true }
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
@@ -38,6 +40,7 @@ serde_derive = "1.0"
 handlebars = "1.0.0"
 
 [features]
+default = ["multipart"]
 tls = ["rustls"]
 
 [package.metadata.docs.rs]
@@ -50,3 +53,7 @@ incremental = false
 [profile.bench]
 codegen-units = 1
 incremental = false
+
+[[test]]
+name = "multipart"
+required-features = ["multipart"]

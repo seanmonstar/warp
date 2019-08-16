@@ -223,6 +223,7 @@ pub struct FullBody {
 }
 
 impl FullBody {
+    #[cfg(feature = "multipart")]
     pub(super) fn into_chunk(self) -> Chunk {
         self.chunk
     }

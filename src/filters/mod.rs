@@ -13,6 +13,7 @@ pub mod fs;
 pub mod header;
 pub mod log;
 pub mod method;
+#[cfg(feature = "multipart")]
 pub mod multipart;
 pub mod path;
 pub mod query;
