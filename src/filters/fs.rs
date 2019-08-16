@@ -101,25 +101,7 @@ fn path_from_tail(
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
     ::path::tail()
         .and_then(move |tail: ::path::Tail| {
-            let mut buf = PathBuf::from(base.as_ref());
-            let p = match decode(tail.as_str()) {
-                Ok(p) => p,
-                Err(err) => {
-                    debug!("dir: failed to decode route={:?}: {:?}", tail.as_str(), err);
-                    // FromUrlEncodingError doesn't implement StdError
-                    return Err(reject::not_found());
-                }
-            };
-            trace!("dir? base={:?}, route={:?}", base, p);
-            for seg in p.split('/') {
-                if seg.starts_with("..") {
-                    warn!("dir: rejecting segment starting with '..'");
-                    return Err(reject::not_found());
-                } else {
-                    buf.push(seg);
-                }
-            }
-            Ok(buf)
+            sanitize_path(base.as_ref(), tail.as_str())
         })
         .and_then(|buf: PathBuf| {
             // Checking Path::is_dir can block since it has to read from disk,
@@ -148,6 +130,31 @@ fn path_from_tail(
                 reject::known(FsNeedsTokioThreadpool)
             })
         })
+}
+
+fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejection> {
+    let mut buf = PathBuf::from(base.as_ref());
+    let p = match decode(tail) {
+        Ok(p) => p,
+        Err(err) => {
+            debug!("dir: failed to decode route={:?}: {:?}", tail, err);
+            // FromUrlEncodingError doesn't implement StdError
+            return Err(reject::not_found());
+        }
+    };
+    trace!("dir? base={:?}, route={:?}", base.as_ref(), p);
+    for seg in p.split('/') {
+        if seg.starts_with("..") {
+            warn!("dir: rejecting segment starting with '..'");
+            return Err(reject::not_found());
+        } else if seg.contains('\\') {
+            warn!("dir: rejecting segment containing with backslash (\\)");
+            return Err(reject::not_found());
+        } else {
+            buf.push(seg);
+        }
+    }
+    Ok(buf)
 }
 
 #[derive(Debug)]
@@ -468,5 +475,26 @@ impl ::std::fmt::Display for FsNeedsTokioThreadpool {
 impl StdError for FsNeedsTokioThreadpool {
     fn description(&self) -> &str {
         "File system operations require tokio threadpool runtime"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::sanitize_path;
+
+    #[test]
+    fn test_sanitize_path() {
+        let base = "/var/www";
+
+        fn p(s: &str) -> &::std::path::Path {
+            s.as_ref()
+        }
+
+        assert_eq!(sanitize_path(base, "/foo.html").unwrap(), p("/var/www/foo.html"));
+
+        // bad paths
+        sanitize_path(base, "/../foo.html").expect_err("dot dot");
+
+        sanitize_path(base, "/C:\\/foo.html").expect_err("C:\\");
     }
 }
