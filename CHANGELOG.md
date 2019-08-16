@@ -1,9 +1,9 @@
-### v0.1.19
+### v0.1.19 (August 16, 2019)
 
 - **Features**:
   - Make `warp::multipart` and `wrap::ws` support optional, though enabled by default.
 - **Fixes**:
-  - Update some private dependencies.
+  - Fix `warp::fs::dir` filter to reject paths containing backslashes.
 
 ### v0.1.18 (July 25, 2019)
 
