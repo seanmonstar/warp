@@ -15,7 +15,7 @@ use warp::{http::StatusCode, Filter};
 /// a simple in-memory DB, a vector synchronized by a mutex.
 type Db = Arc<Mutex<Vec<Todo>>>;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 struct Todo {
     id: u64,
     text: String,
@@ -61,11 +61,15 @@ fn main() {
     // (and to reject huge payloads)...
     let json_body = warp::body::content_length_limit(1024 * 16).and(warp::body::json());
 
+    // For `GET /todos` also allow optional query parameters to allow for paging of Todos.
+    let list_options = warp::query::<ListOptions>();
+
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
     let list = warp::get2()
         .and(todos_index)
+        .and(list_options)
         .and(db.clone())
         .map(list_todos);
 
@@ -104,10 +108,24 @@ fn main() {
 // with the exact arguments we'd expect from each filter in the chain.
 // No tuples are needed, it's auto flattened for the functions.
 
-/// GET /todos
-fn list_todos(db: Db) -> impl warp::Reply {
-    // Just return a JSON array of all Todos.
-    warp::reply::json(&*db.lock().unwrap())
+// The query parameters for list_todos.
+#[derive(Debug, Deserialize)]
+struct ListOptions {
+    offset: Option<usize>,
+    limit: Option<usize>,
+}
+
+/// GET /todos?offset=3&limit=5
+fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
+    // Just return a JSON array of todos, applying the limit and offset.
+    let todos = db.lock().unwrap();
+    let todos: Vec<Todo> = todos
+        .clone()
+        .into_iter()
+        .skip(opts.offset.unwrap_or(0))
+        .take(opts.limit.unwrap_or(std::usize::MAX))
+        .collect();
+    warp::reply::json(&todos)
 }
 
 /// POST /todos with JSON body
