@@ -3,6 +3,7 @@ use std::fmt;
 use std::io;
 
 use hyper::Error as HyperError;
+#[cfg(feature = "websocket")]
 use tungstenite::Error as WsError;
 
 use never::Never;
@@ -22,6 +23,7 @@ impl fmt::Display for Error {
         match self.0.as_ref() {
             Kind::Hyper(ref e) => fmt::Display::fmt(e, f),
             Kind::Multipart(ref e) => fmt::Display::fmt(e, f),
+            #[cfg(feature = "websocket")]
             Kind::Ws(ref e) => fmt::Display::fmt(e, f),
         }
     }
@@ -33,6 +35,7 @@ impl StdError for Error {
         match self.0.as_ref() {
             Kind::Hyper(ref e) => e.cause(),
             Kind::Multipart(ref e) => e.cause(),
+            #[cfg(feature = "websocket")]
             Kind::Ws(ref e) => e.cause(),
         }
     }
@@ -41,6 +44,7 @@ impl StdError for Error {
 pub(crate) enum Kind {
     Hyper(HyperError),
     Multipart(io::Error),
+    #[cfg(feature = "websocket")]
     Ws(WsError),
 }
 
@@ -49,6 +53,7 @@ impl fmt::Debug for Kind {
         match self {
             Kind::Hyper(ref e) => fmt::Debug::fmt(e, f),
             Kind::Multipart(ref e) => fmt::Debug::fmt(e, f),
+            #[cfg(feature = "websocket")]
             Kind::Ws(ref e) => fmt::Debug::fmt(e, f),
         }
     }

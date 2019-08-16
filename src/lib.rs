@@ -107,6 +107,7 @@ extern crate tokio;
 #[cfg_attr(feature = "tls", macro_use)]
 extern crate tokio_io;
 extern crate tokio_threadpool;
+#[cfg(feature = "websocket")]
 extern crate tungstenite;
 extern crate urlencoding;
 
@@ -165,13 +166,18 @@ pub use self::filters::{
     sse,
     // sse() function
     sse::sse,
-    ws,
-    // ws() function
-    ws::{ws, ws2},
 };
 #[cfg(feature = "multipart")]
 #[doc(hidden)]
 pub use self::filters::multipart;
+#[cfg(feature = "websocket")]
+#[doc(hidden)]
+pub use self::filters::ws;
+// ws() function
+#[cfg(feature = "websocket")]
+#[doc(hidden)]
+#[allow(deprecated)]
+pub use self::filters::ws::{ws, ws2};
 #[doc(hidden)]
 pub use self::redirect::redirect;
 #[doc(hidden)]
