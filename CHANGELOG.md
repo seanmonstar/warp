@@ -1,5 +1,7 @@
 ### v0.1.19
 
+- **Features**:
+  - Make `warp::multipart` and `wrap::ws` support optional, though enabled by default.
 - **Fixes**:
   - Update some private dependencies.
 
