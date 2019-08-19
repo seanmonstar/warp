@@ -11,6 +11,7 @@ categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
 autotests = true
 autoexamples = true
+edition = "2018"
 
 [dependencies]
 bytes = "0.4.8"
@@ -18,7 +19,7 @@ futures = "0.1"
 headers = "0.2"
 http = "0.1"
 hyper = "0.12.18"
-log = "0.4"
+logcrate = { version = "0.4", package = "log" }
 mime = "0.3"
 mime_guess = "2.0.0"
 multipart = { version = "0.16", default-features = false, features = ["server"], optional = true }

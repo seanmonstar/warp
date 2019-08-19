@@ -13,9 +13,9 @@ use http::{
     HttpTryFrom,
 };
 
-use filter::{Filter, WrapSealed};
-use reject::{CombineRejection, Rejection};
-use reply::Reply;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::{CombineRejection, Rejection};
+use crate::reply::Reply;
 
 use self::internal::{CorsFilter, IntoOrigin, Seconds};
 
@@ -331,7 +331,9 @@ impl Configured {
                         return Err(Forbidden::MethodNotAllowed);
                     }
                 } else {
-                    trace!("preflight request missing access-control-request-method header");
+                    logcrate::trace!(
+                        "preflight request missing access-control-request-method header"
+                    );
                     return Err(Forbidden::MethodNotAllowed);
                 }
 
@@ -351,7 +353,7 @@ impl Configured {
             (Some(origin), _) => {
                 // Any other method, simply check for a valid origin...
 
-                trace!("origin header: {:?}", origin);
+                logcrate::trace!("origin header: {:?}", origin);
                 if self.is_origin_allowed(origin) {
                     Ok(Validated::Simple(origin.clone()))
                 } else {
@@ -412,15 +414,15 @@ impl Configured {
 mod internal {
     use std::sync::Arc;
 
-    use futures::{future, Future, Poll};
+    use futures::{future, try_ready, Future, Poll};
     use headers::Origin;
     use http::header;
 
     use super::{Configured, CorsForbidden, Validated};
-    use filter::{Filter, FilterBase, One};
-    use generic::Either;
-    use reject::{CombineRejection, Rejection};
-    use route;
+    use crate::filter::{Filter, FilterBase, One};
+    use crate::generic::Either;
+    use crate::reject::{CombineRejection, Rejection};
+    use crate::route;
 
     #[derive(Clone, Debug)]
     pub struct CorsFilter<F> {
@@ -463,7 +465,7 @@ mod internal {
                     wrapped: None,
                 }),
                 Err(err) => {
-                    let rejection = ::reject::known(CorsForbidden { kind: err });
+                    let rejection = crate::reject::known(CorsForbidden { kind: err });
                     future::Either::A(future::err(rejection.into()))
                 }
             }
@@ -476,9 +478,9 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl ::reply::Reply for Preflight {
-        fn into_response(self) -> ::reply::Response {
-            let mut res = ::reply::Response::default();
+    impl crate::reply::Reply for Preflight {
+        fn into_response(self) -> crate::reply::Response {
+            let mut res = crate::reply::Response::default();
             self.config.append_preflight_headers(res.headers_mut());
             res.headers_mut()
                 .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, self.origin);
@@ -493,11 +495,11 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl<R> ::reply::Reply for Wrapped<R>
+    impl<R> crate::reply::Reply for Wrapped<R>
     where
-        R: ::reply::Reply,
+        R: crate::reply::Reply,
     {
-        fn into_response(self) -> ::reply::Response {
+        fn into_response(self) -> crate::reply::Response {
             let mut res = self.inner.into_response();
             self.config.append_common_headers(res.headers_mut());
             res.headers_mut()

@@ -10,11 +10,11 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{rt, Server as HyperServer};
 use tokio_io::{AsyncRead, AsyncWrite};
 
-use never::Never;
-use reject::Reject;
-use reply::Reply;
-use transport::Transport;
-use Request;
+use crate::never::Never;
+use crate::reject::Reject;
+use crate::reply::Reply;
+use crate::transport::Transport;
+use crate::Request;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
@@ -130,7 +130,7 @@ where
     pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        info!("warp drive engaged: listening on http://{}", addr);
+        logcrate::info!("warp drive engaged: listening on http://{}", addr);
 
         rt::run(fut);
     }
@@ -145,7 +145,7 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
-        self.run_incoming2(incoming.map(::transport::LiftIo));
+        self.run_incoming2(incoming.map(crate::transport::LiftIo));
     }
 
     fn run_incoming2<I>(self, incoming: I)
@@ -156,7 +156,7 @@ where
     {
         let fut = self.serve_incoming2(incoming);
 
-        info!("warp drive engaged: listening with custom incoming");
+        logcrate::info!("warp drive engaged: listening with custom incoming");
 
         rt::run(fut);
     }
@@ -185,10 +185,10 @@ where
         addr: impl Into<SocketAddr> + 'static,
     ) -> impl Future<Item = (), Error = ()> + 'static {
         let addr = addr.into();
-        let result = try_bind!(self, &addr).map_err(|e| error!("error binding to {}: {}", addr, e));
-        futures::future::result(result).and_then(|(_, srv)| {
-            srv.map_err(|e| error!("server error: {}", e))
-        })
+        let result = try_bind!(self, &addr)
+            .map_err(|e| logcrate::error!("error binding to {}: {}", addr, e));
+        futures::future::result(result)
+            .and_then(|(_, srv)| srv.map_err(|e| logcrate::error!("server error: {}", e)))
     }
 
     /// Bind to a possibly ephemeral socket address.
@@ -204,7 +204,10 @@ where
         addr: impl Into<SocketAddr> + 'static,
     ) -> (SocketAddr, impl Future<Item = (), Error = ()> + 'static) {
         let (addr, srv) = bind!(self, addr);
-        (addr, srv.map_err(|e| error!("server error: {}", e)))
+        (
+            addr,
+            srv.map_err(|e| logcrate::error!("server error: {}", e)),
+        )
     }
 
     /// Tried to bind a possibly ephemeral socket address.
@@ -217,10 +220,14 @@ where
     pub fn try_bind_ephemeral(
         self,
         addr: impl Into<SocketAddr> + 'static,
-    ) -> Result<(SocketAddr, impl Future<Item = (), Error = ()> + 'static), hyper::error::Error> {
+    ) -> Result<(SocketAddr, impl Future<Item = (), Error = ()> + 'static), hyper::error::Error>
+    {
         let addr = addr.into();
         let (addr, srv) = try_bind!(self, &addr)?;
-        Ok((addr, srv.map_err(|e| error!("server error: {}", e))))
+        Ok((
+            addr,
+            srv.map_err(|e| logcrate::error!("server error: {}", e)),
+        ))
     }
 
     /// Create a server with graceful shutdown signal.
@@ -264,7 +271,7 @@ where
         let (addr, srv) = bind!(self, addr);
         let fut = srv
             .with_graceful_shutdown(signal)
-            .map_err(|e| error!("server error: {}", e));
+            .map_err(|e| logcrate::error!("server error: {}", e));
         (addr, fut)
     }
 
@@ -279,7 +286,7 @@ where
         I::Item: AsyncRead + AsyncWrite + Send + 'static,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
-        let incoming = incoming.map(::transport::LiftIo);
+        let incoming = incoming.map(crate::transport::LiftIo);
         self.serve_incoming2(incoming)
     }
 
@@ -293,7 +300,7 @@ where
         HyperServer::builder(incoming)
             .http1_pipeline_flush(self.pipeline)
             .serve(service)
-            .map_err(|e| error!("server error: {}", e))
+            .map_err(|e| logcrate::error!("server error: {}", e))
     }
 
     // Generally shouldn't be used, as it can slow down non-pipelined responses.
@@ -331,7 +338,7 @@ where
     pub fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        info!("warp drive engaged: listening on https://{}", addr);
+        logcrate::info!("warp drive engaged: listening on https://{}", addr);
 
         rt::run(fut);
     }
@@ -359,7 +366,10 @@ where
         addr: impl Into<SocketAddr> + 'static,
     ) -> (SocketAddr, impl Future<Item = (), Error = ()> + 'static) {
         let (addr, srv) = bind!(tls: self, addr);
-        (addr, srv.map_err(|e| error!("server error: {}", e)))
+        (
+            addr,
+            srv.map_err(|e| logcrate::error!("server error: {}", e)),
+        )
     }
 
     /// Create a server with graceful shutdown signal.
@@ -377,7 +387,7 @@ where
 
         let fut = srv
             .with_graceful_shutdown(signal)
-            .map_err(|e| error!("server error: {}", e));
+            .map_err(|e| logcrate::error!("server error: {}", e));
         (addr, fut)
     }
 }
@@ -419,7 +429,7 @@ where
     F::Item: Reply,
     F::Error: Reject,
 {
-    type Item = ::reply::Response;
+    type Item = crate::reply::Response;
     type Error = Never;
 
     #[inline]
@@ -428,7 +438,7 @@ where
             Ok(Async::Ready(ok)) => Ok(Async::Ready(ok.into_response())),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
-                debug!("rejected: {:?}", err);
+                logcrate::debug!("rejected: {:?}", err);
                 Ok(Async::Ready(err.into_response()))
             }
         }

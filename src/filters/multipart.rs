@@ -8,10 +8,10 @@ use std::io::{Cursor, Read};
 use futures::{Async, Future, Poll, Stream};
 use headers::ContentType;
 use mime::Mime;
-use multipart_c::server::Multipart;
+use multipart::server::Multipart;
 
-use filter::{FilterBase, Filter};
-use reject::{self, Rejection};
+use crate::filter::{Filter, FilterBase};
+use crate::reject::{self, Rejection};
 
 // If not otherwise configured, default to 2MB.
 const DEFAULT_FORM_DATA_MAX_LENGTH: u64 = 1024 * 1024 * 2;
@@ -63,7 +63,6 @@ impl FormOptions {
     }
 }
 
-
 type FormFut = Box<dyn Future<Item = (FormData,), Error = Rejection> + Send>;
 
 impl FilterBase for FormOptions {
@@ -72,21 +71,18 @@ impl FilterBase for FormOptions {
     type Future = FormFut;
 
     fn filter(&self) -> Self::Future {
-        let boundary = super::header::header2::<ContentType>()
-            .and_then(|ct| {
-                let mime = Mime::from(ct);
-                mime.get_param("boundary")
-                    .map(|v| v.to_string())
-                    .ok_or_else(|| reject::invalid_header("content-type"))
-            });
+        let boundary = super::header::header2::<ContentType>().and_then(|ct| {
+            let mime = Mime::from(ct);
+            mime.get_param("boundary")
+                .map(|v| v.to_string())
+                .ok_or_else(|| reject::invalid_header("content-type"))
+        });
 
         let filt = super::body::content_length_limit(self.max_length)
             .and(boundary)
             .and(super::body::concat())
-            .map(|boundary, body: super::body::FullBody| {
-                FormData {
-                    inner: Multipart::with_body(Cursor::new(body.into_chunk()), boundary),
-                }
+            .map(|boundary, body: super::body::FullBody| FormData {
+                inner: Multipart::with_body(Cursor::new(body.into_chunk()), boundary),
             });
 
         let fut = filt.filter();
@@ -105,24 +101,25 @@ impl fmt::Debug for FormData {
 
 impl Stream for FormData {
     type Item = Part;
-    type Error = ::Error;
+    type Error = crate::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match self.inner.read_entry() {
             Ok(Some(mut field)) => {
                 let mut data = Vec::new();
-                field.data
+                field
+                    .data
                     .read_to_end(&mut data)
-                    .map_err(::error::Kind::Multipart)?;
+                    .map_err(crate::error::Kind::Multipart)?;
                 Ok(Async::Ready(Some(Part {
                     name: field.headers.name.to_string(),
                     filename: field.headers.filename,
                     content_type: field.headers.content_type.map(|m| m.to_string()),
                     data: Some(data),
                 })))
-            },
+            }
             Ok(None) => Ok(Async::Ready(None)),
-            Err(e) => Err(::error::Kind::Multipart(e).into())
+            Err(e) => Err(crate::error::Kind::Multipart(e).into()),
         }
     }
 }
@@ -165,7 +162,7 @@ impl fmt::Debug for Part {
 
 impl Stream for Part {
     type Item = Vec<u8>;
-    type Error = ::Error;
+    type Error = crate::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         Ok(Async::Ready(self.data.take()))

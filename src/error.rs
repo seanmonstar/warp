@@ -6,7 +6,7 @@ use hyper::Error as HyperError;
 #[cfg(feature = "websocket")]
 use tungstenite::Error as WsError;
 
-use never::Never;
+use crate::never::Never;
 
 /// Errors that can happen inside warp.
 pub struct Error(Box<Kind>);

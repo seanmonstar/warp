@@ -1,4 +1,4 @@
-use futures::{Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll};
 
 use super::{Either, Filter, FilterBase, Tuple};
 

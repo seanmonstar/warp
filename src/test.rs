@@ -87,10 +87,7 @@ use std::net::SocketAddr;
 use std::thread;
 
 use bytes::Bytes;
-use futures::{
-    future,
-    Future, Stream,
-};
+use futures::{future, Future, Stream};
 #[cfg(feature = "websocket")]
 use futures::{
     sync::{mpsc, oneshot},
@@ -104,11 +101,11 @@ use serde::Serialize;
 use serde_json;
 use tokio::runtime::{Builder as RtBuilder, Runtime};
 
-use filter::Filter;
-use reject::Reject;
-use reply::Reply;
-use route::{self, Route};
-use Request;
+use crate::filter::Filter;
+use crate::reject::Reject;
+use crate::reply::Reply;
+use crate::route::{self, Route};
+use crate::Request;
 
 use self::inner::OneOrTuple;
 
@@ -149,8 +146,8 @@ pub struct WsBuilder {
 /// A test client for Websocket filters.
 #[cfg(feature = "websocket")]
 pub struct WsClient {
-    tx: mpsc::UnboundedSender<::ws::Message>,
-    rx: ::futures::stream::Wait<mpsc::UnboundedReceiver<Result<::ws::Message, ::Error>>>,
+    tx: mpsc::UnboundedSender<crate::ws::Message>,
+    rx: ::futures::stream::Wait<mpsc::UnboundedReceiver<Result<crate::ws::Message, crate::Error>>>,
 }
 
 /// An error from Websocket filter tests.
@@ -336,7 +333,7 @@ impl RequestBuilder {
         let mut fut = route::set(&route, move || f.filter())
             .map(|rep| rep.into_response())
             .or_else(|rej| {
-                debug!("rejected: {:?}", rej);
+                logcrate::debug!("rejected: {:?}", rej);
                 Ok(rej.into_response())
             })
             .and_then(|res| {
@@ -453,7 +450,7 @@ impl WsBuilder {
             .spawn(move || {
                 use tungstenite::protocol;
 
-                let (addr, srv) = ::serve(f).bind_ephemeral(([127, 0, 0, 1], 0));
+                let (addr, srv) = crate::serve(f).bind_ephemeral(([127, 0, 0, 1], 0));
 
                 let srv = srv.map_err(|err| panic!("server error: {:?}", err));
 
@@ -494,7 +491,7 @@ impl WsBuilder {
                     protocol::Role::Client,
                     Default::default(),
                 );
-                let (tx, rx) = ::ws::WebSocket::new(io).split();
+                let (tx, rx) = crate::ws::WebSocket::new(io).split();
                 let write = wr_rx
                     .map_err(|()| {
                         unreachable!("mpsc::Receiver doesn't error");
@@ -503,9 +500,7 @@ impl WsBuilder {
                     .map(|_| ());
 
                 let read = rx
-                    .take_while(|m| {
-                        futures::future::ok(!m.is_close())
-                    })
+                    .take_while(|m| futures::future::ok(!m.is_close()))
                     .then(|result| Ok(result))
                     .forward(rd_tx.sink_map_err(|_| ()))
                     .map(|_| ());
@@ -529,16 +524,16 @@ impl WsBuilder {
 impl WsClient {
     /// Send a "text" websocket message to the server.
     pub fn send_text(&mut self, text: impl Into<String>) {
-        self.send(::ws::Message::text(text));
+        self.send(crate::ws::Message::text(text));
     }
 
     /// Send a websocket message to the server.
-    pub fn send(&mut self, msg: ::ws::Message) {
+    pub fn send(&mut self, msg: crate::ws::Message) {
         self.tx.unbounded_send(msg).unwrap();
     }
 
     /// Receive a websocket message from the server.
-    pub fn recv(&mut self) -> Result<::filters::ws::Message, WsError> {
+    pub fn recv(&mut self) -> Result<crate::filters::ws::Message, WsError> {
         self.rx
             .next()
             .map(|unbounded_result| {

@@ -52,9 +52,9 @@ use self::sealed::{
     BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper,
 };
 use super::header;
-use filter::One;
-use reply::Response;
-use {Filter, Rejection, Reply};
+use crate::filter::One;
+use crate::reply::Response;
+use crate::{Filter, Rejection, Reply};
 
 /// Server-sent event message
 pub trait ServerSentEvent: SseFormat + Sized + Send + 'static {
@@ -223,7 +223,7 @@ impl<T: Serialize> SseFormat for SseJson<T> {
             k.fmt(f)?;
             serde_json::to_string(&self.0)
                 .map_err(|error| {
-                    error!("sse::json error {}", error);
+                    logcrate::error!("sse::json error {}", error);
                     fmt::Error
                 })
                 .and_then(|data| data.fmt(f))?;
@@ -293,7 +293,10 @@ where
     header::header("last-event-id")
         .map(Some)
         .or_else(|rejection: Rejection| {
-            if rejection.find_cause::<::reject::MissingHeader>().is_some() {
+            if rejection
+                .find_cause::<crate::reject::MissingHeader>()
+                .is_some()
+            {
                 return Ok((None,));
             }
             Err(rejection)
@@ -318,11 +321,14 @@ where
 /// - Header `content-type: text/event-stream`
 /// - Header `cache-control: no-cache`.
 pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
-    ::get2()
+    crate::get2()
         .and(
             header::exact_ignore_case("connection", "keep-alive").or_else(
                 |rejection: Rejection| {
-                    if rejection.find_cause::<::reject::MissingHeader>().is_some() {
+                    if rejection
+                        .find_cause::<crate::reject::MissingHeader>()
+                        .is_some()
+                    {
                         return Ok(());
                     }
                     Err(rejection)
@@ -435,7 +441,7 @@ where
             .event_stream
             .map_err(|error| {
                 // FIXME: error logging
-                error!("sse stream error: {}", error);
+                logcrate::error!("sse stream error: {}", error);
                 SseError
             })
             .and_then(|event| SseWrapper::format(&event));
@@ -605,7 +611,7 @@ where
                     )))))
                 }
                 Err(error) => {
-                    error!("sse::keep error: {}", error);
+                    logcrate::error!("sse::keep error: {}", error);
                     Err(SseError)
                 }
             },
@@ -616,7 +622,7 @@ where
             }
             Ok(Async::Ready(None)) => Ok(Async::Ready(None)),
             Err(error) => {
-                error!("sse::keep error: {}", error);
+                logcrate::error!("sse::keep error: {}", error);
                 Err(SseError)
             }
         }

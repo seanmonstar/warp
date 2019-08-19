@@ -3,8 +3,8 @@
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
 
-use filter::{filter_fn_one, Filter, One};
-use reject::{self, Rejection};
+use crate::filter::{filter_fn_one, Filter, One};
+use crate::reject::{self, Rejection};
 
 /// Creates a `Filter` that decodes query parameters to the type `T`.
 ///
@@ -13,12 +13,12 @@ pub fn query<T: DeserializeOwned + Send>() -> impl Filter<Extract = One<T>, Erro
 {
     filter_fn_one(|route| {
         let query_string = route.query().unwrap_or_else(|| {
-            debug!("route was called without a query string, defaulting to empty");
+            logcrate::debug!("route was called without a query string, defaulting to empty");
             ""
         });
 
         serde_urlencoded::from_str(query_string).map_err(|e| {
-            debug!("failed to decode query string '{}': {:?}", query_string, e);
+            logcrate::debug!("failed to decode query string '{}': {:?}", query_string, e);
             reject::invalid_query()
         })
     })

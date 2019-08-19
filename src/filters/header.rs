@@ -9,9 +9,9 @@ use std::str::FromStr;
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
 
-use filter::{filter_fn, filter_fn_one, Filter, One};
-use never::Never;
-use reject::{self, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, Filter, One};
+use crate::never::Never;
+use crate::reject::{self, Rejection};
 
 /// Create a `Filter` that tries to parse the specified header.
 ///
@@ -36,16 +36,12 @@ pub fn header<T: FromStr + Send>(
     name: &'static str,
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(move |route| {
-        trace!("header({:?})", name);
+        logcrate::trace!("header({:?})", name);
         route
             .headers()
             .get(name)
             .ok_or_else(|| reject::missing_header(name))
-            .and_then(|value| {
-                value
-                    .to_str()
-                    .map_err(|_| reject::invalid_header(name))
-            })
+            .and_then(|value| value.to_str().map_err(|_| reject::invalid_header(name)))
             .and_then(|s| T::from_str(s).map_err(|_| reject::invalid_header(name)))
     })
 }
@@ -53,7 +49,7 @@ pub fn header<T: FromStr + Send>(
 pub(crate) fn header2<T: Header + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 {
     filter_fn_one(move |route| {
-        trace!("header2({:?})", T::name());
+        logcrate::trace!("header2({:?})", T::name());
         route
             .headers()
             .typed_get()
@@ -80,7 +76,7 @@ where
     T: FromStr + Send,
 {
     filter_fn_one(move |route| {
-        trace!("optional({:?})", name);
+        logcrate::trace!("optional({:?})", name);
         let result = route.headers().get(name).map(|value| {
             value
                 .to_str()
@@ -110,7 +106,7 @@ where
     T: Header + PartialEq + Clone + Send,
 {
     filter_fn(move |route| {
-        trace!("exact2({:?})", T::NAME);
+        logcrate::trace!("exact2({:?})", T::NAME);
         route.headers()
             .typed_get::<T>()
             .and_then(|val| if val == header {
@@ -139,7 +135,7 @@ pub fn exact(
     value: &'static str,
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
-        trace!("exact?({:?}, {:?})", name, value);
+        logcrate::trace!("exact?({:?}, {:?})", name, value);
         route
             .headers()
             .get(name)
@@ -170,7 +166,7 @@ pub fn exact_ignore_case(
     value: &'static str,
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
-        trace!("exact_ignore_case({:?}, {:?})", name, value);
+        logcrate::trace!("exact_ignore_case({:?}, {:?})", name, value);
         route
             .headers()
             .get(name)

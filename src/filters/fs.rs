@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use bytes::{BufMut, BytesMut};
 use futures::future::Either;
-use futures::{future, stream, Future, Stream};
+use futures::{future, stream, try_ready, Future, Stream};
 use headers::{
     AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
     IfUnmodifiedSince, LastModified, Range,
@@ -22,10 +22,10 @@ use tokio::io::AsyncRead;
 use tokio_threadpool;
 use urlencoding::decode;
 
-use filter::{Filter, FilterClone, One};
-use never::Never;
-use reject::{self, Rejection};
-use reply::{Reply, Response};
+use crate::filter::{Filter, FilterClone, One};
+use crate::never::Never;
+use crate::reject::{self, Rejection};
+use crate::reply::{Reply, Response};
 
 /// Creates a `Filter` that serves a File at the `path`.
 ///
@@ -51,9 +51,9 @@ use reply::{Reply, Response};
 /// if starting a runtime manually.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let path = Arc::new(path.into());
-    ::any()
+    crate::any()
         .map(move || {
-            trace!("file: {:?}", path);
+            logcrate::trace!("file: {:?}", path);
             ArcPath(path.clone())
         })
         .and(conditionals())
@@ -90,7 +90,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 /// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
-    ::get2()
+    crate::get2()
         .and(path_from_tail(base))
         .and(conditionals())
         .and_then(file_reply)
@@ -99,10 +99,8 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Er
 fn path_from_tail(
     base: Arc<PathBuf>,
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
-    ::path::tail()
-        .and_then(move |tail: ::path::Tail| {
-            sanitize_path(base.as_ref(), tail.as_str())
-        })
+    crate::path::tail()
+        .and_then(move |tail: crate::path::Tail| sanitize_path(base.as_ref(), tail.as_str()))
         .and_then(|buf: PathBuf| {
             // Checking Path::is_dir can block since it has to read from disk,
             // so put it in a blocking() future
@@ -114,16 +112,16 @@ fn path_from_tail(
                     .is_dir()));
                 let mut buf = buf.take().unwrap();
                 if is_dir {
-                    debug!("dir: appending index.html to directory path");
+                    logcrate::debug!("dir: appending index.html to directory path");
                     buf.push("index.html");
                 }
 
-                trace!("dir: {:?}", buf);
+                logcrate::trace!("dir: {:?}", buf);
 
                 Ok(ArcPath(Arc::new(buf)).into())
             })
             .map_err(|blocking_err: tokio_threadpool::BlockingError| {
-                error!(
+                logcrate::error!(
                     "threadpool blocking error checking buf.is_dir(): {}",
                     blocking_err,
                 );
@@ -137,18 +135,18 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
     let p = match decode(tail) {
         Ok(p) => p,
         Err(err) => {
-            debug!("dir: failed to decode route={:?}: {:?}", tail, err);
+            logcrate::debug!("dir: failed to decode route={:?}: {:?}", tail, err);
             // FromUrlEncodingError doesn't implement StdError
             return Err(reject::not_found());
         }
     };
-    trace!("dir? base={:?}, route={:?}", base.as_ref(), p);
+    logcrate::trace!("dir? base={:?}, route={:?}", base.as_ref(), p);
     for seg in p.split('/') {
         if seg.starts_with("..") {
-            warn!("dir: rejecting segment starting with '..'");
+            logcrate::warn!("dir: rejecting segment starting with '..'");
             return Err(reject::not_found());
         } else if seg.contains('\\') {
-            warn!("dir: rejecting segment containing with backslash (\\)");
+            logcrate::warn!("dir: rejecting segment containing with backslash (\\)");
             return Err(reject::not_found());
         } else {
             buf.push(seg);
@@ -177,7 +175,7 @@ impl Conditionals {
                 .map(|time| since.precondition_passes(time.into()))
                 .unwrap_or(false);
 
-            trace!(
+            logcrate::trace!(
                 "if-unmodified-since? {:?} vs {:?} = {}",
                 since,
                 last_modified,
@@ -191,7 +189,7 @@ impl Conditionals {
         }
 
         if let Some(since) = self.if_modified_since {
-            trace!(
+            logcrate::trace!(
                 "if-modified-since? header = {:?}, file = {:?}",
                 since,
                 last_modified
@@ -208,7 +206,7 @@ impl Conditionals {
         }
 
         if let Some(if_range) = self.if_range {
-            trace!("if-range? {:?} vs {:?}", if_range, last_modified);
+            logcrate::trace!("if-range? {:?} vs {:?}", if_range, last_modified);
             let can_range = !if_range.is_modified(None, last_modified.as_ref());
 
             if !can_range {
@@ -221,10 +219,10 @@ impl Conditionals {
 }
 
 fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Never> + Copy {
-    ::header::optional2()
-        .and(::header::optional2())
-        .and(::header::optional2())
-        .and(::header::optional2())
+    crate::header::optional2()
+        .and(crate::header::optional2())
+        .and(crate::header::optional2())
+        .and(crate::header::optional2())
         .map(
             |if_modified_since, if_unmodified_since, if_range, range| Conditionals {
                 if_modified_since,
@@ -266,11 +264,11 @@ fn file_reply(
         Err(err) => {
             let rej = match err.kind() {
                 io::ErrorKind::NotFound => {
-                    debug!("file not found: {:?}", path.as_ref().display());
+                    logcrate::debug!("file not found: {:?}", path.as_ref().display());
                     reject::not_found()
                 }
                 _ => {
-                    error!(
+                    logcrate::error!(
                         "file open error (path={:?}): {} ",
                         path.as_ref().display(),
                         err
@@ -290,7 +288,7 @@ fn file_metadata(f: TkFile) -> impl Future<Item = (TkFile, Metadata), Error = Re
         Ok((f.take().unwrap(), meta).into())
     })
     .map_err(|err: ::std::io::Error| {
-        debug!("file metadata error: {}", err);
+        logcrate::debug!("file metadata error: {}", err);
         reject::not_found()
     })
 }
@@ -381,7 +379,7 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
             if start < end && end <= max_len {
                 Ok((start, end))
             } else {
-                trace!("unsatisfiable byte range: {}-{}/{}", start, end, max_len);
+                logcrate::trace!("unsatisfiable byte range: {}-{}/{}", start, end, max_len);
                 Err(BadRange)
             }
         })
@@ -399,7 +397,7 @@ fn file_stream(
 
     // seek
     let seek = if start != 0 {
-        trace!("partial content; seeking ({}..{})", start, end);
+        logcrate::trace!("partial content; seeking ({}..{})", start, end);
         Either::A(file.seek(SeekFrom::Start(start)).map(|(f, _pos)| f))
     } else {
         Either::B(future::ok(file))
@@ -417,12 +415,12 @@ fn file_stream(
                     buf.reserve(buf_size);
                 }
                 let n = try_ready!(f.read_buf(&mut buf).map_err(|err| {
-                    debug!("file read error: {}", err);
+                    logcrate::debug!("file read error: {}", err);
                     err
                 })) as u64;
 
                 if n == 0 {
-                    debug!("file read found EOF before expected length");
+                    logcrate::debug!("file read found EOF before expected length");
                     return Ok(None.into());
                 }
 
@@ -490,7 +488,10 @@ mod tests {
             s.as_ref()
         }
 
-        assert_eq!(sanitize_path(base, "/foo.html").unwrap(), p("/var/www/foo.html"));
+        assert_eq!(
+            sanitize_path(base, "/foo.html").unwrap(),
+            p("/var/www/foo.html")
+        );
 
         // bad paths
         sanitize_path(base, "/../foo.html").expect_err("dot dot");

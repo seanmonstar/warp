@@ -1,9 +1,9 @@
 use std::mem;
 
-use futures::{Async, Future, Poll};
+use futures::{try_ready, Async, Future, Poll};
 
 use super::{Combine, Filter, FilterBase, HList, Tuple};
-use reject::CombineRejection;
+use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {

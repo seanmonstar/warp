@@ -93,14 +93,14 @@ where
     }
 }
 
-impl<F, R> Func<::Rejection> for F
+impl<F, R> Func<crate::Rejection> for F
 where
-    F: Fn(::Rejection) -> R,
+    F: Fn(crate::Rejection) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, arg: ::Rejection) -> Self::Output {
+    fn call(&self, arg: crate::Rejection) -> Self::Output {
         (*self)(arg)
     }
 }

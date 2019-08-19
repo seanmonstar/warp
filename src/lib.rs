@@ -84,33 +84,8 @@
 //!
 //! [Filter]: trait.Filter.html
 
-extern crate bytes;
-#[macro_use]
-extern crate futures;
-extern crate headers;
-#[doc(hidden)]
-pub extern crate http;
-extern crate hyper;
-#[macro_use]
-extern crate log as logcrate;
-extern crate mime;
-extern crate mime_guess;
-#[cfg(feature = "multipart")]
-extern crate multipart as multipart_c;
-#[macro_use]
-extern crate scoped_tls;
-#[cfg(feature = "tls")]
-extern crate rustls;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_urlencoded;
-extern crate tokio;
-#[cfg_attr(feature = "tls", macro_use)]
-extern crate tokio_io;
-extern crate tokio_threadpool;
-#[cfg(feature = "websocket")]
-extern crate tungstenite;
-extern crate urlencoding;
+// #[macro_use]
+// extern crate logcrate;
 
 mod error;
 mod filter;
@@ -132,6 +107,12 @@ pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
+#[cfg(feature = "multipart")]
+#[doc(hidden)]
+pub use self::filters::multipart;
+#[cfg(feature = "websocket")]
+#[doc(hidden)]
+pub use self::filters::ws;
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::filters::{
@@ -168,12 +149,6 @@ pub use self::filters::{
     // sse() function
     sse::sse,
 };
-#[cfg(feature = "multipart")]
-#[doc(hidden)]
-pub use self::filters::multipart;
-#[cfg(feature = "websocket")]
-#[doc(hidden)]
-pub use self::filters::ws;
 // ws() function
 #[cfg(feature = "websocket")]
 #[doc(hidden)]
@@ -188,6 +163,8 @@ pub use self::reject::{reject, Rejection};
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 pub use hyper::rt::spawn;
+#[doc(hidden)]
+pub use http;
 
 #[doc(hidden)]
 pub use bytes::Buf;

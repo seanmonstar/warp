@@ -3,9 +3,9 @@
 use headers::Cookie;
 
 use super::header;
-use filter::{filter_fn_one, Filter, One};
-use never::Never;
-use reject::Rejection;
+use crate::filter::{filter_fn_one, Filter, One};
+use crate::never::Never;
+use crate::reject::Rejection;
 
 /// Creates a `Filter` that requires a cookie by name.
 ///
@@ -15,7 +15,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract = One<String>, Error = 
         cookie
             .get(name)
             .map(String::from)
-            .ok_or_else(|| ::reject::missing_cookie(name))
+            .ok_or_else(|| crate::reject::missing_cookie(name))
     })
 }
 

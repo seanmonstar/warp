@@ -68,9 +68,7 @@ fn end() {
     let foo_end = foo.and(end);
 
     assert!(
-        warp::test::request()
-            .path("/")
-            .matches(&end),
+        warp::test::request().path("/").matches(&end),
         "end() matches /"
     );
 
@@ -89,33 +87,24 @@ fn end() {
     );
 
     assert!(
-        warp::test::request()
-            .path("localhost:1234")
-            .matches(&end),
+        warp::test::request().path("localhost:1234").matches(&end),
         "end() matches authority-form"
     );
 
     assert!(
-        !warp::test::request()
-            .path("/foo")
-            .matches(&end),
+        !warp::test::request().path("/foo").matches(&end),
         "end() doesn't match /foo"
     );
 
     assert!(
-        warp::test::request()
-            .path("/foo")
-            .matches(&foo_end),
+        warp::test::request().path("/foo").matches(&foo_end),
         "path().and(end()) matches /foo"
     );
 
     assert!(
-        warp::test::request()
-            .path("/foo/")
-            .matches(&foo_end),
+        warp::test::request().path("/foo/").matches(&foo_end),
         "path().and(end()) matches /foo/"
     );
-
 }
 
 #[test]
@@ -349,4 +338,3 @@ fn peek_segments() {
     let segs = ex.segments().collect::<Vec<_>>();
     assert_eq!(segs, Vec::<&str>::new());
 }
-

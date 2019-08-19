@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 use http::{self, header, StatusCode};
 use tokio::clock;
 
-use filter::{Filter, WrapSealed};
-use reject::Reject;
-use reply::Reply;
-use route::Route;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::Reject;
+use crate::reply::Reply;
+use crate::route::Route;
 
 use self::internal::WithLog;
 
@@ -35,7 +35,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
     let func = move |info: Info| {
         // TODO?
         // - response content length?
-        info!(
+        logcrate::info!(
             target: name,
             "{} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
             OptFmt(info.route.remote_addr()),
@@ -183,10 +183,10 @@ mod internal {
     use futures::{Async, Future, Poll};
 
     use super::{Info, Log};
-    use filter::{Filter, FilterBase};
-    use reject::Reject;
-    use reply::{Reply, Response};
-    use route;
+    use crate::filter::{Filter, FilterBase};
+    use crate::reject::Reject;
+    use crate::reply::{Reply, Response};
+    use crate::route;
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);

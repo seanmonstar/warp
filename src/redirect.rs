@@ -6,7 +6,7 @@
 use http::{header, StatusCode};
 
 use self::sealed::AsLocation;
-use reply::{self, Reply};
+use crate::reply::{self, Reply};
 
 /// A simple `301` redirect to a different location.
 ///

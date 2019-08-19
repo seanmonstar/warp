@@ -3,9 +3,9 @@ use std::mem;
 use futures::{Async, Future, Poll};
 
 use super::{Filter, FilterBase};
-use generic::Either;
-use reject::CombineRejection;
-use route;
+use crate::generic::Either;
+use crate::reject::CombineRejection;
+use crate::route;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {

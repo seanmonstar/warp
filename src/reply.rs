@@ -37,18 +37,18 @@ use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt;
 
-use generic::{Either, One};
+use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::{HttpTryFrom, StatusCode};
 use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use reject::Reject;
+use crate::reject::Reject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
 #[doc(hidden)]
-pub use filters::reply as with;
+pub use crate::filters::reply as with;
 
 /// Response type into which types implementing the `Reply` trait are convertable.
 pub type Response = ::http::Response<Body>;
@@ -104,7 +104,7 @@ where
 {
     Json {
         inner: serde_json::to_vec(val).map_err(|err| {
-            error!("reply::json error: {}", err);
+            logcrate::error!("reply::json error: {}", err);
         }),
     }
 }
@@ -124,7 +124,7 @@ impl Reply for Json {
                     .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
                 res
             }
-            Err(()) => ::reject::known(ReplyJsonError).into_response(),
+            Err(()) => crate::reject::known(ReplyJsonError).into_response(),
         }
     }
 }
@@ -277,13 +277,13 @@ pub trait Reply: Send {
                     Reply_(res)
                 },
                 Err(err) => {
-                    error!("with_header value error: {}", err.into());
+                    logcrate::error!("with_header value error: {}", err.into());
                     Reply_(::reject::server_error()
                         .into_response())
                 }
             },
             Err(err) => {
-                error!("with_header name error: {}", err.into());
+                logcrate::error!("with_header name error: {}", err.into());
                 Reply_(::reject::server_error()
                     .into_response())
             }
@@ -352,12 +352,12 @@ where
         Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
             Ok(value) => Some((name, value)),
             Err(err) => {
-                error!("with_header value error: {}", err.into());
+                logcrate::error!("with_header value error: {}", err.into());
                 None
             }
         },
         Err(err) => {
-            error!("with_header name error: {}", err.into());
+            logcrate::error!("with_header name error: {}", err.into());
             None
         }
     };
@@ -412,8 +412,8 @@ where
         match self {
             Ok(t) => t.into_response(),
             Err(e) => {
-                error!("reply error: {:?}", e);
-                ::reject::known(ReplyHttpError(e)).into_response()
+                logcrate::error!("reply error: {:?}", e);
+                crate::reject::known(ReplyHttpError(e)).into_response()
             }
         }
     }
@@ -520,7 +520,7 @@ where
     }
 }
 
-impl Reply for ::never::Never {
+impl Reply for crate::never::Never {
     #[inline(always)]
     fn into_response(self) -> Response {
         match self {}

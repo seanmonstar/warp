@@ -136,10 +136,10 @@ use std::str::FromStr;
 
 use http::uri::PathAndQuery;
 
-use filter::{filter_fn, one, Filter, One, Tuple};
-use never::Never;
-use reject::{self, Rejection};
-use route::Route;
+use crate::filter::{filter_fn, one, Filter, One, Tuple};
+use crate::never::Never;
+use crate::reject::{self, Rejection};
+use crate::route::Route;
 
 /// Create an exact match path segment `Filter`.
 ///
@@ -176,7 +176,7 @@ pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + C
     );
 
     segment(move |seg| {
-        trace!("{:?}?: {:?}", p, seg);
+        logcrate::trace!("{:?}?: {:?}", p, seg);
         if seg == p {
             Ok(())
         } else {
@@ -235,7 +235,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 /// ```
 pub fn param<T: FromStr + Send>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     segment(|seg| {
-        trace!("param?: {:?}", seg);
+        logcrate::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
@@ -265,10 +265,10 @@ pub fn param<T: FromStr + Send>() -> impl Filter<Extract = One<T>, Error = Rejec
 pub fn param2<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send,
-    T::Err: Into<::reject::Cause>,
+    T::Err: Into<crate::reject::Cause>,
 {
     segment(|seg| {
-        trace!("param?: {:?}", seg);
+        logcrate::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }

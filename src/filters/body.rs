@@ -7,7 +7,7 @@ use std::fmt;
 
 use bytes::Buf;
 use futures::stream::Concat2;
-use futures::{Async, Future, Poll, Stream};
+use futures::{try_ready, Async, Future, Poll, Stream};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
@@ -16,8 +16,8 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use filter::{filter_fn, filter_fn_one, Filter, FilterBase};
-use reject::{self, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use crate::reject::{self, Rejection};
 
 // Extracts the `Body` Stream from the route.
 //
@@ -25,7 +25,7 @@ use reject::{self, Rejection};
 pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
         route.take_body().ok_or_else(|| {
-            error!("request body already taken in previous filter");
+            logcrate::error!("request body already taken in previous filter");
             reject::known(BodyConsumedMultipleTimes(()))
         })
     })
@@ -46,16 +46,16 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 ///     .and(warp::body::concat());
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    ::filters::header::header2()
+    crate::filters::header::header2()
         .map_err(|_| {
-            debug!("content-length missing");
+            logcrate::debug!("content-length missing");
             reject::length_required()
         })
         .and_then(move |ContentLength(length)| {
             if length <= limit {
                 Ok(())
             } else {
-                debug!("content-length: {} is over limit {}", length, limit);
+                logcrate::debug!("content-length: {} is over limit {}", length, limit);
                 Err(reject::payload_too_large())
             }
         })
@@ -116,7 +116,7 @@ fn is_content_type(
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            logcrate::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
             let ct = value
                 .to_str()
                 .ok()
@@ -125,19 +125,21 @@ fn is_content_type(
                 if ct.type_() == type_ && ct.subtype() == subtype {
                     Ok(())
                 } else {
-                    debug!(
+                    logcrate::debug!(
                         "content-type {:?} doesn't match {}/{}",
-                        value, type_, subtype
+                        value,
+                        type_,
+                        subtype
                     );
                     Err(reject::unsupported_media_type())
                 }
             } else {
-                debug!("content-type {:?} couldn't be parsed", value);
+                logcrate::debug!("content-type {:?} couldn't be parsed", value);
                 Err(reject::unsupported_media_type())
             }
         } else {
             // Optimistically assume its correct!
-            trace!("no content-type header, assuming {}/{}", type_, subtype);
+            logcrate::trace!("no content-type header, assuming {}/{}", type_, subtype);
             Ok(())
         }
     })
@@ -168,7 +170,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         .and(concat())
         .and_then(|buf: FullBody| {
             serde_json::from_slice(&buf.chunk).map_err(|err| {
-                debug!("request json body error: {}", err);
+                logcrate::debug!("request json body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
             })
         })
@@ -203,7 +205,7 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         .and(concat())
         .and_then(|buf: FullBody| {
             serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
-                debug!("request form body error: {}", err);
+                logcrate::debug!("request form body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
             })
         })
@@ -260,7 +262,7 @@ impl Future for Concat {
             Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk })),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => {
-                debug!("concat error: {}", err);
+                logcrate::debug!("concat error: {}", err);
                 Err(reject::known(BodyReadError(err)))
             }
         }
@@ -276,13 +278,13 @@ pub struct BodyStream {
 
 impl Stream for BodyStream {
     type Item = StreamBuf;
-    type Error = ::Error;
+    type Error = crate::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         let opt_item = try_ready!(self
             .body
             .poll()
-            .map_err(|e| ::Error::from(::error::Kind::Hyper(e))));
+            .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e))));
 
         Ok(opt_item.map(|chunk| StreamBuf { chunk }).into())
     }
