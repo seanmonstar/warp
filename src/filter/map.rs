@@ -1,4 +1,9 @@
-use futures::{try_ready, Async, Future, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
+
+use pin_project::pin_project;
+use futures::{ready, TryFuture};
 
 use super::{Filter, FilterBase, Func};
 
@@ -26,7 +31,9 @@ where
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct MapFuture<T: Filter, F> {
+    #[pin]
     extract: T::Future,
     callback: F,
 }
@@ -36,13 +43,17 @@ where
     T: Filter,
     F: Func<T::Extract>,
 {
-    type Item = (F::Output,);
-    type Error = T::Error;
+    type Output = Result<(F::Output,), T::Error>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let ex = try_ready!(self.extract.poll());
-        let ex = (self.callback.call(ex),);
-        Ok(Async::Ready(ex))
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let pin = self.project();
+        match ready!(pin.extract.try_poll(cx)) {
+            Ok(ex) => {
+                let ex = (pin.callback.call(ex),);
+                Poll::Ready(Ok(ex))
+            },
+            Err(err) => Poll::Ready(Err(err)),
+        }
     }
 }

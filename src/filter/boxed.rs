@@ -1,7 +1,9 @@
 use std::fmt;
 use std::sync::Arc;
+use std::pin::Pin;
+use std::future::Future;
 
-use futures::Future;
+use futures::TryFutureExt;
 
 use super::{Filter, FilterBase, Tuple};
 use crate::reject::Rejection;
@@ -30,7 +32,7 @@ pub struct BoxedFilter<T: Tuple> {
         dyn Filter<
                 Extract = T,
                 Error = Rejection,
-                Future = Box<dyn Future<Item = T, Error = Rejection> + Send>,
+                Future = Pin<Box<dyn Future<Output = Result<T, Rejection>> + Send>>,
             > + Send
             + Sync,
     >,
@@ -72,7 +74,7 @@ fn _assert_send() {
 impl<T: Tuple + Send> FilterBase for BoxedFilter<T> {
     type Extract = T;
     type Error = Rejection;
-    type Future = Box<dyn Future<Item = T, Error = Rejection> + Send>;
+    type Future = Pin<Box<dyn Future<Output = Result<T, Rejection>> + Send>>;
 
     fn filter(&self) -> Self::Future {
         self.filter.filter()
@@ -90,9 +92,9 @@ where
 {
     type Extract = F::Extract;
     type Error = F::Error;
-    type Future = Box<dyn Future<Item = Self::Extract, Error = Self::Error> + Send>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send>>;
 
     fn filter(&self) -> Self::Future {
-        Box::new(self.filter.filter())
+        Box::pin(self.filter.filter().into_future())
     }
 }

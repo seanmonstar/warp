@@ -1,6 +1,7 @@
 //! Cookie Filters
 
 use headers::Cookie;
+use futures::future;
 
 use super::header;
 use crate::filter::{filter_fn_one, Filter, One};
@@ -12,10 +13,11 @@ use crate::reject::Rejection;
 /// If found, extracts the value of the cookie, otherwise rejects.
 pub fn cookie(name: &'static str) -> impl Filter<Extract = One<String>, Error = Rejection> + Copy {
     header::header2().and_then(move |cookie: Cookie| {
-        cookie
+        let cookie = cookie
             .get(name)
             .map(String::from)
-            .ok_or_else(|| crate::reject::missing_cookie(name))
+            .ok_or_else(|| crate::reject::missing_cookie(name));
+        future::ready(cookie)
     })
 }
 
@@ -38,11 +40,11 @@ pub fn optional_value<U, F>(
 ) -> impl Filter<Extract = One<Option<U>>, Error = Never> + Copy
 where
     F: Fn(&str) -> U + Copy,
-    U: Send,
+    U: Send + 'static,
 {
     use headers::HeaderMapExt;
     filter_fn_one(move |route| {
-        Ok(route
+        future::ok(route
             .headers()
             .typed_get()
             .and_then(|cookie: Cookie| cookie.get(name).map(func)))

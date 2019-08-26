@@ -84,9 +84,6 @@
 //!
 //! [Filter]: trait.Filter.html
 
-// #[macro_use]
-// extern crate logcrate;
-
 mod error;
 mod filter;
 pub mod filters;
@@ -140,7 +137,7 @@ pub use self::filters::{
     path,
     // the index() function
     path::index,
-    // path() function
+    // path() function and macro
     path::path,
     query,
     // query() function
@@ -170,5 +167,6 @@ pub use http;
 pub use bytes::Buf;
 #[doc(hidden)]
 pub use futures::{Future, Sink, Stream};
+#[doc(hidden)]
 
 pub(crate) type Request = http::Request<hyper::Body>;

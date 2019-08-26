@@ -18,7 +18,7 @@
 //!
 //! // Filter on `/:id`, but reject with 404 if the `id` is `0`.
 //! let route = warp::path::param()
-//!     .and_then(|id: u32| {
+//!     .and_then(|id: u32| async move {
 //!         if id == 0 {
 //!             Err(warp::reject::not_found())
 //!         } else {
@@ -392,36 +392,26 @@ impl Rejections {
             Rejections::Known(ref e) => {
                 if e.is::<MethodNotAllowed>() {
                     StatusCode::METHOD_NOT_ALLOWED
-                } else if e.is::<InvalidHeader>() {
-                    StatusCode::BAD_REQUEST
-                } else if e.is::<MissingHeader>() {
-                    StatusCode::BAD_REQUEST
-                } else if e.is::<MissingCookie>() {
-                    StatusCode::BAD_REQUEST
-                } else if e.is::<InvalidQuery>() {
-                    StatusCode::BAD_REQUEST
+                } else if e.is::<InvalidHeader>() ||
+                    e.is::<MissingHeader>() ||
+                    e.is::<MissingCookie>() ||
+                    e.is::<InvalidQuery>() ||
+                    e.is::<crate::body::BodyReadError>() ||
+                    e.is::<crate::body::BodyDeserializeError>() {
+                        StatusCode::BAD_REQUEST
                 } else if e.is::<LengthRequired>() {
                     StatusCode::LENGTH_REQUIRED
                 } else if e.is::<PayloadTooLarge>() {
                     StatusCode::PAYLOAD_TOO_LARGE
                 } else if e.is::<UnsupportedMediaType>() {
                     StatusCode::UNSUPPORTED_MEDIA_TYPE
-                } else if e.is::<crate::body::BodyReadError>() {
-                    StatusCode::BAD_REQUEST
-                } else if e.is::<crate::body::BodyDeserializeError>() {
-                    StatusCode::BAD_REQUEST
                 } else if e.is::<crate::cors::CorsForbidden>() {
                     StatusCode::FORBIDDEN
-                } else if e.is::<crate::ext::MissingExtension>() {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<crate::reply::ReplyHttpError>() {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<crate::reply::ReplyJsonError>() {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<crate::body::BodyConsumedMultipleTimes>() {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                } else if e.is::<crate::fs::FsNeedsTokioThreadpool>() {
-                    StatusCode::INTERNAL_SERVER_ERROR
+                } else if e.is::<crate::ext::MissingExtension>() ||
+                    e.is::<crate::reply::ReplyHttpError>() ||
+                    e.is::<crate::reply::ReplyJsonError>() ||
+                    e.is::<crate::body::BodyConsumedMultipleTimes>() {
+                        StatusCode::INTERNAL_SERVER_ERROR
                 } else {
                     unreachable!("unexpected 'Known' rejection: {:?}", e);
                 }
@@ -461,7 +451,7 @@ impl Rejections {
                 res
             }
             Rejections::Custom(ref e) => {
-                logcrate::error!(
+                log::error!(
                     "unhandled custom rejection, returning 500 response: {:?}",
                     e
                 );
@@ -802,13 +792,13 @@ mod tests {
     }
 
     #[allow(deprecated)]
-    #[test]
-    fn unhandled_customs() {
+    #[tokio::test]
+    async fn unhandled_customs() {
         let reject = bad_request().combine(custom("right"));
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp), "Unhandled rejection: right");
+        assert_eq!(response_body_string(resp).await, "Unhandled rejection: right");
 
         // There's no real way to determine which is worse, since both are a 500,
         // so pick the first one.
@@ -816,7 +806,7 @@ mod tests {
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp), "");
+        assert_eq!(response_body_string(resp).await, "");
 
         // With many rejections, custom still is top priority.
         let reject = bad_request()
@@ -827,44 +817,44 @@ mod tests {
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp), "Unhandled rejection: right");
+        assert_eq!(response_body_string(resp).await, "Unhandled rejection: right");
     }
 
-    #[test]
-    fn into_response_with_none_cause() {
+    #[tokio::test]
+    async fn into_response_with_none_cause() {
         let resp = not_found().into_response();
         assert_eq!(404, resp.status());
         assert!(resp.headers().get(CONTENT_TYPE).is_none());
-        assert_eq!("", response_body_string(resp))
+        assert_eq!("", response_body_string(resp).await)
     }
 
     #[allow(deprecated)]
-    #[test]
-    fn into_response_with_some_cause() {
+    #[tokio::test]
+    async fn into_response_with_some_cause() {
         let resp = server_error().with("boom").into_response();
         assert_eq!(500, resp.status());
         assert_eq!(
             "text/plain; charset=utf-8",
             resp.headers().get(CONTENT_TYPE).unwrap()
         );
-        assert_eq!("boom", response_body_string(resp))
+        assert_eq!("boom", response_body_string(resp).await)
     }
 
     #[allow(deprecated)]
-    #[test]
-    fn into_json_with_none_cause() {
+    #[tokio::test]
+    async fn into_json_with_none_cause() {
         let resp = not_found().json();
         assert_eq!(404, resp.status());
         assert_eq!(
             "application/json",
             resp.headers().get(CONTENT_TYPE).unwrap()
         );
-        assert_eq!("{}", response_body_string(resp))
+        assert_eq!("{}", response_body_string(resp).await)
     }
 
     #[allow(deprecated)]
-    #[test]
-    fn into_json_with_some_cause() {
+    #[tokio::test]
+    async fn into_json_with_some_cause() {
         let resp = bad_request().with("boom").json();
         assert_eq!(400, resp.status());
         assert_eq!(
@@ -872,15 +862,15 @@ mod tests {
             resp.headers().get(CONTENT_TYPE).unwrap()
         );
         let expected = "{\"description\":\"boom\",\"message\":\"boom\"}";
-        assert_eq!(expected, response_body_string(resp))
+        assert_eq!(expected, response_body_string(resp).await)
     }
 
-    fn response_body_string(resp: crate::reply::Response) -> String {
-        use futures::{Async, Future, Stream};
+    async fn response_body_string(resp: crate::reply::Response) -> String {
+        use futures::TryStreamExt;
 
         let (_, body) = resp.into_parts();
-        match body.concat2().poll() {
-            Ok(Async::Ready(chunk)) => String::from_utf8_lossy(&chunk).to_string(),
+        match body.try_concat().await {
+            Ok(chunk) => String::from_utf8_lossy(&chunk).to_string(),
             err => unreachable!("{:?}", err),
         }
     }

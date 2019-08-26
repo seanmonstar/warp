@@ -1,4 +1,9 @@
-use futures::{Future, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
+
+use pin_project::pin_project;
+use futures::TryFuture;
 
 use super::{Filter, FilterBase};
 use crate::reject::Reject;
@@ -28,7 +33,9 @@ where
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct MapErrFuture<T: Filter, F> {
+    #[pin]
     extract: T::Future,
     callback: F,
 }
@@ -38,11 +45,10 @@ where
     T: Filter,
     F: Fn(T::Error) -> E,
 {
-    type Item = T::Extract;
-    type Error = E;
+    type Output = Result<T::Extract, E>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.extract.poll().map_err(|err| (self.callback)(err))
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.as_mut().project().extract.try_poll(cx).map_err(|err| (self.callback)(err))
     }
 }

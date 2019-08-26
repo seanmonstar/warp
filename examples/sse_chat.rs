@@ -1,17 +1,10 @@
-extern crate futures;
-extern crate pretty_env_logger;
-extern crate warp;
-
-use futures::{
-    future::poll_fn,
-    sync::{mpsc, oneshot},
-    Future, Stream,
-};
+use futures::{future, Stream, StreamExt};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
+use tokio::sync::{mpsc, oneshot};
 use warp::{sse::ServerSentEvent, Buf, Filter};
 
 /// Our global unique user id counter.
@@ -29,7 +22,8 @@ enum Message {
 /// - Value is a sender of `Message`
 type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     // Keep track of all connected users, key is usize, value
@@ -44,9 +38,9 @@ fn main() {
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
         .and(warp::body::concat().and_then(|body: warp::body::FullBody| {
-            std::str::from_utf8(body.bytes())
+            future::ready(std::str::from_utf8(body.bytes())
                 .map(String::from)
-                .map_err(warp::reject::custom)
+                .map_err(warp::reject::custom))
         }))
         .and(users.clone())
         .map(|my_id, msg, users| {
@@ -74,12 +68,12 @@ fn main() {
 
     let routes = index.or(chat_recv).or(chat_send);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
 fn user_connected(
     users: Users,
-) -> impl Stream<Item = impl ServerSentEvent + Send + 'static, Error = warp::Error> + Send + 'static
+) -> impl Stream<Item = Result<impl ServerSentEvent + Send + 'static, warp::Error >> + Send + 'static
 {
     // Use a counter to assign a new unique ID for this user.
     let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
@@ -88,9 +82,9 @@ fn user_connected(
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the event source...
-    let (tx, rx) = mpsc::unbounded();
+    let (mut tx, rx) = mpsc::unbounded_channel();
 
-    match tx.unbounded_send(Message::UserId(my_id)) {
+    match tx.try_send(Message::UserId(my_id)) {
         Ok(()) => (),
         Err(_disconnected) => {
             // The tx is disconnected, our `user_disconnected` code
@@ -111,19 +105,16 @@ fn user_connected(
 
     // When `drx` will dropped then `dtx` will be canceled.
     // We can track it to make sure when the user leaves chat.
-    warp::spawn(poll_fn(move || dtx.poll_cancel()).map(move |_| {
+    warp::spawn(async move {
+        dtx.closed().await;
+        drx.close();
         user_disconnected(my_id, &users2);
-    }));
+    });
 
     // Convert messages into Server-Sent Events and return resulting stream.
     rx.map(|msg| match msg {
-        Message::UserId(my_id) => (warp::sse::event("user"), warp::sse::data(my_id)).into_a(),
-        Message::Reply(reply) => warp::sse::data(reply).into_b(),
-    })
-    .map_err(move |_| {
-        // Keep `drx` alive until `rx` will be closed
-        drx.close();
-        unreachable!("unbounded rx never errors");
+        Message::UserId(my_id) => Ok((warp::sse::event("user"), warp::sse::data(my_id)).into_a()),
+        Message::Reply(reply) => Ok(warp::sse::data(reply).into_b()),
     })
 }
 
@@ -134,9 +125,9 @@ fn user_message(my_id: usize, msg: String, users: &Users) {
     //
     // We use `retain` instead of a for loop so that we can reap any user that
     // appears to have disconnected.
-    for (&uid, tx) in users.lock().unwrap().iter() {
+    for (&uid, tx) in users.lock().unwrap().iter_mut() {
         if my_id != uid {
-            match tx.unbounded_send(Message::Reply(new_msg.clone())) {
+            match tx.try_send(Message::Reply(new_msg.clone())) {
                 Ok(()) => (),
                 Err(_disconnected) => {
                     // The tx is disconnected, our `user_disconnected` code

@@ -7,6 +7,7 @@
 //! There is also [`warp::method()`](method), which never rejects
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
+use futures::future;
 
 use crate::filter::{filter_fn, filter_fn_one, And, Filter, One};
 use crate::never::Never;
@@ -75,7 +76,7 @@ where
 ///     });
 /// ```
 pub fn method() -> impl Filter<Extract = One<Method>, Error = Never> + Copy {
-    filter_fn_one(|route| Ok::<_, Never>(route.method().clone()))
+    filter_fn_one(|route| future::ok::<_, Never>(route.method().clone()))
 }
 
 // NOTE: This takes a static function instead of `&'static Method` directly
@@ -87,11 +88,11 @@ where
 {
     filter_fn(move |route| {
         let method = func();
-        logcrate::trace!("method::{:?}?: {:?}", method, route.method());
+        log::trace!("method::{:?}?: {:?}", method, route.method());
         if route.method() == method {
-            Ok(())
+            future::ok(())
         } else {
-            Err(crate::reject::method_not_allowed())
+            future::err(crate::reject::method_not_allowed())
         }
     })
 }

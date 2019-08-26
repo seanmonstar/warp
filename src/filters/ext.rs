@@ -1,6 +1,7 @@
 //! Request Extensions
 
 use std::error::Error as StdError;
+use futures::future;
 
 use crate::filter::{filter_fn_one, Filter};
 use crate::reject::{self, Rejection};
@@ -11,11 +12,12 @@ use crate::reject::{self, Rejection};
 pub fn get<T: Clone + Send + Sync + 'static>(
 ) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
-        route
+        let route = route
             .extensions()
             .get::<T>()
             .cloned()
-            .ok_or_else(|| reject::known(MissingExtension { _p: () }))
+            .ok_or_else(|| reject::known(MissingExtension { _p: () }));
+        future::ready(route)
     })
 }
 

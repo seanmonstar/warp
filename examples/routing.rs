@@ -1,11 +1,11 @@
 #![deny(warnings)]
-extern crate pretty_env_logger;
 #[macro_use]
 extern crate warp;
 
 use warp::Filter;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     // We'll start simple, and gradually show how you combine these powers
@@ -89,5 +89,5 @@ fn main() {
     // If you wish to use dynamic dispatch instead and speed up compile times while
     // making it slightly slower at runtime, you can use Filter::boxed().
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

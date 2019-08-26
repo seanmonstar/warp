@@ -4,10 +4,12 @@
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
 
 use bytes::Buf;
-use futures::stream::Concat2;
-use futures::{try_ready, Async, Future, Poll, Stream};
+use futures::{future, ready, TryFuture, TryStreamExt, Stream};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
@@ -24,10 +26,10 @@ use crate::reject::{self, Rejection};
 // Does not consume any of it.
 pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
-        route.take_body().ok_or_else(|| {
-            logcrate::error!("request body already taken in previous filter");
+        future::ready(route.take_body().ok_or_else(|| {
+            log::error!("request body already taken in previous filter");
             reject::known(BodyConsumedMultipleTimes(()))
-        })
+        }))
     })
 }
 
@@ -48,15 +50,15 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     crate::filters::header::header2()
         .map_err(|_| {
-            logcrate::debug!("content-length missing");
+            log::debug!("content-length missing");
             reject::length_required()
         })
         .and_then(move |ContentLength(length)| {
             if length <= limit {
-                Ok(())
+                future::ok(())
             } else {
-                logcrate::debug!("content-length: {} is over limit {}", length, limit);
-                Err(reject::payload_too_large())
+                log::debug!("content-length: {} is over limit {}", length, limit);
+                future::err(reject::payload_too_large())
             }
         })
         .untuple_one()
@@ -104,7 +106,7 @@ pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Cop
 /// ```
 pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
     body().and_then(|body: ::hyper::Body| Concat {
-        fut: body.concat2(),
+        fut: body.try_concat(),
     })
 }
 
@@ -116,31 +118,31 @@ fn is_content_type(
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            logcrate::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            log::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
             let ct = value
                 .to_str()
                 .ok()
                 .and_then(|s| s.parse::<mime::Mime>().ok());
             if let Some(ct) = ct {
                 if ct.type_() == type_ && ct.subtype() == subtype {
-                    Ok(())
+                    future::ok(())
                 } else {
-                    logcrate::debug!(
+                    log::debug!(
                         "content-type {:?} doesn't match {}/{}",
                         value,
                         type_,
                         subtype
                     );
-                    Err(reject::unsupported_media_type())
+                    future::err(reject::unsupported_media_type())
                 }
             } else {
-                logcrate::debug!("content-type {:?} couldn't be parsed", value);
-                Err(reject::unsupported_media_type())
+                log::debug!("content-type {:?} couldn't be parsed", value);
+                future::err(reject::unsupported_media_type())
             }
         } else {
             // Optimistically assume its correct!
-            logcrate::trace!("no content-type header, assuming {}/{}", type_, subtype);
-            Ok(())
+            log::trace!("no content-type header, assuming {}/{}", type_, subtype);
+            future::ok(())
         }
     })
 }
@@ -169,10 +171,10 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
     is_content_type(mime::APPLICATION, mime::JSON)
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_json::from_slice(&buf.chunk).map_err(|err| {
-                logcrate::debug!("request json body error: {}", err);
+            future::ready(serde_json::from_slice(&buf.chunk).map_err(|err| {
+                log::debug!("request json body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
-            })
+            }))
         })
 }
 
@@ -204,10 +206,10 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
     is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
         .and(concat())
         .and_then(|buf: FullBody| {
-            serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
-                logcrate::debug!("request form body error: {}", err);
+            future::ready(serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
+                log::debug!("request form body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
-            })
+            }))
         })
 }
 
@@ -250,20 +252,18 @@ impl Buf for FullBody {
 
 #[allow(missing_debug_implementations)]
 struct Concat {
-    fut: Concat2<Body>,
+    fut: futures_util::try_stream::TryConcat<Body>,
 }
 
 impl Future for Concat {
-    type Item = FullBody;
-    type Error = Rejection;
+    type Output = Result<FullBody, Rejection>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.fut.poll() {
-            Ok(Async::Ready(chunk)) => Ok(Async::Ready(FullBody { chunk })),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match ready!(Pin::new(&mut self.get_mut().fut).try_poll(cx)) {
+            Ok(chunk) => Poll::Ready(Ok(FullBody { chunk })),
             Err(err) => {
-                logcrate::debug!("concat error: {}", err);
-                Err(reject::known(BodyReadError(err)))
+                log::debug!("concat error: {}", err);
+                Poll::Ready(Err(reject::known(BodyReadError(err))))
             }
         }
     }
@@ -277,16 +277,21 @@ pub struct BodyStream {
 }
 
 impl Stream for BodyStream {
-    type Item = StreamBuf;
-    type Error = crate::Error;
+    type Item = Result<StreamBuf, crate::Error>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let opt_item = try_ready!(self
-            .body
-            .poll()
-            .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e))));
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let opt_item: Option<Result<Chunk, hyper::Error>> = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
-        Ok(opt_item.map(|chunk| StreamBuf { chunk }).into())
+        match opt_item {
+            None =>  Poll::Ready(None),
+            Some(item) => {
+                let stream_buf = item
+                    .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e)))
+                    .map(|chunk| StreamBuf { chunk });
+
+                Poll::Ready(Some(stream_buf))
+            }
+        }
     }
 }
 

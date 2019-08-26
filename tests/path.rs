@@ -1,12 +1,12 @@
 #![deny(warnings)]
-extern crate pretty_env_logger;
 #[macro_use]
 extern crate warp;
 
 use warp::Filter;
+use futures::future;
 
-#[test]
-fn path() {
+#[tokio::test]
+async fn path() {
     let _ = pretty_env_logger::try_init();
 
     let foo = warp::path("foo");
@@ -16,51 +16,51 @@ fn path() {
     // /foo
     let foo_req = || warp::test::request().path("/foo");
 
-    assert!(foo_req().matches(&foo));
-    assert!(!foo_req().matches(&bar));
-    assert!(!foo_req().matches(&foo_bar));
+    assert!(foo_req().matches(&foo).await);
+    assert!(!foo_req().matches(&bar).await);
+    assert!(!foo_req().matches(&foo_bar).await);
 
     // /foo/bar
     let foo_bar_req = || warp::test::request().path("/foo/bar");
 
-    assert!(foo_bar_req().matches(&foo));
-    assert!(!foo_bar_req().matches(&bar));
-    assert!(foo_bar_req().matches(&foo_bar));
+    assert!(foo_bar_req().matches(&foo).await);
+    assert!(!foo_bar_req().matches(&bar).await);
+    assert!(foo_bar_req().matches(&foo_bar).await);
 }
 
-#[test]
-fn param() {
+#[tokio::test]
+async fn param() {
     let _ = pretty_env_logger::try_init();
 
     let num = warp::path::param::<u32>();
 
     let req = warp::test::request().path("/321");
-    assert_eq!(req.filter(&num).unwrap(), 321);
+    assert_eq!(req.filter(&num).await.unwrap(), 321);
 
     let s = warp::path::param::<String>();
 
     let req = warp::test::request().path("/warp");
-    assert_eq!(req.filter(&s).unwrap(), "warp");
+    assert_eq!(req.filter(&s).await.unwrap(), "warp");
 
     // u32 doesn't extract a non-int
     let req = warp::test::request().path("/warp");
-    assert!(!req.matches(&num));
+    assert!(!req.matches(&num).await);
 
     let combo = num.map(|n| n + 5).and(s);
 
     let req = warp::test::request().path("/42/vroom");
-    assert_eq!(req.filter(&combo).unwrap(), (47, "vroom".to_string()));
+    assert_eq!(req.filter(&combo).await.unwrap(), (47, "vroom".to_string()));
 
     // empty segments never match
     let req = warp::test::request();
     assert!(
-        !req.matches(&s),
+        !req.matches(&s).await,
         "param should never match an empty segment"
     );
 }
 
-#[test]
-fn end() {
+#[tokio::test]
+async fn end() {
     let _ = pretty_env_logger::try_init();
 
     let foo = warp::path("foo");
@@ -68,86 +68,94 @@ fn end() {
     let foo_end = foo.and(end);
 
     assert!(
-        warp::test::request().path("/").matches(&end),
+        warp::test::request().path("/").matches(&end).await,
         "end() matches /"
     );
 
     assert!(
         warp::test::request()
             .path("http://localhost:1234")
-            .matches(&end),
+            .matches(&end)
+            .await,
         "end() matches /"
     );
 
     assert!(
         warp::test::request()
             .path("http://localhost:1234?q=2")
-            .matches(&end),
+            .matches(&end)
+            .await,
         "end() matches empty path"
     );
 
     assert!(
-        warp::test::request().path("localhost:1234").matches(&end),
+        warp::test::request().path("localhost:1234").matches(&end).await,
         "end() matches authority-form"
     );
 
     assert!(
-        !warp::test::request().path("/foo").matches(&end),
+        !warp::test::request().path("/foo").matches(&end).await,
         "end() doesn't match /foo"
     );
 
     assert!(
-        warp::test::request().path("/foo").matches(&foo_end),
+        warp::test::request().path("/foo").matches(&foo_end).await,
         "path().and(end()) matches /foo"
     );
 
     assert!(
-        warp::test::request().path("/foo/").matches(&foo_end),
+        warp::test::request().path("/foo/").matches(&foo_end).await,
         "path().and(end()) matches /foo/"
     );
 }
 
-#[test]
-fn tail() {
+#[tokio::test]
+async fn tail() {
     let tail = warp::path::tail();
 
     // matches full path
     let ex = warp::test::request()
         .path("/42/vroom")
         .filter(&tail)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "42/vroom");
 
     // matches index
-    let ex = warp::test::request().path("/").filter(&tail).unwrap();
+    let ex = warp::test::request().path("/").filter(&tail).await.unwrap();
     assert_eq!(ex.as_str(), "");
 
     // doesn't include query
     let ex = warp::test::request()
         .path("/foo/bar?baz=quux")
         .filter(&tail)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "foo/bar");
 
     // doesn't include previously matched prefix
+    let and = warp::path("foo").and(tail);
     let ex = warp::test::request()
         .path("/foo/bar")
-        .filter(&warp::path("foo").and(tail))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "bar");
 
     // sets unmatched path index to end
+    let m = tail.and(warp::path("foo"));
     assert!(!warp::test::request()
         .path("/foo/bar")
-        .matches(&tail.and(warp::path("foo"))));
+        .matches(&m).await);
 
+    let m = tail.and(warp::path::end());
     assert!(warp::test::request()
         .path("/foo/bar")
-        .matches(&tail.and(warp::path::end())));
+        .matches(&m).await);
 }
 
-#[test]
-fn or() {
+#[tokio::test]
+async fn or() {
     let _ = pretty_env_logger::try_init();
 
     // /foo/bar OR /foo/baz
@@ -159,12 +167,12 @@ fn or() {
     // /foo/bar
     let req = warp::test::request().path("/foo/bar");
 
-    assert!(req.matches(&p));
+    assert!(req.matches(&p).await);
 
     // /foo/baz
     let req = warp::test::request().path("/foo/baz");
 
-    assert!(req.matches(&p));
+    assert!(req.matches(&p).await);
 
     // deeper nested ORs
     // /foo/bar/baz OR /foo/baz/bar OR /foo/bar/bar
@@ -175,47 +183,47 @@ fn or() {
 
     // /foo/baz
     let req = warp::test::request().path("/foo/baz/baz");
-    assert!(!req.matches(&p));
+    assert!(!req.matches(&p).await);
 
     // /foo/bar/bar
     let req = warp::test::request().path("/foo/bar/bar");
-    assert!(req.matches(&p));
+    assert!(req.matches(&p).await);
 }
 
-#[test]
-fn or_else() {
+#[tokio::test]
+async fn or_else() {
     let _ = pretty_env_logger::try_init();
 
     let foo = warp::path("foo");
     let bar = warp::path("bar");
 
-    let p = foo.and(bar.or_else(|_| Ok(())));
+    let p = foo.and(bar.or_else(|_| future::ok(())));
 
     // /foo/bar
     let req = warp::test::request().path("/foo/nope");
 
-    assert!(req.matches(&p));
+    assert!(req.matches(&p).await);
 }
 
-#[test]
-fn path_macro() {
+#[tokio::test]
+async fn path_macro() {
     let _ = pretty_env_logger::try_init();
 
     let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / "bar");
-    assert!(req.matches(&p));
+    assert!(req.matches(&p).await);
 
     let req = warp::test::request().path("/foo/bar");
     let p = path!(String / "bar");
-    assert_eq!(req.filter(&p).unwrap(), "foo");
+    assert_eq!(req.filter(&p).await.unwrap(), "foo");
 
     let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / String);
-    assert_eq!(req.filter(&p).unwrap(), "bar");
+    assert_eq!(req.filter(&p).await.unwrap(), "bar");
 }
 
-#[test]
-fn full_path() {
+#[tokio::test]
+async fn full_path() {
     let full_path = warp::path::full();
 
     let foo = warp::path("foo");
@@ -226,49 +234,58 @@ fn full_path() {
     let ex = warp::test::request()
         .path("/42/vroom")
         .filter(&full_path)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "/42/vroom");
 
     // matches index
-    let ex = warp::test::request().path("/").filter(&full_path).unwrap();
+    let ex = warp::test::request().path("/").filter(&full_path).await.unwrap();
     assert_eq!(ex.as_str(), "/");
 
     // does not include query
     let ex = warp::test::request()
         .path("/foo/bar?baz=quux")
         .filter(&full_path)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/bar");
 
     // includes previously matched prefix
+    let and = foo.and(full_path);
     let ex = warp::test::request()
         .path("/foo/bar")
-        .filter(&foo.and(full_path))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/bar");
 
     // includes following matches
+    let and = full_path.and(foo);
     let ex = warp::test::request()
         .path("/foo/bar")
-        .filter(&full_path.and(foo))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/bar");
 
     // includes previously matched param
+    let and = foo.and(param).and(full_path);
     let (_, ex) = warp::test::request()
         .path("/foo/123")
-        .filter(&foo.and(param).and(full_path))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/123");
 
     // does not modify matching
+    let m = full_path.and(foo).and(bar);
     assert!(warp::test::request()
         .path("/foo/bar")
-        .matches(&full_path.and(foo).and(bar)));
+        .matches(&m).await);
 }
 
-#[test]
-fn peek() {
+#[tokio::test]
+async fn peek() {
     let peek = warp::path::peek();
 
     let foo = warp::path("foo");
@@ -279,61 +296,71 @@ fn peek() {
     let ex = warp::test::request()
         .path("/42/vroom")
         .filter(&peek)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "42/vroom");
 
     // matches index
-    let ex = warp::test::request().path("/").filter(&peek).unwrap();
+    let ex = warp::test::request().path("/").filter(&peek).await.unwrap();
     assert_eq!(ex.as_str(), "");
 
     // does not include query
     let ex = warp::test::request()
         .path("/foo/bar?baz=quux")
         .filter(&peek)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "foo/bar");
 
     // does not include previously matched prefix
+    let and = foo.and(peek);
     let ex = warp::test::request()
         .path("/foo/bar")
-        .filter(&foo.and(peek))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "bar");
 
     // includes following matches
+    let and = peek.and(foo);
     let ex = warp::test::request()
         .path("/foo/bar")
-        .filter(&peek.and(foo))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "foo/bar");
 
     // does not include previously matched param
+    let and = foo.and(param).and(peek);
     let (_, ex) = warp::test::request()
         .path("/foo/123")
-        .filter(&foo.and(param).and(peek))
+        .filter(&and)
+        .await
         .unwrap();
     assert_eq!(ex.as_str(), "");
 
     // does not modify matching
+    let and = peek.and(foo).and(bar);
     assert!(warp::test::request()
         .path("/foo/bar")
-        .matches(&peek.and(foo).and(bar)));
+        .matches(&and).await);
 }
 
-#[test]
-fn peek_segments() {
+#[tokio::test]
+async fn peek_segments() {
     let peek = warp::path::peek();
 
     // matches full request path
     let ex = warp::test::request()
         .path("/42/vroom")
         .filter(&peek)
+        .await
         .unwrap();
 
     assert_eq!(ex.segments().collect::<Vec<_>>(), &["42", "vroom"]);
 
     // matches index
-    let ex = warp::test::request().path("/").filter(&peek).unwrap();
+    let ex = warp::test::request().path("/").filter(&peek).await.unwrap();
 
     let segs = ex.segments().collect::<Vec<_>>();
     assert_eq!(segs, Vec::<&str>::new());

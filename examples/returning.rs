@@ -1,5 +1,3 @@
-extern crate warp;
-
 use warp::{filters::BoxedFilter, Filter, Rejection, Reply};
 
 // Option 1: BoxedFilter
@@ -15,7 +13,8 @@ pub fn index_filter() -> impl Filter<Extract = (&'static str,), Error = Rejectio
     warp::path::end().map(|| "Index page")
 }
 
-pub fn main() {
+#[tokio::main]
+async fn main() {
     let routes = index_filter().or(assets_filter());
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

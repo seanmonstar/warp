@@ -104,7 +104,7 @@ where
 {
     Json {
         inner: serde_json::to_vec(val).map_err(|err| {
-            logcrate::error!("reply::json error: {}", err);
+            log::error!("reply::json error: {}", err);
         }),
     }
 }
@@ -277,13 +277,13 @@ pub trait Reply: Send {
                     Reply_(res)
                 },
                 Err(err) => {
-                    logcrate::error!("with_header value error: {}", err.into());
+                    log::error!("with_header value error: {}", err.into());
                     Reply_(::reject::server_error()
                         .into_response())
                 }
             },
             Err(err) => {
-                logcrate::error!("with_header name error: {}", err.into());
+                log::error!("with_header name error: {}", err.into());
                 Reply_(::reject::server_error()
                     .into_response())
             }
@@ -352,12 +352,12 @@ where
         Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
             Ok(value) => Some((name, value)),
             Err(err) => {
-                logcrate::error!("with_header value error: {}", err.into());
+                log::error!("with_header value error: {}", err.into());
                 None
             }
         },
         Err(err) => {
-            logcrate::error!("with_header name error: {}", err.into());
+            log::error!("with_header name error: {}", err.into());
             None
         }
     };
@@ -412,7 +412,7 @@ where
         match self {
             Ok(t) => t.into_response(),
             Err(e) => {
-                logcrate::error!("reply error: {:?}", e);
+                log::error!("reply error: {:?}", e);
                 crate::reject::known(ReplyHttpError(e)).into_response()
             }
         }

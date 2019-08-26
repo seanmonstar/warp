@@ -1,12 +1,15 @@
-extern crate pretty_env_logger;
-extern crate tokio;
-extern crate warp;
-
 use std::time::Duration;
 use tokio::{clock::now, timer::Interval};
-use warp::{Filter, Stream};
+use futures::{never::Never, StreamExt};
+use warp::{Filter, sse::ServerSentEvent};
 
-fn main() {
+// create server-sent event
+fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Never> {
+    Ok(warp::sse::data(counter))
+}
+
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     let routes = warp::path("ticks")
@@ -16,12 +19,11 @@ fn main() {
             // create server event source
             let event_stream = Interval::new(now(), Duration::from_secs(1)).map(move |_| {
                 counter += 1;
-                // create server-sent event
-                warp::sse::data(counter)
+                sse_counter(counter)
             });
             // reply using server-sent events
             sse.reply(event_stream)
         });
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

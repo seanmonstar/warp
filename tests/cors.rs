@@ -1,11 +1,8 @@
 #![deny(warnings)]
-extern crate pretty_env_logger;
-extern crate warp;
-
 use warp::{http::Method, Filter};
 
-#[test]
-fn allow_methods() {
+#[tokio::test]
+async fn allow_methods() {
     let cors = warp::cors().allow_methods(&[Method::GET, Method::POST, Method::DELETE]);
 
     let route = warp::any().map(warp::reply).with(cors);
@@ -14,7 +11,8 @@ fn allow_methods() {
         .method("OPTIONS")
         .header("origin", "warp")
         .header("access-control-request-method", "DELETE")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 200);
 
@@ -22,13 +20,14 @@ fn allow_methods() {
         .method("OPTIONS")
         .header("origin", "warp")
         .header("access-control-request-method", "PUT")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 403);
 }
 
-#[test]
-fn origin_not_allowed() {
+#[tokio::test]
+async fn origin_not_allowed() {
     let cors = warp::cors()
         .allow_methods(&[Method::DELETE])
         .allow_origin("https://hyper.rs");
@@ -39,20 +38,22 @@ fn origin_not_allowed() {
         .method("OPTIONS")
         .header("origin", "https://warp.rs")
         .header("access-control-request-method", "DELETE")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 403);
 
     let res = warp::test::request()
         .header("origin", "https://warp.rs")
         .header("access-control-request-method", "DELETE")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 403);
 }
 
-#[test]
-fn headers_not_exposed() {
+#[tokio::test]
+async fn headers_not_exposed() {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_methods(&[Method::GET]);
@@ -63,7 +64,8 @@ fn headers_not_exposed() {
         .method("OPTIONS")
         .header("origin", "https://warp.rs")
         .header("access-control-request-method", "GET")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(
         res.headers().contains_key("access-control-expose-headers"),
@@ -73,7 +75,8 @@ fn headers_not_exposed() {
     let res = warp::test::request()
         .method("GET")
         .header("origin", "https://warp.rs")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(
         res.headers().contains_key("access-control-expose-headers"),
@@ -81,8 +84,8 @@ fn headers_not_exposed() {
     );
 }
 
-#[test]
-fn headers_not_allowed() {
+#[tokio::test]
+async fn headers_not_allowed() {
     let cors = warp::cors()
         .allow_methods(&[Method::DELETE])
         .allow_headers(vec!["x-foo"]);
@@ -94,13 +97,14 @@ fn headers_not_allowed() {
         .header("origin", "https://warp.rs")
         .header("access-control-request-headers", "x-bar")
         .header("access-control-request-method", "DELETE")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 403);
 }
 
-#[test]
-fn success() {
+#[tokio::test]
+async fn success() {
     let cors = warp::cors()
         .allow_credentials(true)
         .allow_headers(vec!["x-foo", "x-bar"])
@@ -117,7 +121,8 @@ fn success() {
         .header("origin", "https://hyper.rs")
         .header("access-control-request-headers", "x-bar,x-foo")
         .header("access-control-request-method", "DELETE")
-        .reply(&route);
+        .reply(&route)
+        .await;
     assert_eq!(res.status(), 200);
     assert_eq!(
         res.headers()["access-control-allow-origin"],
@@ -143,7 +148,8 @@ fn success() {
         .header("origin", "https://hyper.rs")
         .header("x-foo", "hello")
         .header("x-bar", "world")
-        .reply(&route);
+        .reply(&route)
+        .await;
     assert_eq!(res.status(), 200);
     assert_eq!(
         res.headers()["access-control-allow-origin"],
@@ -156,8 +162,8 @@ fn success() {
     assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
 }
 
-#[test]
-fn with_log() {
+#[tokio::test]
+async fn with_log() {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_methods(&[Method::GET]);
@@ -171,7 +177,8 @@ fn with_log() {
         .method("OPTIONS")
         .header("origin", "warp")
         .header("access-control-request-method", "GET")
-        .reply(&route);
+        .reply(&route)
+        .await;
 
     assert_eq!(res.status(), 200);
 }
