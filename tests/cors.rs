@@ -148,5 +148,24 @@ fn success() {
     assert_eq!(res.headers().get("access-control-allow-methods"), None);
     let exposed_headers = &res.headers()["access-control-expose-headers"];
     assert!(exposed_headers == "x-header1, x-header2" || exposed_headers == "x-header2, x-header1");
+}
 
+#[test]
+fn with_log() {
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_methods(&[Method::GET]);
+
+    let route = warp::any()
+        .map(warp::reply)
+        .with(cors)
+        .with(warp::log("cors test"));
+
+    let res = warp::test::request()
+        .method("OPTIONS")
+        .header("origin", "warp")
+        .header("access-control-request-method", "GET")
+        .reply(&route);
+
+    assert_eq!(res.status(), 200);
 }
