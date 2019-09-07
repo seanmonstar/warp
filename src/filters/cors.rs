@@ -415,7 +415,7 @@ mod internal {
     use reject::{CombineRejection, Rejection};
     use route;
 
-    #[derive(Debug)]
+    #[derive(Clone, Debug)]
     pub struct CorsFilter<F> {
         pub(super) config: Arc<Configured>,
         pub(super) inner: F,
