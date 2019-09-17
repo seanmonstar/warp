@@ -37,6 +37,13 @@ use self::internal::{CorsFilter, IntoOrigin, Seconds};
 ///     .map(warp::reply)
 ///     .with(cors);
 /// ```
+/// If you want to allow any route:
+/// ```
+/// use warp::Filter;
+/// let cors = warp::cors()
+///     .allow_any_origin();
+/// ```
+/// You can find more usage examples [here](https://github.com/seanmonstar/warp/blob/7fa54eaecd0fe12687137372791ff22fc7995766/tests/cors.rs).
 pub fn cors() -> Cors {
     Cors {
         credentials: false,
