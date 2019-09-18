@@ -1,3 +1,9 @@
+### v0.1.20 (September 17, 2019)
+
+- **Features**:
+  - Implement `Clone` for the `warp::cors` filter.
+  - Add `into_bytes` method for `warp::ws::Message`.
+
 ### v0.1.19 (August 16, 2019)
 
 - **Features**:
