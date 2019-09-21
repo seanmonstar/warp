@@ -164,6 +164,14 @@ impl Ws2 {
             .max_send_queue = Some(max);
         self
     }
+
+    /// Set the maximum message size (defaults to 64 megabytes)
+    pub fn max_message_size(mut self, max: usize) -> Self {
+        self.config
+            .get_or_insert_with(|| WebSocketConfig::default())
+            .max_message_size = Some(max);
+        self
+    }
 }
 
 impl fmt::Debug for Ws2 {
