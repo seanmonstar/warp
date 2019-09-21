@@ -77,5 +77,9 @@ fn main() {
 
     let routes = warp::get2().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
 
+    // Note that composing filters for many routes may increase compile times (because it uses a lot of generics).
+    // If you wish to use dynamic dispatch instead and speed up compile times while
+    // making it slightly slower at runtime, you can use Filter::boxed().
+
     warp::serve(routes).run(([127, 0, 0, 1], 3030));
 }
