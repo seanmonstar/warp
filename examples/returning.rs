@@ -15,6 +15,13 @@ pub fn index_filter() -> impl Filter<Extract = (&'static str,), Error = Rejectio
     warp::path::end().map(|| "Index page")
 }
 
+// Option 3: box only for debug builds
+// In debug builds, this will return a BoxedFilter like Option 1
+// but in release builds it will return the filter as in Option 2.
+pub fn other_filter() -> impl Filter<Extract = (&'static str,), Error = Rejection> + Clone {
+    warp::path::end().map(|| "Other page").debug_boxed()
+}
+
 pub fn main() {
     let routes = index_filter().or(assets_filter());
     warp::serve(routes).run(([127, 0, 0, 1], 3030));

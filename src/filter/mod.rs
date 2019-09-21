@@ -400,6 +400,34 @@ pub trait Filter: FilterBase {
     {
         BoxedFilter::new(self)
     }
+
+    /// Boxes the Filter only for debug builds.
+    /// For release builds, this simply returns the filter.
+    ///
+    /// Compiling many composed filters may be slow because
+    /// it uses a lot of generics under the hood. Boxing filters
+    /// speeds up compile times but may make it slightly slower
+    /// at runtime. This allows you to speed up compilation for debug
+    /// builds while avoiding the runtime penalty for release builds.
+    #[cfg(debug_assertions)]
+    fn debug_boxed(self) -> BoxedFilter<Self::Extract>
+    where
+        Self: Sized + Send + Sync + 'static,
+        Self::Extract: Send,
+        Self::Error: Into<Rejection>,
+    {
+        BoxedFilter::new(self)
+    }
+
+    #[cfg(not(debug_assertions))]
+    fn debug_boxed(self) -> Self
+    where
+        Self: Sized + Send + Sync + 'static,
+        Self::Extract: Send,
+        Self::Error: Into<Rejection>,
+    {
+        self
+    }
 }
 
 impl<T: FilterBase> Filter for T {}
