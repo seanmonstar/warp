@@ -25,9 +25,10 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 
 - HTTP/1
 - HTTP/2
-- Asynchronous
+- Asynchronous (using Tokio 0.1 by default)
 - One of the fastest HTTP implementations
 - Tested and **correct**
+- Works on stable Rust
 
 ## Example
 
@@ -45,3 +46,9 @@ fn main() {
 ```
 
 For more information you can check the [docs](https://docs.rs/warp) or the [examples](https://github.com/seanmonstar/warp/tree/master/examples).
+
+## Shared State
+
+One of the trickiest things of Rust web applications is handling shared state (for example a database). In Warp a `Filter` can be used to provide access to the state (it still needs to be `Arc<Mutex<...>>`). See [these docs](https://docs.rs/warp/0.1.20/warp/filters/any/fn.any.html) and [this example](https://github.com/seanmonstar/warp/blob/master/examples/todos.rs#L44-L47).
+
+
