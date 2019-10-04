@@ -329,9 +329,7 @@ impl Sink for WebSocket {
             Err(::tungstenite::Error::Io(ref err)) if err.kind() == WouldBlock => {
                 Ok(Async::NotReady)
             }
-            Err(::tungstenite::Error::ConnectionClosed) => {
-                Ok(Async::Ready(()))
-            }
+            Err(::tungstenite::Error::ConnectionClosed) => Ok(Async::Ready(())),
             Err(err) => {
                 debug!("websocket close error: {}", err);
                 Err(Kind::Ws(err).into())
@@ -369,6 +367,13 @@ impl Message {
     pub fn binary<V: Into<Vec<u8>>>(v: V) -> Message {
         Message {
             inner: protocol::Message::binary(v),
+        }
+    }
+
+    /// Construct a new Ping `Message`.
+    pub fn ping<V: Into<Vec<u8>>>(v: V) -> Message {
+        Message {
+            inner: protocol::Message::Ping(v.into()),
         }
     }
 
@@ -420,7 +425,6 @@ impl fmt::Debug for Message {
         fmt::Debug::fmt(&self.inner, f)
     }
 }
-
 
 impl Into<Vec<u8>> for Message {
     fn into(self) -> Vec<u8> {
