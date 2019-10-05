@@ -31,8 +31,8 @@
 //!
 //! The main concept in warp is the [`Filter`][Filter], which allows composition
 //! to describe various endpoints in your web service. Besides this powerful
-//! trait, warp comes with several built in [filters](filters), which can be
-//! combined for your specific needs.
+//! trait, warp comes with several built in [filters](filters/index.html), which
+//! can be combined for your specific needs.
 //!
 //! As a small example, consider an endpoint that has path and header requirements:
 //!
@@ -74,7 +74,8 @@
 //! Hello sean, whose agent is reqwest/v0.8.6
 //! ```
 //!
-//! Take a look at the full list of [`filters`](filters) to see what you can build.
+//! Take a look at the full list of [`filters`](filters/index.html) to see what
+//! you can build.
 //!
 //! ## Testing
 //!

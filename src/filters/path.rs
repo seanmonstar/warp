@@ -34,7 +34,7 @@
 //! # }
 //! ```
 //!
-//! Neat! But do I handle **parameters** in paths?
+//! Neat! But how do I handle **parameters** in paths?
 //!
 //! ```
 //! # #[macro_use] extern crate warp; fn main() {
