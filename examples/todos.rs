@@ -64,6 +64,9 @@ fn main() {
     // For `GET /todos` also allow optional query parameters to allow for paging of Todos.
     let list_options = warp::query::<ListOptions>();
 
+    // We'll make one of our endpoints admin-only to show how authentication filters are used
+    let admin_only = warp::header::exact("authorization", "Bearer admin");
+
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
@@ -90,6 +93,11 @@ fn main() {
     // `DELETE /todos/:id`
     let delete = warp::delete2()
         .and(todos_id)
+        // It is important to put the auth check _after_ the path filters.
+        // If we put the auth check before, the request `PUT /todos/invalid-string`
+        // would try this filter and reject because the authorization header doesn't match,
+        // rather because the param is wrong for that other path.
+        .and(admin_only.clone())
         .and(db.clone())
         .and_then(delete_todo);
 

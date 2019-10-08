@@ -125,6 +125,11 @@
 //!     .or(bye)
 //!     .or(math);
 //! ```
+//!
+//! Note that you will generally want path filters to come **before** other filters
+//! like `body` or `headers`. If a different type of filter comes first, a request
+//! with an invalid body for route `/right-path-wrong-body` may try matching against `/wrong-path`
+//! and return the error from `/wrong-path` instead of the correct body-related error.
 
 use std::fmt;
 use std::str::FromStr;
@@ -144,6 +149,10 @@ use route::Route;
 ///     - [`end()`](./fn.end.html) should be used to match the end of a path to avoid having
 ///         filters for shorter paths like `/math` unintentionally match a longer
 ///         path such as `/math/sum`
+///     - path-related filters should generally come **before** other types of filters, such
+///         as those checking headers or body types. Including those other filters before
+///         the path checks may result in strange errors being returned because a given request
+///         does not match the parameters for a completely separate route.
 ///
 /// # Panics
 ///
