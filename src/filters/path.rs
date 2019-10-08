@@ -140,6 +140,11 @@ use route::Route;
 ///
 /// This will try to match exactly to the current request path segment.
 ///
+/// Warning:
+///     - [`end()`](./fn.end.html) should be used to match the end of a path to avoid having
+///         filters for shorter paths like `/math` unintentionally match a longer
+///         path such as `/math/sum`
+///
 /// # Panics
 ///
 /// Exact path filters cannot be empty, or contain slashes.
@@ -178,6 +183,9 @@ pub fn index() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 }
 
 /// Matches the end of a route.
+///
+/// Note that _not_ including `end()` may result in shorter paths like
+/// `/math` unintentionally matching `/math/sum`.
 ///
 /// # Example
 ///
@@ -482,6 +490,29 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// ```
 ///
 /// In fact, this is exactly what the macro expands to.
+///
+/// Note that path! does not automatically include an `end()` filter
+/// so you should be careful to avoid letting shorter paths accidentally
+/// match longer ones:
+///
+/// ```
+/// # #[macro_use] extern crate warp; fn main() {
+/// use warp::Filter;
+///
+/// let sum = path!("math" / "sum" / u32 /u32)
+///     .map(|a, b| {
+///         format!("{} + {} = {}", a, b, a + b)
+///     });
+/// let help = path!("math" / "sum")
+///     .map(|| "This API returns the sum of two u32's");
+/// let api = help.or(sum);
+/// # }
+/// ```
+///
+/// In the above example, the `sum` path won't actually be hit because
+/// the `help` filter will match all requests. We would need to change
+/// help to be `path!("math" / "sum").and(warp::path::end())` to ensure
+/// that the shorter path filter does not match the longer paths.
 #[macro_export]
 macro_rules! path {
     (@start $first:tt $(/ $tail:tt)*) => ({
