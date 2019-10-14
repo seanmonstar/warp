@@ -140,7 +140,7 @@ pub fn server_error() -> Rejection {
 /// A [`recover`][] filter should convert this `Rejection` into a `Reply`,
 /// or else this will be returned as a `500 Internal Server Error`.
 ///
-/// [`recover`]: ../../trait.Filter.html#method.recover
+/// [`recover`]: ../trait.Filter.html#method.recover
 pub fn custom(err: impl Into<Cause>) -> Rejection {
     Rejection::custom(err.into())
 }
