@@ -1,9 +1,10 @@
 //! Request Extensions
 
 use std::error::Error as StdError;
+use futures::future;
 
-use filter::{filter_fn_one, Filter};
-use reject::{self, Rejection};
+use crate::filter::{filter_fn_one, Filter};
+use crate::reject::{self, Rejection};
 
 /// Get a previously set extension of the current route.
 ///
@@ -11,11 +12,12 @@ use reject::{self, Rejection};
 pub fn get<T: Clone + Send + Sync + 'static>(
 ) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
-        route
+        let route = route
             .extensions()
             .get::<T>()
             .cloned()
-            .ok_or_else(|| reject::known(MissingExtension { _p: () }))
+            .ok_or_else(|| reject::known(MissingExtension { _p: () }));
+        future::ready(route)
     })
 }
 
@@ -28,7 +30,7 @@ pub fn get<T: Clone + Send + Sync + 'static>(
 ///
 /// This function panics if not called within the context of a `Filter`.
 pub fn set<T: Send + Sync + 'static>(val: T) {
-    ::route::with(move |route| {
+    crate::route::with(move |route| {
         route.extensions_mut().insert(val);
     });
 }

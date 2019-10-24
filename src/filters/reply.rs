@@ -25,8 +25,8 @@ use http::header::{HeaderMap, HeaderName, HeaderValue};
 use http::HttpTryFrom;
 
 use self::sealed::{WithDefaultHeader_, WithHeader_, WithHeaders_};
-use filter::{Filter, Map, WrapSealed};
-use reply::Reply;
+use crate::filter::{Filter, Map, WrapSealed};
+use crate::reply::Reply;
 
 /// Wrap a [`Filter`](::Filter) that adds a header to the reply.
 ///
@@ -191,8 +191,8 @@ where
 
 mod sealed {
     use super::{WithDefaultHeader, WithHeader, WithHeaders};
-    use generic::{Func, One};
-    use reply::{Reply, Reply_};
+    use crate::generic::{Func, One};
+    use crate::reply::{Reply, Reply_};
 
     #[derive(Clone)]
     #[allow(missing_debug_implementations)]

@@ -1,4 +1,9 @@
-use futures::{Async, Future, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
+
+use pin_project::pin_project;
+use futures::{ready, TryFuture};
 
 use super::{Either, Filter, FilterBase, Tuple};
 
@@ -24,23 +29,25 @@ where
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct UnifyFuture<F> {
+    #[pin]
     inner: F,
 }
 
 impl<F, T> Future for UnifyFuture<F>
 where
-    F: Future<Item = (Either<T, T>,)>,
+    F: TryFuture<Ok = (Either<T, T>,)>,
 {
-    type Item = T;
-    type Error = F::Error;
+    type Output = Result<T, F::Error>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let unified = match try_ready!(self.inner.poll()) {
-            (Either::A(a),) => a,
-            (Either::B(b),) => b,
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let unified = match ready!(self.project().inner.try_poll(cx)) {
+            Ok((Either::A(a),)) => Ok(a),
+            Ok((Either::B(b),)) => Ok(b),
+            Err(err) => Err(err)
         };
-        Ok(Async::Ready(unified))
+        Poll::Ready(unified)
     }
 }

@@ -67,18 +67,14 @@ where
 impl HList for () {
     type Tuple = ();
     #[inline]
-    fn flatten(self) -> Self::Tuple {
-        ()
-    }
+    fn flatten(self) -> Self::Tuple {}
 }
 
 impl Tuple for () {
     type HList = ();
 
     #[inline]
-    fn hlist(self) -> Self::HList {
-        ()
-    }
+    fn hlist(self) -> Self::HList {}
 }
 
 impl<F, R> Func<()> for F
@@ -93,14 +89,14 @@ where
     }
 }
 
-impl<F, R> Func<::Rejection> for F
+impl<F, R> Func<crate::Rejection> for F
 where
-    F: Fn(::Rejection) -> R,
+    F: Fn(crate::Rejection) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, arg: ::Rejection) -> Self::Output {
+    fn call(&self, arg: crate::Rejection) -> Self::Output {
         (*self)(arg)
     }
 }

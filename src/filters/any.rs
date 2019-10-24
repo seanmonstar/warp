@@ -1,9 +1,10 @@
 //! A filter that matches any route.
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
 
-use futures::{Future, Poll};
-
-use filter::{Filter, FilterBase};
-use never::Never;
+use crate::filter::{Filter, FilterBase};
+use crate::never::Never;
 
 /// A filter that matches any route.
 ///
@@ -66,11 +67,10 @@ impl FilterBase for Any {
 struct AnyFut;
 
 impl Future for AnyFut {
-    type Item = ();
-    type Error = Never;
+    type Output = Result<(), Never>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(().into())
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+        Poll::Ready(Ok(()))
     }
 }

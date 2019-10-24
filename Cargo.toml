@@ -11,13 +11,18 @@ categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
 autotests = true
 autoexamples = true
+edition = "2018"
+
+[package.metadata.docs.rs]
+features = ["tls"]
 
 [dependencies]
 bytes = "0.4.8"
-futures = "0.1"
+futures-preview = "0.3.0-alpha.19"
+futures-util-preview = "0.3.0-alpha.19"
 headers = "0.2"
 http = "0.1"
-hyper = "0.12.18"
+hyper = { version = "=0.13.0-alpha.4", features = ["unstable-stream"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -26,13 +31,13 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.6"
-tokio = "0.1.11"
-tokio-io = "0.1"
-rustls = { version = "0.15", optional = true }
-tokio-threadpool = "0.1.7"
+tokio = "0.2.0-alpha.6"
+tokio-executor = "=0.2.0-alpha.6"
+rustls = { version = "0.16", optional = true }
 # tls is enabled by default, we don't want that yet
 tungstenite = { default-features = false, version = "0.9", optional = true }
 urlencoding = "1.0.0"
+pin-project = "0.4.5"
 
 [dev-dependencies]
 pretty_env_logger = "0.3"
@@ -43,9 +48,6 @@ handlebars = "1.0.0"
 default = ["multipart", "websocket"]
 websocket = ["tungstenite"]
 tls = ["rustls"]
-
-[package.metadata.docs.rs]
-features = ["tls"]
 
 [profile.release]
 codegen-units = 1

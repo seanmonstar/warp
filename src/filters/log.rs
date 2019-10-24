@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 use http::{self, header, StatusCode};
 use tokio::clock;
 
-use filter::{Filter, WrapSealed};
-use reject::Reject;
-use reply::Reply;
-use route::Route;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::Reject;
+use crate::reply::Reply;
+use crate::route::Route;
 
 use self::internal::WithLog;
 
@@ -35,7 +35,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
     let func = move |info: Info| {
         // TODO?
         // - response content length?
-        info!(
+        log::info!(
             target: name,
             "{} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
             OptFmt(info.route.remote_addr()),
@@ -179,14 +179,18 @@ impl<T: fmt::Display> fmt::Display for OptFmt<T> {
 
 mod internal {
     use std::time::Instant;
+    use std::task::{Context, Poll};
+    use std::pin::Pin;
+    use std::future::Future;
 
-    use futures::{Async, Future, Poll};
+    use pin_project::pin_project;
+    use futures::{ready, TryFuture};
 
     use super::{Info, Log};
-    use filter::{Filter, FilterBase};
-    use reject::Reject;
-    use reply::{Reply, Response};
-    use route;
+    use crate::filter::{Filter, FilterBase};
+    use crate::reject::Reject;
+    use crate::reply::{Reply, Response};
+    use crate::route;
 
     #[allow(missing_debug_implementations)]
     pub struct Logged(pub(super) Response);
@@ -227,8 +231,10 @@ mod internal {
     }
 
     #[allow(missing_debug_implementations)]
+    #[pin_project]
     pub struct WithLogFuture<FN, F> {
         log: Log<FN>,
+        #[pin]
         future: F,
         started: Instant,
     }
@@ -236,23 +242,24 @@ mod internal {
     impl<FN, F> Future for WithLogFuture<FN, F>
     where
         FN: Fn(Info),
-        F: Future,
-        F::Item: Reply,
+        F: TryFuture,
+        F::Ok: Reply,
         F::Error: Reject,
     {
-        type Item = (Logged,);
-        type Error = F::Error;
-        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-            let (result, status) = match self.future.poll() {
-                Ok(Async::Ready(reply)) => {
+        type Output = Result<(Logged,), F::Error>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+            let pin = self.as_mut().project();
+            let (result, status) = match ready!(pin.future.try_poll(cx)) {
+                Ok(reply) => {
                     let resp = reply.into_response();
                     let status = resp.status();
-                    (Ok(Async::Ready((Logged(resp),))), status)
+                    (Poll::Ready(Ok((Logged(resp),))), status)
+
                 }
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Err(reject) => {
                     let status = reject.status();
-                    (Err(reject), status)
+                    (Poll::Ready(Err(reject)), status)
                 }
             };
 

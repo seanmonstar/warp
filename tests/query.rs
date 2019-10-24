@@ -1,29 +1,27 @@
 #![deny(warnings)]
-extern crate warp;
-#[macro_use]
-extern crate serde_derive;
 
+use serde_derive::Deserialize;
 use std::collections::HashMap;
 use warp::Filter;
 
-#[test]
-fn query() {
+#[tokio::test]
+async fn query() {
     let as_map = warp::query::<HashMap<String, String>>();
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_map).unwrap();
+    let extracted = req.filter(&as_map).await.unwrap();
     assert_eq!(extracted["foo"], "bar");
     assert_eq!(extracted["baz"], "quux");
 }
 
-#[test]
-fn query_struct() {
+#[tokio::test]
+async fn query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_struct).unwrap();
+    let extracted = req.filter(&as_struct).await.unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -33,13 +31,13 @@ fn query_struct() {
     );
 }
 
-#[test]
-fn empty_query_struct() {
+#[tokio::test]
+async fn empty_query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
     let req = warp::test::request().path("/?");
 
-    let extracted = req.filter(&as_struct).unwrap();
+    let extracted = req.filter(&as_struct).await.unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -49,13 +47,13 @@ fn empty_query_struct() {
     );
 }
 
-#[test]
-fn missing_query_struct() {
+#[tokio::test]
+async fn missing_query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
     let req = warp::test::request().path("/");
 
-    let extracted = req.filter(&as_struct).unwrap();
+    let extracted = req.filter(&as_struct).await.unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -71,13 +69,13 @@ struct MyArgs {
     baz: Option<String>,
 }
 
-#[test]
-fn required_query_struct() {
+#[tokio::test]
+async fn required_query_struct() {
     let as_struct = warp::query::<MyRequiredArgs>();
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_struct).unwrap();
+    let extracted = req.filter(&as_struct).await.unwrap();
     assert_eq!(
         extracted,
         MyRequiredArgs {
@@ -87,23 +85,23 @@ fn required_query_struct() {
     );
 }
 
-#[test]
-fn missing_required_query_struct_partial() {
+#[tokio::test]
+async fn missing_required_query_struct_partial() {
     let as_struct = warp::query::<MyRequiredArgs>();
 
     let req = warp::test::request().path("/?foo=something");
 
-    let extracted = req.filter(&as_struct);
+    let extracted = req.filter(&as_struct).await;
     assert!(extracted.is_err())
 }
 
-#[test]
-fn missing_required_query_struct_no_query() {
+#[tokio::test]
+async fn missing_required_query_struct_no_query() {
     let as_struct = warp::query::<MyRequiredArgs>().map(|_| warp::reply());
 
     let req = warp::test::request().path("/");
 
-    let res = req.reply(&as_struct);
+    let res = req.reply(&as_struct).await;
     assert_eq!(res.status(), 400);
     assert_eq!(res.body(), "Invalid query string");
 }
@@ -114,12 +112,12 @@ struct MyRequiredArgs {
     baz: String,
 }
 
-#[test]
-fn raw_query() {
+#[tokio::test]
+async fn raw_query() {
     let as_raw = warp::query::raw();
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_raw).unwrap();
+    let extracted = req.filter(&as_raw).await.unwrap();
     assert_eq!(extracted, "foo=bar&baz=quux".to_owned());
 }

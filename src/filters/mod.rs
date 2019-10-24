@@ -22,4 +22,4 @@ pub mod sse;
 #[cfg(feature = "websocket")]
 pub mod ws;
 
-pub use filter::BoxedFilter;
+pub use crate::filter::BoxedFilter;

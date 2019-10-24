@@ -1,15 +1,9 @@
 #![deny(warnings)]
-#[macro_use]
-extern crate log;
-extern crate pretty_env_logger;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate warp;
 
 use std::env;
 use std::sync::{Arc, Mutex};
 use warp::{http::StatusCode, Filter};
+use serde_derive::{Deserialize, Serialize};
 
 /// So we don't have to tackle how different database work, we'll just use
 /// a simple in-memory DB, a vector synchronized by a mutex.
@@ -30,7 +24,8 @@ struct Todo {
 /// - `POST /todos`: create a new Todo.
 /// - `PUT /todos/:id`: update a specific Todo.
 /// - `DELETE /todos/:id`: delete a specific Todo.
-fn main() {
+#[tokio::main]
+async fn main() {
     if env::var_os("RUST_LOG").is_none() {
         // Set `RUST_LOG=todos=debug` to see debug logs,
         // this only shows access logs.
@@ -108,7 +103,7 @@ fn main() {
     let routes = api.with(warp::log("todos"));
 
     // Start up the server...
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
 // These are our API handlers, the ends of each filter chain.
@@ -137,14 +132,14 @@ fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
 }
 
 /// POST /todos with JSON body
-fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
-    debug!("create_todo: {:?}", create);
+async fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    log::debug!("create_todo: {:?}", create);
 
     let mut vec = db.lock().unwrap();
 
     for todo in vec.iter() {
         if todo.id == create.id {
-            debug!("    -> id already exists: {}", create.id);
+            log::debug!("    -> id already exists: {}", create.id);
             // Todo with id already exists, return `400 BadRequest`.
             return Ok(StatusCode::BAD_REQUEST);
         }
@@ -157,8 +152,8 @@ fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection
 }
 
 /// PUT /todos/:id with JSON body
-fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
-    debug!("update_todo: id={}, todo={:?}", id, update);
+async fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    log::debug!("update_todo: id={}, todo={:?}", id, update);
     let mut vec = db.lock().unwrap();
 
     // Look for the specified Todo...
@@ -169,15 +164,15 @@ fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::
         }
     }
 
-    debug!("    -> todo id not found!");
+    log::debug!("    -> todo id not found!");
 
     // If the for loop didn't return OK, then the ID doesn't exist...
     Err(warp::reject::not_found())
 }
 
 /// DELETE /todos/:id
-fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
-    debug!("delete_todo: id={}", id);
+async fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
+    log::debug!("delete_todo: id={}", id);
 
     let mut vec = db.lock().unwrap();
 
@@ -196,7 +191,7 @@ fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
         // yet no body expected...
         Ok(StatusCode::NO_CONTENT)
     } else {
-        debug!("    -> todo id not found!");
+        log::debug!("    -> todo id not found!");
         // Reject this request with a `404 Not Found`...
         Err(warp::reject::not_found())
     }

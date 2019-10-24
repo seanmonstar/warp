@@ -1,10 +1,10 @@
-use std::io::{self, Read, Write};
+use std::io;
 use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use bytes::Buf;
-use futures::Poll;
 use hyper::server::conn::AddrStream;
-use tokio_io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 
 pub trait Transport: AsyncRead + AsyncWrite {
     fn remote_addr(&self) -> Option<SocketAddr>;
@@ -18,35 +18,35 @@ impl Transport for AddrStream {
 
 pub(crate) struct LiftIo<T>(pub(crate) T);
 
-impl<T: Read> Read for LiftIo<T> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.read(buf)
+impl<T: AsyncRead + Unpin> AsyncRead for LiftIo<T> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
     }
 }
 
-impl<T: Write> Write for LiftIo<T> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.0.write(buf)
+impl<T: AsyncWrite + Unpin> AsyncWrite for LiftIo<T> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
     }
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.0.flush()
-    }
-}
-
-impl<T: AsyncRead> AsyncRead for LiftIo<T> {}
-
-impl<T: AsyncWrite> AsyncWrite for LiftIo<T> {
-    fn write_buf<B: Buf>(&mut self, buf: &mut B) -> Poll<usize, io::Error> {
-        self.0.write_buf(buf)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Pin::new(&mut self.get_mut().0).poll_flush(cx)
     }
 
-    fn shutdown(&mut self) -> Poll<(), io::Error> {
-        self.0.shutdown()
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Pin::new(&mut self.get_mut().0).poll_shutdown(cx)
     }
 }
 
-impl<T: AsyncRead + AsyncWrite> Transport for LiftIo<T> {
+impl<T: AsyncRead + AsyncWrite + Unpin> Transport for LiftIo<T> {
     fn remote_addr(&self) -> Option<SocketAddr> {
         None
     }

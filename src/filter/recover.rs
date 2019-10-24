@@ -1,10 +1,13 @@
-use std::mem;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
 
-use futures::{Async, Future, IntoFuture, Poll};
+use pin_project::{pin_project, project};
+use futures::{ready, TryFuture};
 
 use super::{Filter, FilterBase, Func};
-use generic::Either;
-use route;
+use crate::generic::Either;
+use crate::route;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Recover<T, F> {
@@ -16,11 +19,10 @@ impl<T, F> FilterBase for Recover<T, F>
 where
     T: Filter,
     F: Func<T::Error> + Clone + Send,
-    F::Output: IntoFuture<Error = T::Error> + Send,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture<Error = T::Error> + Send,
 {
-    type Extract = (Either<T::Extract, (<F::Output as IntoFuture>::Item,)>,);
-    type Error = <F::Output as IntoFuture>::Error;
+    type Extract = (Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,);
+    type Error = <F::Output as TryFuture>::Error;
     type Future = RecoverFuture<T, F>;
     #[inline]
     fn filter(&self) -> Self::Future {
@@ -33,29 +35,31 @@ where
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct RecoverFuture<T: Filter, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: IntoFuture<Error = T::Error> + Send,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture<Error = T::Error> + Send,
 {
+    #[pin]
     state: State<T, F>,
     original_path_index: PathIndex,
 }
 
+#[pin_project]
 enum State<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: IntoFuture<Error = T::Error> + Send,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture<Error = T::Error> + Send,
 {
-    First(T::Future, F),
-    Second(<F::Output as IntoFuture>::Future),
+    First(#[pin] T::Future, F),
+    Second(#[pin] F::Output),
     Done,
 }
 
+#[derive(Copy, Clone)]
 struct PathIndex(usize);
 
 impl PathIndex {
@@ -68,42 +72,34 @@ impl<T, F> Future for RecoverFuture<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: IntoFuture<Error = T::Error> + Send,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture<Error = T::Error> + Send,
 {
-    type Item = (Either<T::Extract, (<F::Output as IntoFuture>::Item,)>,);
-    type Error = <F::Output as IntoFuture>::Error;
+    type Output = Result<(Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,), <F::Output as TryFuture>::Error>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let err = match self.state {
-            State::First(ref mut first, _) => match first.poll() {
-                Ok(Async::Ready(ex)) => return Ok(Async::Ready((Either::A(ex),))),
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
-                Err(err) => err,
-            },
-            State::Second(ref mut second) => {
-                return match second.poll() {
-                    Ok(Async::Ready(ex2)) => Ok(Async::Ready((Either::B((ex2,)),))),
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(e) => Err(e),
-                };
-            }
-            State::Done => panic!("polled after complete"),
-        };
+    #[project]
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        loop {
+            let pin = self.as_mut().project();
+            #[project]
+            let (err, second) = match pin.state.project() {
+                State::First(first, second) => match ready!(first.try_poll(cx)) {
+                    Ok(ex) => return Poll::Ready(Ok((Either::A(ex),))),
+                    Err(err) => (err, second),
+                },
+                State::Second(second) => {
+                    let ex2 = match ready!(second.try_poll(cx)) {
+                        Ok(ex2) => Ok((Either::B((ex2,)),)),
+                        Err(e) => Err(e),
+                    };
+                    self.set(RecoverFuture{ state: State::Done, ..*self });
+                    return Poll::Ready(ex2);
+                }
+                State::Done => panic!("polled after complete"),
+            };
 
-        self.original_path_index.reset_path();
-
-        let mut second = match mem::replace(&mut self.state, State::Done) {
-            State::First(_, second) => second.call(err).into_future(),
-            _ => unreachable!(),
-        };
-
-        match second.poll()? {
-            Async::Ready(item) => Ok(Async::Ready((Either::B((item,)),))),
-            Async::NotReady => {
-                self.state = State::Second(second);
-                Ok(Async::NotReady)
-            }
+            pin.original_path_index.reset_path();
+            let fut2 = second.call(err);
+            self.set(RecoverFuture{ state: State::Second(fut2), ..*self});
         }
     }
 }

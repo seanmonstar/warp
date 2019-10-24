@@ -13,9 +13,9 @@ use http::{
     HttpTryFrom,
 };
 
-use filter::{Filter, WrapSealed};
-use reject::{CombineRejection, Rejection};
-use reply::Reply;
+use crate::filter::{Filter, WrapSealed};
+use crate::reject::{CombineRejection, Rejection};
+use crate::reply::Reply;
 
 use self::internal::{CorsFilter, IntoOrigin, Seconds};
 
@@ -255,13 +255,13 @@ where
         let expose_headers_header = if self.exposed_headers.is_empty() {
             None
         } else {
-            Some(self.exposed_headers.iter().map(|m| m.clone()).collect())
+            Some(self.exposed_headers.iter().cloned().collect())
         };
         let config = Arc::new(Configured {
             cors: self.clone(),
-            allowed_headers_header: self.allowed_headers.iter().map(|m| m.clone()).collect(),
+            allowed_headers_header: self.allowed_headers.iter().cloned().collect(),
             expose_headers_header,
-            methods_header: self.methods.iter().map(|m| m.clone()).collect(),
+            methods_header: self.methods.iter().cloned().collect(),
         });
 
         CorsFilter { config, inner }
@@ -331,7 +331,9 @@ impl Configured {
                         return Err(Forbidden::MethodNotAllowed);
                     }
                 } else {
-                    trace!("preflight request missing access-control-request-method header");
+                    log::trace!(
+                        "preflight request missing access-control-request-method header"
+                    );
                     return Err(Forbidden::MethodNotAllowed);
                 }
 
@@ -339,7 +341,7 @@ impl Configured {
                     let headers = req_headers
                         .to_str()
                         .map_err(|_| Forbidden::HeaderNotAllowed)?;
-                    for header in headers.split(",") {
+                    for header in headers.split(',') {
                         if !self.is_header_allowed(header) {
                             return Err(Forbidden::HeaderNotAllowed);
                         }
@@ -351,7 +353,7 @@ impl Configured {
             (Some(origin), _) => {
                 // Any other method, simply check for a valid origin...
 
-                trace!("origin header: {:?}", origin);
+                log::trace!("origin header: {:?}", origin);
                 if self.is_origin_allowed(origin) {
                     Ok(Validated::Simple(origin.clone()))
                 } else {
@@ -411,16 +413,20 @@ impl Configured {
 
 mod internal {
     use std::sync::Arc;
+    use std::task::{Context, Poll};
+    use std::pin::Pin;
+    use std::future::Future;
 
-    use futures::{future, Future, Poll};
+    use pin_project::pin_project;
+    use futures::{future, ready, TryFuture};
     use headers::Origin;
     use http::header;
 
     use super::{Configured, CorsForbidden, Validated};
-    use filter::{Filter, FilterBase, One};
-    use generic::Either;
-    use reject::{CombineRejection, Rejection};
-    use route;
+    use crate::filter::{Filter, FilterBase, One};
+    use crate::generic::Either;
+    use crate::reject::{CombineRejection, Rejection};
+    use crate::route;
 
     #[derive(Clone, Debug)]
     pub struct CorsFilter<F> {
@@ -432,13 +438,14 @@ mod internal {
     where
         F: Filter,
         F::Extract: Send,
+        F::Future: Future,
         F::Error: CombineRejection<Rejection>,
     {
         type Extract =
             One<Either<One<Preflight>, One<Either<One<Wrapped<F::Extract>>, F::Extract>>>>;
         type Error = <F::Error as CombineRejection<Rejection>>::Rejection;
         type Future = future::Either<
-            future::FutureResult<Self::Extract, Self::Error>,
+            future::Ready<Result<Self::Extract, Self::Error>>,
             WrappedFuture<F::Future>,
         >;
 
@@ -452,19 +459,19 @@ mod internal {
                         config: self.config.clone(),
                         origin,
                     };
-                    future::Either::A(future::ok((Either::A((preflight,)),)))
+                    future::Either::Left(future::ok((Either::A((preflight,)),)))
                 }
-                Ok(Validated::Simple(origin)) => future::Either::B(WrappedFuture {
+                Ok(Validated::Simple(origin)) => future::Either::Right(WrappedFuture {
                     inner: self.inner.filter(),
                     wrapped: Some((self.config.clone(), origin)),
                 }),
-                Ok(Validated::NotCors) => future::Either::B(WrappedFuture {
+                Ok(Validated::NotCors) => future::Either::Right(WrappedFuture {
                     inner: self.inner.filter(),
                     wrapped: None,
                 }),
                 Err(err) => {
-                    let rejection = ::reject::known(CorsForbidden { kind: err });
-                    future::Either::A(future::err(rejection.into()))
+                    let rejection = crate::reject::known(CorsForbidden { kind: err });
+                    future::Either::Left(future::err(rejection.into()))
                 }
             }
         }
@@ -476,9 +483,9 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl ::reply::Reply for Preflight {
-        fn into_response(self) -> ::reply::Response {
-            let mut res = ::reply::Response::default();
+    impl crate::reply::Reply for Preflight {
+        fn into_response(self) -> crate::reply::Response {
+            let mut res = crate::reply::Response::default();
             self.config.append_preflight_headers(res.headers_mut());
             res.headers_mut()
                 .insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, self.origin);
@@ -493,11 +500,11 @@ mod internal {
         origin: header::HeaderValue,
     }
 
-    impl<R> ::reply::Reply for Wrapped<R>
+    impl<R> crate::reply::Reply for Wrapped<R>
     where
-        R: ::reply::Reply,
+        R: crate::reply::Reply,
     {
-        fn into_response(self) -> ::reply::Response {
+        fn into_response(self) -> crate::reply::Response {
             let mut res = self.inner.into_response();
             self.config.append_common_headers(res.headers_mut());
             res.headers_mut()
@@ -506,33 +513,40 @@ mod internal {
         }
     }
 
+    #[pin_project]
     #[derive(Debug)]
     pub struct WrappedFuture<F> {
+        #[pin]
         inner: F,
         wrapped: Option<(Arc<Configured>, header::HeaderValue)>,
     }
 
     impl<F> Future for WrappedFuture<F>
     where
-        F: Future,
+        F: TryFuture,
         F::Error: CombineRejection<Rejection>,
     {
-        type Item = One<Either<One<Preflight>, One<Either<One<Wrapped<F::Item>>, F::Item>>>>;
-        type Error = <F::Error as CombineRejection<Rejection>>::Rejection;
+        type Output = Result<One<Either<One<Preflight>, One<Either<One<Wrapped<F::Ok>>, F::Ok>>>>, <F::Error as CombineRejection<Rejection>>::Rejection>;
 
-        fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-            let inner = try_ready!(self.inner.poll());
-            let item = if let Some((config, origin)) = self.wrapped.take() {
-                (Either::A((Wrapped {
-                    config,
-                    inner,
-                    origin,
-                },)),)
-            } else {
-                (Either::B(inner),)
-            };
-            let item = (Either::B(item),);
-            Ok(item.into())
+
+        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+            let pin = self.project();
+            match ready!(pin.inner.try_poll(cx)) {
+                Ok(inner) => {
+                    let item = if let Some((config, origin)) = pin.wrapped.take() {
+                        (Either::A((Wrapped {
+                            config,
+                            inner,
+                            origin,
+                        },)),)
+                    } else {
+                        (Either::B(inner),)
+                    };
+                    let item = (Either::B(item),);
+                    Poll::Ready(Ok(item))
+                },
+                Err(err) => Poll::Ready(Err(err.into())),
+            }
         }
     }
 

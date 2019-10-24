@@ -7,10 +7,11 @@
 //! There is also [`warp::method()`](method), which never rejects
 //! a request, and just extracts the method to be used in your filter chains.
 use http::Method;
+use futures::future;
 
-use filter::{filter_fn, filter_fn_one, And, Filter, One};
-use never::Never;
-use reject::{CombineRejection, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, And, Filter, One};
+use crate::never::Never;
+use crate::reject::{CombineRejection, Rejection};
 
 pub use self::v2::{
     delete as delete2, get as get2, head, options, patch, post as post2, put as put2,
@@ -75,7 +76,7 @@ where
 ///     });
 /// ```
 pub fn method() -> impl Filter<Extract = One<Method>, Error = Never> + Copy {
-    filter_fn_one(|route| Ok::<_, Never>(route.method().clone()))
+    filter_fn_one(|route| future::ok::<_, Never>(route.method().clone()))
 }
 
 // NOTE: This takes a static function instead of `&'static Method` directly
@@ -87,11 +88,11 @@ where
 {
     filter_fn(move |route| {
         let method = func();
-        trace!("method::{:?}?: {:?}", method, route.method());
+        log::trace!("method::{:?}?: {:?}", method, route.method());
         if route.method() == method {
-            Ok(())
+            future::ok(())
         } else {
-            Err(::reject::method_not_allowed())
+            future::err(crate::reject::method_not_allowed())
         }
     })
 }
@@ -104,8 +105,8 @@ pub mod v2 {
     //! `405 Method Not Allowed`.
     use http::Method;
 
-    use filter::Filter;
-    use reject::Rejection;
+    use crate::filter::Filter;
+    use crate::reject::Rejection;
 
     use super::method_is;
 

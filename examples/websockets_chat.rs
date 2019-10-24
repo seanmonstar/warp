@@ -1,16 +1,12 @@
 #![deny(warnings)]
-extern crate futures;
-extern crate pretty_env_logger;
-extern crate warp;
-
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
 
-use futures::sync::mpsc;
-use futures::{Future, Stream};
+use tokio::sync::mpsc;
+use futures::{future, Future, FutureExt, StreamExt};
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -21,9 +17,10 @@ static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 ///
 /// - Key is their id
 /// - Value is a sender of `warp::ws::Message`
-type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
+type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     // Keep track of all connected users, key is usize, value
@@ -39,7 +36,7 @@ fn main() {
         .and(users)
         .map(|ws: warp::ws::Ws2, users| {
             // This will call our function if the handshake succeeds.
-            ws.on_upgrade(move |socket| user_connected(socket, users))
+            ws.on_upgrade(move |socket| user_connected(socket, users).map(|result| result.unwrap()))
         });
 
     // GET / -> index html
@@ -47,10 +44,10 @@ fn main() {
 
     let routes = index.or(chat);
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
-fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error = ()> {
+fn user_connected(ws: WebSocket, users: Users) -> impl Future<Output = Result<(), ()>> {
     // Use a counter to assign a new unique ID for this user.
     let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
 
@@ -61,12 +58,15 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error =
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the websocket...
-    let (tx, rx) = mpsc::unbounded();
+    let (tx, rx) = mpsc::unbounded_channel();
     warp::spawn(
-        rx.map_err(|()| -> warp::Error { unreachable!("unbounded rx never errors") })
+        rx
             .forward(user_ws_tx)
-            .map(|_tx_rx| ())
-            .map_err(|ws_err| eprintln!("websocket send error: {}", ws_err)),
+            .map(|result| {
+                if let Err(e) = result {
+                    eprintln!("websocket send error: {}", e);
+                }
+            })
     );
 
     // Save the sender in our list of connected users.
@@ -82,19 +82,19 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Item = (), Error =
         // Every time the user sends a message, broadcast it to
         // all other users...
         .for_each(move |msg| {
-            user_message(my_id, msg, &users);
-            Ok(())
+            user_message(my_id, msg.unwrap(), &users);
+            future::ready(())
         })
         // for_each will keep processing as long as the user stays
         // connected. Once they disconnect, then...
         .then(move |result| {
             user_disconnected(my_id, &users2);
-            result
+            future::ok(result)
         })
         // If at any time, there was a websocket error, log here...
-        .map_err(move |e| {
-            eprintln!("websocket error(uid={}): {}", my_id, e);
-        })
+        // .map_err(move |e| {
+        //     eprintln!("websocket error(uid={}): {}", my_id, e);
+        // })
 }
 
 fn user_message(my_id: usize, msg: Message, users: &Users) {
@@ -111,9 +111,9 @@ fn user_message(my_id: usize, msg: Message, users: &Users) {
     //
     // We use `retain` instead of a for loop so that we can reap any user that
     // appears to have disconnected.
-    for (&uid, tx) in users.lock().unwrap().iter() {
+    for (&uid, tx) in users.lock().unwrap().iter_mut() {
         if my_id != uid {
-            match tx.unbounded_send(Message::text(new_msg.clone())) {
+            match tx.try_send(Ok(Message::text(new_msg.clone()))) {
                 Ok(()) => (),
                 Err(_disconnected) => {
                     // The tx is disconnected, our `user_disconnected` code

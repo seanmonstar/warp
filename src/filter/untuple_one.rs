@@ -1,4 +1,9 @@
-use futures::{Async, Future, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::future::Future;
+
+use pin_project::pin_project;
+use futures::{ready, TryFuture};
 
 use super::{Filter, FilterBase, Tuple};
 
@@ -24,7 +29,9 @@ where
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct UntupleOneFuture<F: Filter> {
+    #[pin]
     extract: F::Future,
 }
 
@@ -33,12 +40,13 @@ where
     F: Filter<Extract = (T,)>,
     T: Tuple,
 {
-    type Item = T;
-    type Error = F::Error;
+    type Output = Result<T, F::Error>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let (t,) = try_ready!(self.extract.poll());
-        Ok(Async::Ready(t))
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match ready!(self.project().extract.try_poll(cx)) {
+            Ok((t,)) => Poll::Ready(Ok(t)),
+            Err(err) => Poll::Ready(Err(err)),
+        }
     }
 }

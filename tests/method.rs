@@ -1,27 +1,24 @@
 #![deny(warnings)]
-extern crate pretty_env_logger;
-extern crate warp;
-
 use warp::Filter;
 
-#[test]
-fn method() {
+#[tokio::test]
+async fn method() {
     let _ = pretty_env_logger::try_init();
     let get = warp::get2().map(warp::reply);
 
     let req = warp::test::request();
-    assert!(req.matches(&get));
+    assert!(req.matches(&get).await);
 
     let req = warp::test::request().method("POST");
-    assert!(!req.matches(&get));
+    assert!(!req.matches(&get).await);
 
     let req = warp::test::request().method("POST");
-    let resp = req.reply(&get);
+    let resp = req.reply(&get).await;
     assert_eq!(resp.status(), 405);
 }
 
-#[test]
-fn method_not_allowed_trumps_not_found() {
+#[tokio::test]
+async fn method_not_allowed_trumps_not_found() {
     let _ = pretty_env_logger::try_init();
     let get = warp::get2().and(warp::path("hello").map(warp::reply));
     let post = warp::post2().and(warp::path("bye").map(warp::reply));
@@ -30,13 +27,13 @@ fn method_not_allowed_trumps_not_found() {
 
     let req = warp::test::request().method("GET").path("/bye");
 
-    let resp = req.reply(&routes);
+    let resp = req.reply(&routes).await;
     // GET was allowed, but only for /hello, so POST returning 405 is fine.
     assert_eq!(resp.status(), 405);
 }
 
-#[test]
-fn bad_request_trumps_method_not_allowed() {
+#[tokio::test]
+async fn bad_request_trumps_method_not_allowed() {
     let _ = pretty_env_logger::try_init();
     let get = warp::get2()
         .and(warp::path("hello"))
@@ -48,7 +45,7 @@ fn bad_request_trumps_method_not_allowed() {
 
     let req = warp::test::request().method("GET").path("/hello");
 
-    let resp = req.reply(&routes);
+    let resp = req.reply(&routes).await;
     // GET was allowed, but header rejects with 400, should not
     // assume POST was the appropriate method.
     assert_eq!(resp.status(), 400);
