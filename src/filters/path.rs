@@ -274,6 +274,79 @@ pub fn param<T: FromStr + Send + 'static>(
     })
 }
 
+=======
+/// Extract a parameter from a path segment.
+///
+/// This will try to parse a value from the current request path
+/// segment, and if successful, the value is returned as the `Filter`'s
+/// "extracted" value.
+///
+/// If the value could not be parsed, rejects with a user-defined [`Rejection`][].
+///
+/// The associated `Err` on the `FromStr` must impl `From` for `Rejection`. See example.
+///
+/// If [`warp::reject::custom`][] is used to create a `Rejection`, a [`recover`][] filter
+/// should convert this `Rejection` into a `Reply`, or else this will be returned as a
+/// `500 Internal Server Error`.
+///
+/// [`Rejection`]: ../../reject/struct.Rejection.html
+/// [`recover`]: ../trait.Filter.html#method.recover
+/// [`warp::reject::custom`]: ../../reject/fn.custom.html
+///
+///
+/// # Example
+///
+/// ```
+/// use std::convert::From;
+/// use std::str::FromStr;
+/// use warp::{Filter, Rejection};
+///
+/// #[derive(Debug)]
+/// struct MyStruct {
+///     id: u32,
+/// }
+///
+/// impl FromStr for MyStruct {
+///     type Err = MyError;
+///
+///     fn from_str(s: &str) -> Result<Self, Self::Err> {
+///         let id = s.parse::<u32>().map_err(|_| MyError)?;
+///
+///         Ok(MyStruct { id })
+///     }
+/// }
+///
+/// struct MyError;
+///
+/// impl From<MyError> for Rejection {
+///     fn from(err: MyError) -> Rejection {
+///         warp::reject::custom("My Custom Rejection")
+///     }
+/// }
+///
+/// let route = warp::path::param_with_err()
+///     .map(|id: MyStruct| {
+///         format!("You asked for /{:?}", id)
+///     });
+///
+/// ```
+pub fn param_with_err<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+where
+    T: FromStr + Send + 'static,
+    T::Err: Into<Rejection>,
+{
+    segment(|seg| {
+        log::trace!("param?: {:?}", seg);
+        if seg.is_empty() {
+            return Err(reject::not_found());
+        }
+        T::from_str(seg).map(one).map_err(|err| {
+            #[allow(deprecated)]
+            err.into()
+        })
+    })
+}
+
 /// Extract the unmatched tail of the path.
 ///
 /// This will return a `Tail`, which allows access to the rest of the path
