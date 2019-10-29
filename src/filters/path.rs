@@ -281,13 +281,11 @@ pub fn param<T: FromStr + Send + 'static>(
 /// segment, and if successful, the value is returned as the `Filter`'s
 /// "extracted" value.
 ///
-/// If the value could not be parsed, rejects with a user-defined [`Rejection`][].
+/// If the value could not be parsed, rejects with a custom [`Rejection`][].
 ///
-/// The associated `Err` on the `FromStr` must impl `From` for `Rejection`. See example.
-///
-/// If [`warp::reject::custom`][] is used to create a `Rejection`, a [`recover`][] filter
-/// should convert this `Rejection` into a `Reply`, or else this will be returned as a
-/// `500 Internal Server Error`.
+/// Since [`warp::reject::custom`][] is used to create a `Rejection` under the hood,
+/// a [`recover`][] filter should convert this `Rejection` into a `Reply`, or else
+/// this will be returned as a `500 Internal Server Error`.
 ///
 /// [`Rejection`]: ../../reject/struct.Rejection.html
 /// [`recover`]: ../trait.Filter.html#method.recover
@@ -297,9 +295,17 @@ pub fn param<T: FromStr + Send + 'static>(
 /// # Example
 ///
 /// ```
+/// use futures::future;
 /// use std::convert::From;
 /// use std::str::FromStr;
-/// use warp::{Filter, Rejection};
+/// use warp::{
+///     http::{
+///         status,
+///         Response,
+///     },
+///     Filter,
+///     Rejection
+/// };
 ///
 /// #[derive(Debug)]
 /// struct MyStruct {
@@ -316,24 +322,40 @@ pub fn param<T: FromStr + Send + 'static>(
 ///     }
 /// }
 ///
+/// #[derive(Debug)]
 /// struct MyError;
 ///
-/// impl From<MyError> for Rejection {
-///     fn from(err: MyError) -> Rejection {
-///         warp::reject::custom("My Custom Rejection")
+/// impl std::fmt::Display for MyError {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "MyError")
 ///     }
 /// }
+///
+/// impl std::error::Error for MyError {};
 ///
 /// let route = warp::path::param_with_err()
 ///     .map(|id: MyStruct| {
 ///         format!("You asked for /{:?}", id)
-///     });
+///     })
+///    .recover(|err: Rejection| {
+///        let err = {
+///            if let Some(e) = err.find_cause::<MyError>() {
+///                Ok(Response::builder()
+///                .status(status::StatusCode::from_u16(404).unwrap())
+///                .body(e.to_string())
+///                )
+///            } else {
+///                Err(err)
+///            }
+///        };
+///        future::ready(err)
+///    });
 ///
 /// ```
 pub fn param_with_err<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send + 'static,
-    T::Err: Into<Rejection>,
+    T::Err: Into<reject::Cause>,
 {
     segment(|seg| {
         log::trace!("param?: {:?}", seg);
@@ -342,7 +364,7 @@ where
         }
         T::from_str(seg).map(one).map_err(|err| {
             #[allow(deprecated)]
-            err.into()
+            reject::custom(err.into())
         })
     })
 }
