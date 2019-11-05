@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::future::Future;
+use std::convert::Infallible;
 
 use pin_project::pin_project;
 use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
@@ -17,7 +18,6 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use crate::reject::Reject;
 use crate::reply::Reply;
 use crate::transport::Transport;
-use crate::never::Never;
 use crate::Request;
 
 /// Create a `Server` with the provided service.
@@ -460,7 +460,7 @@ where
     F::Ok: Reply,
     F::Error: Reject,
 {
-    type Output = Result<crate::reply::Response, Never>;
+    type Output = Result<crate::reply::Response, Infallible>;
 
     #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

@@ -4,8 +4,8 @@ use headers::Cookie;
 use futures::future;
 
 use super::header;
+use std::convert::Infallible;
 use crate::filter::{filter_fn_one, Filter, One};
-use crate::never::Never;
 use crate::reject::Rejection;
 
 /// Creates a `Filter` that requires a cookie by name.
@@ -27,7 +27,7 @@ pub fn cookie(name: &'static str) -> impl Filter<Extract = One<String>, Error = 
 /// the request, extracting `None`.
 pub fn optional(
     name: &'static str,
-) -> impl Filter<Extract = One<Option<String>>, Error = Never> + Copy {
+) -> impl Filter<Extract = One<Option<String>>, Error = Infallible> + Copy {
     header::optional2()
         .map(move |opt: Option<Cookie>| opt.and_then(|cookie| cookie.get(name).map(String::from)))
 }
@@ -37,7 +37,7 @@ pub fn optional(
 pub fn optional_value<U, F>(
     name: &'static str,
     func: F,
-) -> impl Filter<Extract = One<Option<U>>, Error = Never> + Copy
+) -> impl Filter<Extract = One<Option<U>>, Error = Infallible> + Copy
 where
     F: Fn(&str) -> U + Copy,
     U: Send + 'static,

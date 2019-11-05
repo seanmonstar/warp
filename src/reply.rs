@@ -520,7 +520,7 @@ where
     }
 }
 
-impl Reply for crate::never::Never {
+impl Reply for std::convert::Infallible {
     #[inline(always)]
     fn into_response(self) -> Response {
         match self {}

@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
 use std::task::Poll;
+use std::convert::Infallible;
 
 use bytes::{BufMut, BytesMut};
 use futures::future::Either;
@@ -24,7 +25,6 @@ use tokio::io::AsyncRead;
 use urlencoding::decode;
 
 use crate::filter::{Filter, FilterClone, One};
-use crate::never::Never;
 use crate::reject::{self, Rejection};
 use crate::reply::{Reply, Response};
 
@@ -206,7 +206,7 @@ impl Conditionals {
     }
 }
 
-fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Never> + Copy {
+fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
     crate::header::optional2()
         .and(crate::header::optional2())
         .and(crate::header::optional2())

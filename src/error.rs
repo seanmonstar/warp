@@ -1,12 +1,11 @@
 use std::error::Error as StdError;
+use std::convert::Infallible;
 use std::fmt;
 use std::io;
 
 use hyper::Error as HyperError;
 #[cfg(feature = "websocket")]
 use tungstenite::Error as WsError;
-
-use crate::never::Never;
 
 /// Errors that can happen inside warp.
 pub struct Error(Box<Kind>);
@@ -66,9 +65,9 @@ impl From<Kind> for Error {
     }
 }
 
-impl From<Never> for Error {
-    fn from(never: Never) -> Error {
-        match never {}
+impl From<Infallible> for Error {
+    fn from(infallible: Infallible) -> Error {
+        match infallible {}
     }
 }
 

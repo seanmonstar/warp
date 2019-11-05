@@ -29,6 +29,7 @@
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::convert::Infallible;
 
 use http::{
     self,
@@ -38,8 +39,6 @@ use http::{
 use hyper::Body;
 use serde;
 use serde_json;
-
-use crate::never::Never;
 
 pub(crate) use self::sealed::{CombineRejection, Reject};
 
@@ -301,14 +300,14 @@ impl Rejection {
     }
 }
 
-impl From<Never> for Rejection {
+impl From<Infallible> for Rejection {
     #[inline]
-    fn from(never: Never) -> Rejection {
-        match never {}
+    fn from(infallible: Infallible) -> Rejection {
+        match infallible {}
     }
 }
 
-impl Reject for Never {
+impl Reject for Infallible {
     fn status(&self) -> StatusCode {
         match *self {}
     }
@@ -654,8 +653,8 @@ trait Typed: StdError + 'static {
 
 mod sealed {
     use super::{Cause, Reason, Rejection, Rejections};
-    use crate::never::Never;
     use http::StatusCode;
+    use std::convert::Infallible;
     use std::fmt;
 
     pub trait Reject: fmt::Debug + Send + Sync {
@@ -696,15 +695,15 @@ mod sealed {
         }
     }
 
-    impl CombineRejection<Never> for Rejection {
+    impl CombineRejection<Infallible> for Rejection {
         type Rejection = Rejection;
 
-        fn combine(self, other: Never) -> Self::Rejection {
+        fn combine(self, other: Infallible) -> Self::Rejection {
             match other {}
         }
     }
 
-    impl CombineRejection<Rejection> for Never {
+    impl CombineRejection<Rejection> for Infallible {
         type Rejection = Rejection;
 
         fn combine(self, _: Rejection) -> Self::Rejection {
@@ -712,10 +711,10 @@ mod sealed {
         }
     }
 
-    impl CombineRejection<Never> for Never {
-        type Rejection = Never;
+    impl CombineRejection<Infallible > for Infallible {
+        type Rejection = Infallible ;
 
-        fn combine(self, _: Never) -> Self::Rejection {
+        fn combine(self, _: Infallible) -> Self::Rejection {
             match self {}
         }
     }

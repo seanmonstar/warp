@@ -1,9 +1,9 @@
 //! Socket Address filters.
 
 use std::net::SocketAddr;
+use std::convert::Infallible;
 
 use crate::filter::{filter_fn_one, Filter};
-use crate::never::Never;
 
 /// Creates a `Filter` to get the remote address of the connection.
 ///
@@ -21,6 +21,6 @@ use crate::never::Never;
 ///         println!("remote address = {:?}", addr);
 ///     });
 /// ```
-pub fn remote() -> impl Filter<Extract = (Option<SocketAddr>,), Error = Never> + Copy {
+pub fn remote() -> impl Filter<Extract = (Option<SocketAddr>,), Error = Infallible> + Copy {
     filter_fn_one(|route| futures::future::ok(route.remote_addr()))
 }
