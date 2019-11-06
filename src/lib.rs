@@ -147,8 +147,7 @@ pub use self::filters::{
 // ws() function
 #[cfg(feature = "websocket")]
 #[doc(hidden)]
-#[allow(deprecated)]
-pub use self::filters::ws::{ws, ws2};
+pub use self::filters::ws::ws;
 #[doc(hidden)]
 pub use self::redirect::redirect;
 #[doc(hidden)]

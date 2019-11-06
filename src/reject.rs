@@ -397,7 +397,8 @@ impl Rejections {
                     e.is::<MissingCookie>() ||
                     e.is::<InvalidQuery>() ||
                     e.is::<crate::body::BodyReadError>() ||
-                    e.is::<crate::body::BodyDeserializeError>() {
+                    e.is::<crate::body::BodyDeserializeError>() ||
+                    e.is::<crate::ws::MissingConnectionUpgrade> () {
                         StatusCode::BAD_REQUEST
                 } else if e.is::<LengthRequired>() {
                     StatusCode::LENGTH_REQUIRED

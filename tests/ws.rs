@@ -7,7 +7,7 @@ use futures::{FutureExt, StreamExt};
 async fn upgrade() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2().map(|ws: warp::ws::Ws2| ws.on_upgrade(|_| futures::future::ready(())));
+    let route = warp::ws().map(|ws: warp::ws::Ws| ws.on_upgrade(|_| async {}));
 
     // From https://tools.ietf.org/html/rfc6455#section-1.2
     let key = "dGhlIHNhbXBsZSBub25jZQ==";
@@ -83,7 +83,7 @@ async fn binary() {
 async fn closed() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws2().map(|ws: warp::ws::Ws2| {
+    let route = warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             websocket
                 .close()
@@ -105,7 +105,7 @@ async fn closed() {
 async fn limit_message_size() {
     let _ = pretty_env_logger::try_init();
 
-    let echo = warp::ws2().map(|ws: warp::ws::Ws2| {
+    let echo = warp::ws().map(|ws: warp::ws::Ws| {
         ws.max_message_size(1024).on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
@@ -131,7 +131,7 @@ async fn limit_message_size() {
 }
 
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> {
-    warp::ws2().map(|ws: warp::ws::Ws2| {
+    warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
