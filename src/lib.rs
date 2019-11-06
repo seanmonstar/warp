@@ -111,7 +111,6 @@ pub use self::filters::multipart;
 #[doc(hidden)]
 pub use self::filters::ws;
 #[doc(hidden)]
-#[allow(deprecated)]
 pub use self::filters::{
     addr,
     // any() function
@@ -133,8 +132,6 @@ pub use self::filters::{
     log::log,
     method::{delete, get, head, method, options, patch, post, put},
     path,
-    // the index() function
-    path::index,
     // path() function and macro
     path::path,
     query,
