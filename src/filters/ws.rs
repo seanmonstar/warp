@@ -1,7 +1,5 @@
 //! Websockets Filters
 
-#![allow(deprecated)]
-
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::task::{Context, Poll};
@@ -16,25 +14,9 @@ use tungstenite::protocol::{self, WebSocketConfig};
 use tokio::io::{AsyncRead, AsyncWrite};
 use super::{body, header};
 use crate::error::Kind;
-use crate::filter::{Filter, FilterClone, One};
+use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-
-#[doc(hidden)]
-#[deprecated(note = "will be replaced by ws2")]
-pub fn ws<F, U>(fun: F) -> impl FilterClone<Extract = One<Ws>, Error = Rejection>
-where
-    F: Fn(WebSocket) -> U + Clone + Send + 'static,
-    U: Future<Output = ()> + Send + 'static,
-{
-    ws_new(move || {
-        let fun = fun.clone();
-        move |sock| {
-            let fut = fun(sock);
-            ::hyper::rt::spawn(fut);
-        }
-    })
-}
 
 /// Creates a Websocket Filter.
 ///
@@ -57,13 +39,13 @@ where
 /// - Header `connection: upgrade`
 /// - Header `upgrade: websocket`
 /// - Header `sec-websocket-accept` with the hash value of the received key.
-pub fn ws2() -> impl Filter<Extract = One<Ws2>, Error = Rejection> + Copy {
+pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
     let connection_has_upgrade = header::header2()
         .and_then(|conn: ::headers::Connection| {
             if conn.contains("upgrade") {
                 future::ok(())
             } else {
-                future::err(crate::reject::bad_request())
+                future::err(crate::reject::known(MissingConnectionUpgrade))
             }
         })
         .untuple_one();
@@ -76,79 +58,21 @@ pub fn ws2() -> impl Filter<Extract = One<Ws2>, Error = Rejection> + Copy {
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
         .and(body::body())
-        .map(move |key: SecWebsocketKey, body: ::hyper::Body| Ws2 {
+        .map(move |key: SecWebsocketKey, body: ::hyper::Body| Ws {
             body,
             config: None,
             key,
         })
 }
 
-#[allow(deprecated)]
-fn ws_new<F1, F2>(factory: F1) -> impl FilterClone<Extract = One<Ws>, Error = Rejection>
-where
-    F1: Fn() -> F2 + Clone + Send + 'static,
-    F2: Fn(WebSocket) + Send + 'static,
-{
-    ws2().map(move |Ws2 { key, config, body }| {
-        let fun = factory();
-        let fut = body
-            .on_upgrade()
-            .map(move |result| {
-                match result {
-                    Ok(upgraded) => {
-                        log::trace!("websocket upgrade complete");
-                        let io =
-                            protocol::WebSocket::from_raw_socket(AllowStd { inner: upgraded, context: (true, null_mut())}, protocol::Role::Server, config);
-
-                        fun(WebSocket { inner: io});
-                    },
-                    Err(err) => log::debug!("ws upgrade error: {}", err),
-                }
-            });
-
-        ::hyper::rt::spawn(fut);
-
-        Ws { key }
-    })
-}
-
-#[doc(hidden)]
-#[deprecated(note = "will be replaced with Ws2")]
+/// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
 pub struct Ws {
-    key: SecWebsocketKey,
-}
-
-#[allow(deprecated)]
-impl Reply for Ws {
-    fn into_response(self) -> Response {
-        let mut res = http::Response::default();
-
-        *res.status_mut() = http::StatusCode::SWITCHING_PROTOCOLS;
-
-        res.headers_mut().typed_insert(Connection::upgrade());
-        res.headers_mut().typed_insert(Upgrade::websocket());
-        res.headers_mut()
-            .typed_insert(SecWebsocketAccept::from(self.key));
-
-        res
-    }
-}
-
-#[allow(deprecated)]
-impl fmt::Debug for Ws {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Ws").finish()
-    }
-}
-
-/// Extracted by the [`ws2`](ws2) filter, and used to finish an upgrade.
-pub struct Ws2 {
     body: ::hyper::Body,
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
 }
 
-impl Ws2 {
+impl Ws {
     /// Finish the upgrade, passing a function to handle the `WebSocket`.
     ///
     /// The passed function must return a `Future`.
@@ -182,15 +106,15 @@ impl Ws2 {
     }
 }
 
-impl fmt::Debug for Ws2 {
+impl fmt::Debug for Ws {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Ws2").finish()
+        f.debug_struct("Ws").finish()
     }
 }
 
 #[allow(missing_debug_implementations)]
 struct WsReply<F> {
-    ws: Ws2,
+    ws: Ws,
     on_upgrade: F,
 }
 
@@ -528,3 +452,16 @@ impl Into<Vec<u8>> for Message {
         self.into_bytes()
     }
 }
+
+// ===== Rejections =====
+
+#[derive(Debug)]
+pub(crate) struct MissingConnectionUpgrade;
+
+impl ::std::fmt::Display for MissingConnectionUpgrade {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Connection header did not include 'upgrade'")
+    }
+}
+
+impl ::std::error::Error for MissingConnectionUpgrade {}
