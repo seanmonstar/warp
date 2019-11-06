@@ -100,10 +100,15 @@ async fn map() {
 async fn unify() {
     let _ = pretty_env_logger::try_init();
 
-    let a = warp::any().map(|| 1);
-    let b = warp::any().map(|| 2);
-    let or = a.or(b).unify();
+    let a = warp::path::param::<u32>();
+    let b = warp::path::param::<u32>();
+    let f = a.or(b).unify();
 
-    let ex = warp::test::request().filter(&or).await.unwrap();
+    let ex = warp::test::request()
+        .path("/1")
+        .filter(&f)
+        .await
+        .unwrap();
+
     assert_eq!(ex, 1);
 }
