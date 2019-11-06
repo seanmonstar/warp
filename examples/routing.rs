@@ -83,7 +83,7 @@ async fn main() {
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
 
-    let routes = warp::get2().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
+    let routes = warp::get().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
 
     // Note that composing filters for many routes may increase compile times (because it uses a lot of generics).
     // If you wish to use dynamic dispatch instead and speed up compile times while

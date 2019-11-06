@@ -65,28 +65,28 @@ async fn main() {
     // Next, we'll define each our 4 endpoints:
 
     // `GET /todos`
-    let list = warp::get2()
+    let list = warp::get()
         .and(todos_index)
         .and(list_options)
         .and(db.clone())
         .map(list_todos);
 
     // `POST /todos`
-    let create = warp::post2()
+    let create = warp::post()
         .and(todos_index)
         .and(json_body)
         .and(db.clone())
         .and_then(create_todo);
 
     // `PUT /todos/:id`
-    let update = warp::put2()
+    let update = warp::put()
         .and(todos_id)
         .and(json_body)
         .and(db.clone())
         .and_then(update_todo);
 
     // `DELETE /todos/:id`
-    let delete = warp::delete2()
+    let delete = warp::delete()
         .and(todos_id)
         // It is important to put the auth check _after_ the path filters.
         // If we put the auth check before, the request `PUT /todos/invalid-string`
