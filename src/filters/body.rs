@@ -105,8 +105,19 @@ pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Cop
 ///     });
 /// ```
 pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| Concat {
-        fut: body.try_concat(),
+    stream().and_then(|mut body_stream: BodyStream| async move {
+        use bytes::{BytesMut, Bytes};
+        use futures::stream::*;
+        let mut bytes = BytesMut::new();
+        loop {
+            match body_stream.next().await {
+                Some(Ok(data)) => bytes.extend_from_slice(data.bytes()),
+                Some(Err(err)) => return Err(reject::known(BodyReadError(err))),
+                None => break,
+            }
+        }
+        let chunk = Chunk::from(Bytes::from(bytes));
+        Ok::<_, Rejection>(FullBody { chunk })
     })
 }
 
@@ -277,7 +288,7 @@ pub struct BodyStream {
 }
 
 impl Stream for BodyStream {
-    type Item = Result<StreamBuf, crate::Error>;
+    type Item = Result<StreamBuf, hyper::error::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let opt_item: Option<Result<Chunk, hyper::Error>> = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
@@ -286,7 +297,6 @@ impl Stream for BodyStream {
             None =>  Poll::Ready(None),
             Some(item) => {
                 let stream_buf = item
-                    .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e)))
                     .map(|chunk| StreamBuf { chunk });
 
                 Poll::Ready(Some(stream_buf))
