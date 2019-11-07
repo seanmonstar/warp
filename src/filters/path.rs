@@ -98,8 +98,8 @@
 //!
 //! ```
 //! # use warp::Filter;
-//! # let sum = warp::any().map(warp::reply);
-//! # let times = sum.clone();
+//! # let sum = warp::path("sum");
+//! # let times = warp::path("times");
 //! // GET /math/sum/:u32/:u32
 //! // GET /math/:u16/times/:u16
 //! let math = warp::path("math")
@@ -111,7 +111,7 @@
 //!
 //! ```
 //! # use warp::Filter;
-//! # let hi = warp::any().map(warp::reply);
+//! # let hi = warp::path("hi");
 //! # let hello_from_warp = hi.clone();
 //! # let bye = hi.clone();
 //! # let math = hi.clone();
