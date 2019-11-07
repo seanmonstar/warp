@@ -1,10 +1,11 @@
 use std::time::Duration;
+use std::convert::Infallible;
 use tokio::{clock::now, timer::Interval};
-use futures::{never::Never, StreamExt};
+use futures::StreamExt;
 use warp::{Filter, sse::ServerSentEvent};
 
 // create server-sent event
-fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Never> {
+fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Infallible> {
     Ok(warp::sse::data(counter))
 }
 

@@ -5,13 +5,13 @@
 //! they don't extract any values. The `header` filter allows parsing
 //! a type from any header.
 use std::str::FromStr;
+use std::convert::Infallible;
 
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
 use futures::future;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
-use crate::never::Never;
 use crate::reject::{self, Rejection};
 
 /// Create a `Filter` that tries to parse the specified header.
@@ -96,7 +96,7 @@ where
     })
 }
 
-pub(crate) fn optional2<T>() -> impl Filter<Extract = One<Option<T>>, Error = Never> + Copy
+pub(crate) fn optional2<T>() -> impl Filter<Extract = One<Option<T>>, Error = Infallible> + Copy
 where
     T: Header + Send + 'static,
 {
@@ -198,6 +198,6 @@ pub fn exact_ignore_case(
 ///         format!("header count: {}", headers.len())
 ///     });
 /// ```
-pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Never> + Copy {
+pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Infallible> + Copy {
     filter_fn_one(|route| future::ok(route.headers().clone()))
 }

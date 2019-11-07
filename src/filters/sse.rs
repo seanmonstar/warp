@@ -5,11 +5,11 @@
 //! ```
 //!
 //! use std::time::Duration;
+//! use std::convert::Infallible;
 //! use warp::{Filter, sse::ServerSentEvent};
 //! use futures::{stream::iter, Stream};
-//! use futures::never::Never;
 //!
-//! fn sse_events() -> impl Stream<Item = Result<impl ServerSentEvent,Never>> {
+//! fn sse_events() -> impl Stream<Item = Result<impl ServerSentEvent, Infallible>> {
 //!     iter(vec![
 //!         Ok(warp::sse::data("unnamed event").into_a()),
 //!         Ok((
@@ -362,7 +362,7 @@ impl Sse {
     /// use std::time::Duration;
     /// use futures::Stream;
     /// use futures::stream::iter;
-    /// use futures::never::Never;
+    /// use std::convert::Infallible;
     /// use warp::{Filter, sse::ServerSentEvent};
     /// use serde_derive::Serialize;
     ///
@@ -372,7 +372,7 @@ impl Sse {
     ///     text: String,
     /// }
     ///
-    /// fn event_stream() -> impl Stream<Item = Result<impl ServerSentEvent, Never>> {
+    /// fn event_stream() -> impl Stream<Item = Result<impl ServerSentEvent, Infallible>> {
     ///         iter(vec![
     ///             // Unnamed event with data only
     ///             Ok(warp::sse::data("payload").boxed()),
@@ -572,12 +572,13 @@ where
 ///
 /// ```
 /// use std::time::Duration;
-/// use futures::{never::Never, StreamExt};
+/// use std::convert::Infallible;
+/// use futures::StreamExt;
 /// use tokio::{clock::now, timer::Interval};
 /// use warp::{Filter, Stream, sse::ServerSentEvent};
 ///
 /// // create server-sent event
-/// fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Never> {
+/// fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Infallible> {
 ///     Ok(warp::sse::data(counter))
 /// }
 ///

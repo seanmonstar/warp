@@ -133,12 +133,12 @@
 
 use std::fmt;
 use std::str::FromStr;
+use std::convert::Infallible;
 
 use http::uri::PathAndQuery;
 use futures::future;
 
 use crate::filter::{filter_fn, one, Filter, One, Tuple};
-use crate::never::Never;
 use crate::reject::{self, Rejection};
 use crate::route::Route;
 
@@ -291,7 +291,7 @@ where
 ///         format!("The tail after foo is {:?}", tail)
 ///     });
 /// ```
-pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Never> + Copy {
+pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Infallible> + Copy {
     filter_fn(move |route| {
         let path = path_and_query(&route);
         let idx = route.matched_path_index();
@@ -345,7 +345,7 @@ impl fmt::Debug for Tail {
 ///         format!("The path after foo is {:?}", peek)
 ///     });
 /// ```
-pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Never> + Copy {
+pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Infallible> + Copy {
     filter_fn(move |route| {
         let path = path_and_query(&route);
         let idx = route.matched_path_index();
@@ -412,7 +412,7 @@ impl fmt::Debug for Peek {
 ///         format!("This is the {}th visit to this URL!", count)
 ///     });
 /// ```
-pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Never> + Copy {
+pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Infallible> + Copy {
     filter_fn(move |route| future::ok(one(FullPath(path_and_query(&route)))))
 }
 

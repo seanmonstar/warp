@@ -9,8 +9,8 @@
 use http::Method;
 use futures::future;
 
+use std::convert::Infallible;
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
-use crate::never::Never;
 use crate::reject::{Rejection};
 
 /// Create a `Filter` that requires the request method to be `GET`.
@@ -118,8 +118,8 @@ pub fn patch() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///         format!("You sent a {} request!", method)
 ///     });
 /// ```
-pub fn method() -> impl Filter<Extract = One<Method>, Error = Never> + Copy {
-    filter_fn_one(|route| future::ok::<_, Never>(route.method().clone()))
+pub fn method() -> impl Filter<Extract = One<Method>, Error = Infallible> + Copy {
+    filter_fn_one(|route| future::ok::<_, Infallible>(route.method().clone()))
 }
 
 // NOTE: This takes a static function instead of `&'static Method` directly

@@ -2,9 +2,9 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::future::Future;
+use std::convert::Infallible;
 
 use crate::filter::{Filter, FilterBase};
-use crate::never::Never;
 
 /// A filter that matches any route.
 ///
@@ -44,7 +44,7 @@ use crate::never::Never;
 ///         db.contains(&param_id)
 ///     });
 /// ```
-pub fn any() -> impl Filter<Extract = (), Error = Never> + Copy {
+pub fn any() -> impl Filter<Extract = (), Error = Infallible> + Copy {
     Any
 }
 
@@ -54,7 +54,7 @@ struct Any;
 
 impl FilterBase for Any {
     type Extract = ();
-    type Error = Never;
+    type Error = Infallible;
     type Future = AnyFut;
 
     #[inline]
@@ -67,7 +67,7 @@ impl FilterBase for Any {
 struct AnyFut;
 
 impl Future for AnyFut {
-    type Output = Result<(), Never>;
+    type Output = Result<(), Infallible>;
 
     #[inline]
     fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
