@@ -2,14 +2,15 @@
 //!
 //! Filters that extract a body for a route.
 
+use std::convert::TryInto;
 use std::error::Error as StdError;
 use std::fmt;
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
 use bytes::Buf;
-use futures::{future, ready, TryFuture, TryStreamExt, Stream};
+use futures::{future, ready, Stream, TryFuture};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::{Body, Chunk};
@@ -105,9 +106,30 @@ pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Cop
 ///     });
 /// ```
 pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| Concat {
-        fut: body.try_concat(),
-    })
+    body().and(crate::filters::header::optional2()).and_then(
+        |mut chunk_stream: Body, cl_header: Option<ContentLength>| {
+            async move {
+                // allocate a buffer to hold the full body
+                let mut buf = Vec::with_capacity(match cl_header {
+                    Some(ContentLength(len)) => match len.try_into() {
+                        Ok(length) => length, // fits in usize
+                        Err(_) => return Err(reject::payload_too_large()),
+                    },
+                    _ => 1024, // reasonable?
+                });
+                // read the full body into the buffer
+                while let Some(chunk_read_result) = chunk_stream.next().await {
+                    match chunk_read_result {
+                        Ok(chunk) => buf.extend_from_slice(&chunk),
+                        Err(err) => return Err(reject::known(BodyReadError(err))),
+                    }
+                }
+                Ok(FullBody {
+                    chunk: Chunk::from(buf),
+                })
+            }
+        },
+    )
 }
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
@@ -280,10 +302,11 @@ impl Stream for BodyStream {
     type Item = Result<StreamBuf, crate::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let opt_item: Option<Result<Chunk, hyper::Error>> = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
+        let opt_item: Option<Result<Chunk, hyper::Error>> =
+            ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
         match opt_item {
-            None =>  Poll::Ready(None),
+            None => Poll::Ready(None),
             Some(item) => {
                 let stream_buf = item
                     .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e)))
