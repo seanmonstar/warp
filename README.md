@@ -29,6 +29,8 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 - One of the fastest HTTP implementations
 - Tested and **correct**
 
+**NOTE**: warp's [master](https://github.com/seanmonstar/warp/tree/master) branch currently preparing breaking changes, for the most recently released code, look to the [0.1.x](https://github.com/seanmonstar/warp/tree/0.1.x) branch.
+
 ## Example
 
 ```rust
