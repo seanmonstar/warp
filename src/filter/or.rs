@@ -23,7 +23,7 @@ where
     U::Error: CombineRejection<T::Error>,
 {
     type Extract = (Either<T::Extract, U::Extract>,);
-    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <U::Error as CombineRejection<T::Error>>::Combined;
     type Future = EitherFuture<T, U>;
 
     fn filter(&self) -> Self::Future {
@@ -65,7 +65,7 @@ where
     U: Filter,
     U::Error: CombineRejection<T::Error>,
 {
-    type Output = Result<(Either<T::Extract, U::Extract>,), <U::Error as CombineRejection<T::Error>>::Rejection>;
+    type Output = Result<(Either<T::Extract, U::Extract>,), <U::Error as CombineRejection<T::Error>>::Combined>;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
