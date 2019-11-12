@@ -6,7 +6,7 @@ use std::future::Future;
 use pin_project::pin_project;
 use futures::future::TryFuture;
 
-use crate::reject::Reject;
+use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
 use crate::server::{IntoWarpService, WarpService};
@@ -21,7 +21,7 @@ impl<F> WarpService for FilteredService<F>
 where
     F: Filter,
     <F::Future as TryFuture>::Ok: Reply,
-    <F::Future as TryFuture>::Error: Reject,
+    <F::Future as TryFuture>::Error: IsReject,
 {
     type Reply = FilteredFuture<F::Future>;
 
@@ -66,8 +66,8 @@ impl<F> IntoWarpService for FilteredService<F>
 where
     F: Filter + Send + Sync + 'static,
     F::Extract: Reply,
-    F::Error: Reject,
-    {
+    F::Error: IsReject,
+{
     type Service = FilteredService<F>;
 
     #[inline]
@@ -80,8 +80,8 @@ impl<F> IntoWarpService for F
 where
     F: Filter + Send + Sync + 'static,
     F::Extract: Reply,
-    F::Error: Reject,
-    {
+    F::Error: IsReject,
+{
     type Service = FilteredService<F>;
 
     #[inline]

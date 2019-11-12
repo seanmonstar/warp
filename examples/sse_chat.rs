@@ -1,4 +1,4 @@
-use futures::{future, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -15,6 +15,10 @@ enum Message {
     UserId(usize),
     Reply(String),
 }
+
+#[derive(Debug)]
+struct NotUtf8;
+impl warp::reject::Reject for NotUtf8 {}
 
 /// Our state of currently connected users.
 ///
@@ -37,10 +41,10 @@ async fn main() {
         .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
-        .and(warp::body::concat().and_then(|body: warp::body::FullBody| {
-            future::ready(std::str::from_utf8(body.bytes())
+        .and(warp::body::concat().and_then(|body: warp::body::FullBody| async move {
+            std::str::from_utf8(body.bytes())
                 .map(String::from)
-                .map_err(warp::reject::custom))
+                .map_err(|_e| warp::reject::custom(NotUtf8))
         }))
         .and(users.clone())
         .map(|my_id, msg, users| {

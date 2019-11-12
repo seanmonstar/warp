@@ -8,7 +8,7 @@ use http::{self, header, StatusCode};
 use tokio::clock;
 
 use crate::filter::{Filter, WrapSealed};
-use crate::reject::Reject;
+use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::Route;
 
@@ -97,7 +97,7 @@ where
     FN: Fn(Info) + Clone + Send,
     F: Filter + Clone + Send,
     F::Extract: Reply,
-    F::Error: Reject,
+    F::Error: IsReject,
 {
     type Wrapped = WithLog<FN, F>;
 
@@ -188,7 +188,7 @@ mod internal {
 
     use super::{Info, Log};
     use crate::filter::{Filter, FilterBase};
-    use crate::reject::Reject;
+    use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
     use crate::route;
 
@@ -214,7 +214,7 @@ mod internal {
         FN: Fn(Info) + Clone + Send,
         F: Filter + Clone + Send,
         F::Extract: Reply,
-        F::Error: Reject,
+        F::Error: IsReject,
     {
         type Extract = (Logged,);
         type Error = F::Error;
@@ -244,7 +244,7 @@ mod internal {
         FN: Fn(Info),
         F: TryFuture,
         F::Ok: Reply,
-        F::Error: Reject,
+        F::Error: IsReject,
     {
         type Output = Result<(Logged,), F::Error>;
 

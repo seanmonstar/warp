@@ -17,7 +17,7 @@ use std::future::Future;
 use futures::{future, TryFuture, TryFutureExt};
 
 pub(crate) use crate::generic::{one, Combine, Either, Func, HList, One, Tuple};
-use crate::reject::{CombineRejection, Reject, Rejection};
+use crate::reject::{CombineRejection, IsReject, Rejection};
 use crate::route::{self, Route};
 
 pub(crate) use self::and::And;
@@ -36,7 +36,7 @@ pub(crate) use self::wrap::{Wrap, WrapSealed};
 // signatures without it being a breaking change.
 pub trait FilterBase {
     type Extract: Tuple; // + Send;
-    type Error: Reject;
+    type Error: IsReject;
     type Future: Future<Output = Result<Self::Extract, Self::Error>> + Send;
 
     fn filter(&self) -> Self::Future;
@@ -416,7 +416,7 @@ where
     F: Fn(&mut Route) -> U,
     U: TryFuture,
     U::Ok: Tuple,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     FilterFn { func }
 }
@@ -427,7 +427,7 @@ pub(crate) fn filter_fn_one<F, U>(
 where
     F: Fn(&mut Route) -> U + Copy,
     U: TryFuture,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     filter_fn(move |route| func(route).map_ok(tup_one as _))
 }
@@ -448,7 +448,7 @@ where
     F: Fn(&mut Route) -> U,
     U: TryFuture + Send + 'static,
     U::Ok: Tuple + Send,
-    U::Error: Reject,
+    U::Error: IsReject,
 {
     type Extract = U::Ok;
     type Error = U::Error;

@@ -102,7 +102,7 @@ use serde::Serialize;
 use serde_json;
 
 use crate::filter::Filter;
-use crate::reject::Reject;
+use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
 use crate::Request;
@@ -332,7 +332,7 @@ impl RequestBuilder {
     where
         F: Filter + 'static,
         F::Extract: Reply + Send,
-        F::Error: Reject + Send,
+        F::Error: IsReject + Send,
     {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
@@ -454,7 +454,7 @@ impl WsBuilder {
     where
         F: Filter + Send + Sync + 'static,
         F::Extract: Reply + Send,
-        F::Error: Reject + Send,
+        F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
         let (wr_tx, wr_rx) = mpsc::unbounded_channel();

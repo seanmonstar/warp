@@ -44,7 +44,7 @@ use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use crate::reject::Reject;
+use crate::reject::IsReject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
 #[doc(hidden)]
