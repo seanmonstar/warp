@@ -63,6 +63,13 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
         })
 }
 
+
+/// useful if file path needs to be looked up in database etc.
+/// use conditionals() filter to get a Conditionals, then reply with this function
+pub async fn serve_file_reply(path: impl Into<PathBuf>, conditionals: Conditionals) -> Result<File, Rejection> {
+    file_reply(ArcPath(Arc::new(path.into())), conditionals).await
+}
+
 /// Creates a `Filter` that serves a directory at the base `path` joined
 /// by the request path.
 ///
@@ -143,8 +150,9 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
     Ok(buf)
 }
 
+/// param for file_reply2
 #[derive(Debug)]
-struct Conditionals {
+pub struct Conditionals {
     if_modified_since: Option<IfModifiedSince>,
     if_unmodified_since: Option<IfUnmodifiedSince>,
     if_range: Option<IfRange>,
@@ -206,7 +214,8 @@ impl Conditionals {
     }
 }
 
-fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
+/// use it to get needed parameter for file_reply2
+pub fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
     crate::header::optional2()
         .and(crate::header::optional2())
         .and(crate::header::optional2())
