@@ -27,7 +27,7 @@ async fn main() {
     pretty_env_logger::init();
 
     // Keep track of all connected users, key is usize, value
-    // is a event stream sender.
+    // is an event stream sender.
     let users = Arc::new(Mutex::new(HashMap::new()));
     // Turn our "state" into a new Filter...
     let users = warp::any().map(move || users.clone());
