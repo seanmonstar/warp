@@ -6,7 +6,7 @@ use pin_project::pin_project;
 use futures::TryFuture;
 
 use super::{Filter, FilterBase};
-use crate::reject::Reject;
+use crate::reject::IsReject;
 
 #[derive(Clone, Copy, Debug)]
 pub struct MapErr<T, F> {
@@ -18,7 +18,7 @@ impl<T, F, E> FilterBase for MapErr<T, F>
 where
     T: Filter,
     F: Fn(T::Error) -> E + Clone + Send,
-    E: Reject,
+    E: IsReject,
 {
     type Extract = T::Extract;
     type Error = E;

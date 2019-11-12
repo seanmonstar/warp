@@ -15,7 +15,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Server as HyperServer};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::reject::Reject;
+use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::transport::Transport;
 use crate::Request;
@@ -123,7 +123,7 @@ impl<S> Server<S>
 where
     S: IntoWarpService + 'static,
     <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: Reject + Send,
+    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
 {
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
@@ -353,7 +353,7 @@ impl<S> TlsServer<S>
 where
     S: IntoWarpService + 'static,
     <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: Reject + Send,
+    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
 {
     /// Run this `TlsServer` forever on the current thread.
     ///
@@ -458,7 +458,7 @@ impl<F> Future for ReplyFuture<F>
 where
     F: TryFuture,
     F::Ok: Reply,
-    F::Error: Reject,
+    F::Error: IsReject,
 {
     type Output = Result<crate::reply::Response, Infallible>;
 
