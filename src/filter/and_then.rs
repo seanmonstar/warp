@@ -22,7 +22,7 @@ where
     <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
     type Extract = (<F::Output as TryFuture>::Ok,);
-    type Error = <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::Rejection;
+    type Error = <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One;
     type Future = AndThenFuture<T, F>;
     #[inline]
     fn filter(&self) -> Self::Future {
@@ -66,7 +66,7 @@ where
     <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
     type Output = Result<(<F::Output as TryFuture>::Ok,),
-                         <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::Rejection>;
+                         <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One>;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
