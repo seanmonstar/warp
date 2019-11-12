@@ -3,12 +3,13 @@ sudo: false
 
 matrix:
   include:
-    #- rust: stable
+    - rust: stable
     - rust: beta
     - rust: nightly
 
     # `tls` feature
-    - rust: beta #stable
+    - rust: stable
+      name: "--features tls"
       script: cargo test --features tls
 
 script:
