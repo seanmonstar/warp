@@ -1,7 +1,8 @@
 #![deny(warnings)]
 
 use std::env;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use warp::{http::StatusCode, Filter};
 use serde_derive::{Deserialize, Serialize};
 
@@ -69,7 +70,7 @@ async fn main() {
         .and(todos_index)
         .and(list_options)
         .and(db.clone())
-        .map(list_todos);
+        .and_then(list_todos);
 
     // `POST /todos`
     let create = warp::post()
@@ -119,23 +120,23 @@ struct ListOptions {
 }
 
 /// GET /todos?offset=3&limit=5
-fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
+async fn list_todos(opts: ListOptions, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     // Just return a JSON array of todos, applying the limit and offset.
-    let todos = db.lock().unwrap();
+    let todos = db.lock().await;
     let todos: Vec<Todo> = todos
         .clone()
         .into_iter()
         .skip(opts.offset.unwrap_or(0))
         .take(opts.limit.unwrap_or(std::usize::MAX))
         .collect();
-    warp::reply::json(&todos)
+    Ok(warp::reply::json(&todos))
 }
 
 /// POST /todos with JSON body
 async fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     log::debug!("create_todo: {:?}", create);
 
-    let mut vec = db.lock().unwrap();
+    let mut vec = db.lock().await;
 
     for todo in vec.iter() {
         if todo.id == create.id {
@@ -154,7 +155,7 @@ async fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, warp::Rej
 /// PUT /todos/:id with JSON body
 async fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     log::debug!("update_todo: id={}, todo={:?}", id, update);
-    let mut vec = db.lock().unwrap();
+    let mut vec = db.lock().await;
 
     // Look for the specified Todo...
     for todo in vec.iter_mut() {
@@ -174,7 +175,7 @@ async fn update_todo(id: u64, update: Todo, db: Db) -> Result<impl warp::Reply, 
 async fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, warp::Rejection> {
     log::debug!("delete_todo: id={}", id);
 
-    let mut vec = db.lock().unwrap();
+    let mut vec = db.lock().await;
 
     let len = vec.len();
     vec.retain(|todo| {
