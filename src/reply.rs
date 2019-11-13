@@ -47,6 +47,7 @@ use serde_json;
 use crate::reject::IsReject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
+use self::sealed::{BoxedReply, Internal};
 #[doc(hidden)]
 pub use crate::filters::reply as with;
 
@@ -226,8 +227,7 @@ where
 ///
 /// let route = warp::any().map(handler);
 /// ```
-//NOTE: This list is duplicated in the module documentation.
-pub trait Reply: Send {
+pub trait Reply: BoxedReply + Send {
     /// Converts the given value into a [`Response`].
     ///
     /// [`Response`]: type.Response.html
@@ -290,6 +290,12 @@ pub trait Reply: Send {
         }
     }
     */
+}
+
+impl Reply for Box<dyn Reply> {
+    fn into_response(self) -> Response {
+        self.boxed_into_response(Internal)
+    }
 }
 
 fn _assert_object_safe() {
@@ -540,6 +546,23 @@ mod sealed {
             self.0
         }
     }
+
+    #[allow(missing_debug_implementations)]
+    pub struct Internal;
+
+    // Implemented for all types that implement `Reply`.
+    //
+    // A user doesn't need to worry about this, it's just trait
+    // hackery to get `Box<dyn Reply>` working.
+    pub trait BoxedReply {
+        fn boxed_into_response(self: Box<Self>, internal: Internal) -> Response;
+    }
+
+    impl<T: Reply> BoxedReply for T {
+        fn boxed_into_response(self: Box<Self>, _: Internal) -> Response {
+            self.into_response()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -568,4 +591,10 @@ mod tests {
         assert_eq!(res.status(), 500);
     }
 
+    #[test]
+    fn boxed_reply() {
+        let r: Box<dyn Reply> = Box::new(reply());
+        let resp = r.into_response();
+        assert_eq!(resp.status(), 200);
+    }
 }
