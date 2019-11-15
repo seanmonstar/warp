@@ -274,7 +274,6 @@ pub fn param<T: FromStr + Send + 'static>(
     })
 }
 
-=======
 /// Extract a parameter from a path segment.
 ///
 /// This will try to parse a value from the current request path
