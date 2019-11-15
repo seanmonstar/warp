@@ -10,8 +10,13 @@ async fn main() {
     // Match any request and return hello world!
     let routes = warp::any().map(|| "Hello, World!");
 
+    let mut tls_config = warp::tls::TlsConfigBuilder::new();
+    tls_config
+        .set_cert_path("examples/tls/cert.pem").unwrap()
+        .set_key_path("examples/tls/key.rsa").unwrap();
+
     warp::serve(routes)
-        .tls("examples/tls/cert.pem", "examples/tls/key.rsa")
+        .tls(&mut tls_config)
         .run(([127, 0, 0, 1], 3030)).await;
 }
 

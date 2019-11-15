@@ -1,5 +1,29 @@
+//! TlsConfigBuilder
+/// A builder to configure warp using Tls
+///
+/// # Example
+///
+/// ```no_run
+/// #[tokio::main]
+/// async fn main() {
+///    use warp::Filter;
+///
+///    // Match any request and return hello world!
+///    let routes = warp::any().map(|| "Hello, World!");
+///
+///    let mut tls_config = warp::tls::TlsConfigBuilder::new();
+///    tls_config
+///        .set_cert_path("examples/tls/cert.pem").unwrap()
+///        .set_key_path("examples/tls/key.rsa").unwrap();
+///
+///    warp::serve(routes)
+///        .tls(&mut tls_config)
+///        .run(([127, 0, 0, 1], 3030)).await;
+/// }
+/// ```
+
 use std::fs::File;
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Cursor, Read, Write};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
@@ -8,50 +32,124 @@ use std::ptr::null_mut;
 use std::task::{Poll, Context};
 
 use futures::ready;
-use rustls::{self, ServerConfig, ServerSession, Session, Stream};
+use rustls::{self, ServerConfig, ServerSession, Session, Stream, TLSError};
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
 
-pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
-    let cert = {
-        let file = File::open(cert).unwrap_or_else(|e| panic!("tls cert file error: {}", e));
-        let mut rdr = BufReader::new(file);
-        rustls::internal::pemfile::certs(&mut rdr)
-            .unwrap_or_else(|()| panic!("tls cert parse error"))
-    };
+/// Represents errors that can occur building the TlsConfig
+#[derive(Debug)]
+pub enum TlsConfigError {
+    /// An Error from an invalid file
+    IoError(std::io::Error),
+    /// An Error parsing the Certificate
+    CertParseError,
+    /// An Error parsing a Pkcs8 key
+    Pkcs8ParseError,
+    /// An Error parsing a Rsa key
+    RsaParseError,
+    /// An error from an empty key
+    EmptyKey,
+    /// An error from an invalid key
+    InvalidKey(TLSError)
+}
 
-    let key = {
-        let mut pkcs8 = {
-            let file = File::open(&key).unwrap_or_else(|e| panic!("tls key file error: {}", e));
-            let mut rdr = BufReader::new(file);
-            rustls::internal::pemfile::pkcs8_private_keys(&mut rdr)
-                .unwrap_or_else(|()| panic!("tls key pkcs8 error"))
+impl std::fmt::Display for TlsConfigError{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TlsConfigError::IoError(err) => write!(f, "file error, {}", err),
+            TlsConfigError::CertParseError => write!(f, "certificate parse error"),
+            TlsConfigError::Pkcs8ParseError => write!(f, "pkcs8 parse error"),
+            TlsConfigError::RsaParseError => write!(f, "rsa parse error"),
+            TlsConfigError::EmptyKey => write!(f, "key contains no private key"),
+            TlsConfigError::InvalidKey(err) => write!(f, "key contains an invalid key, {}", err),
+        }
+    }
+}
+
+/// Builder to set the configuration for the Tls server.
+pub struct TlsConfigBuilder {
+    cert: BufReader<Box<dyn Read>>,
+    key: BufReader<Box<dyn Read>>,
+}
+
+impl std::fmt::Debug for TlsConfigBuilder {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_struct("TlsConfigBuilder")
+            .field("cert", &String::from_utf8_lossy(&self.cert.buffer()))
+            .field("key", &String::from_utf8_lossy(&self.key.buffer()))
+            .finish()
+    }
+}
+
+impl TlsConfigBuilder {
+    /// Create a new TlsConfigBuilder
+    pub fn new() -> TlsConfigBuilder {
+        TlsConfigBuilder{ key: BufReader::new(Box::new(io::empty())), cert: BufReader::new(Box::new(io::empty())) }
+    }
+
+    /// sets the Tls key via File Path, returns `TlsConfigError::IoError` if the file cannot be open
+    pub fn set_key_path<'a>(&'a mut self, path: impl AsRef<Path>) -> Result<&'a mut Self, TlsConfigError> {
+        let key = File::open(&path).map_err(|e| TlsConfigError::IoError(e))?;
+        self.key = BufReader::new(Box::new(key));
+        Ok(self)
+    }
+
+    /// sets the Tls key via bytes slice
+    pub fn set_key<'a>(&'a mut self, key: &[u8]) -> &'a Self {
+        let cursor = Cursor::new(Vec::from(key));
+        self.key = BufReader::new(Box::new(cursor));
+        self
+    }
+
+    /// sets the Tls certificate via File Path, returns `TlsConfigError::IoError` if the file cannot be open
+    pub fn set_cert_path<'a>(&'a mut self, path: impl AsRef<Path>) -> Result<&'a mut Self, TlsConfigError> {
+        let cert = File::open(&path).map_err(|e| TlsConfigError::IoError(e))?;
+        self.cert = BufReader::new(Box::new(cert));
+        Ok(self)
+    }
+
+    /// sets the Tls certificate via bytes slice
+    pub fn set_cert<'a>(&'a mut self, cert: &[u8]) -> &'a Self {
+        let cursor = Cursor::new(Vec::from(cert));
+        self.cert = BufReader::new(Box::new(cursor));
+        self
+    }
+
+    pub(crate) fn build<'a>(&'a mut self) -> Result<ServerConfig, TlsConfigError> {
+        let cert = rustls::internal::pemfile::certs(&mut self.cert)
+            .map_err(|()| TlsConfigError::CertParseError)?;
+
+        let key = {
+            // convert it to Vec<u8> to allow reading it again if key is RSA
+
+            let mut pkcs8_buf = BufReader::new(self.key.buffer());
+
+            let mut pkcs8 = rustls::internal::pemfile::pkcs8_private_keys(&mut pkcs8_buf)
+                .map_err(|()| TlsConfigError::Pkcs8ParseError)?;
+
+            if !pkcs8.is_empty() {
+                pkcs8.remove(0)
+            } else {
+                let mut rsa = rustls::internal::pemfile::rsa_private_keys(&mut self.key)
+                    .map_err(|()| TlsConfigError::RsaParseError)?;
+
+                    if !rsa.is_empty() {
+                        rsa.remove(0)
+                    } else {
+                        return Err(TlsConfigError::EmptyKey);
+                    }
+            }
         };
 
-        if !pkcs8.is_empty() {
-            pkcs8.remove(0)
-        } else {
-            let file = File::open(key).unwrap_or_else(|e| panic!("tls key file error: {}", e));
-            let mut rdr = BufReader::new(file);
-            let mut rsa = rustls::internal::pemfile::rsa_private_keys(&mut rdr)
-                .unwrap_or_else(|()| panic!("tls key rsa error"));
-
-            if !rsa.is_empty() {
-                rsa.remove(0)
-            } else {
-                panic!("tls key path contains no private key");
-            }
-        }
-    };
-
-    let mut tls = ServerConfig::new(rustls::NoClientAuth::new());
-    tls.set_single_cert(cert, key)
-        .unwrap_or_else(|e| panic!("tls failed: {}", e));
-    tls.set_protocols(&["h2".into(), "http/1.1".into()]);
-    tls
+        let mut config = ServerConfig::new(rustls::NoClientAuth::new());
+        config.set_single_cert(cert, key)
+            .map_err(|err| TlsConfigError::InvalidKey(err))?;
+        config.set_protocols(&["h2".into(), "http/1.1".into()]);
+        Ok(config)
+    }
 }
 
 /// a wrapper arround T to allow for rustls Stream read/write translations to async read and write
@@ -243,5 +341,29 @@ impl Accept for TlsAcceptor {
             Some(Err(e)) => Poll::Ready(Some(Err(e))),
             None => Poll::Ready(None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_cert_key() {
+        let mut builder = TlsConfigBuilder::new();
+        assert!(builder.set_key_path("examples/tls/key.rsa").is_ok());
+        assert!(builder.set_cert_path("examples/tls/cert.pem").is_ok());
+        assert!(builder.build().is_ok())
+    }
+
+    #[test]
+    fn bytes_cert_key() {
+        let key = include_str!("../examples/tls/key.rsa");
+        let cert = include_str!("../examples/tls/cert.pem");
+
+        let mut builder = TlsConfigBuilder::new();
+        builder.set_key(key.as_bytes());
+        builder.set_cert(cert.as_bytes());
+        assert!(builder.build().is_ok())
     }
 }

@@ -1,7 +1,7 @@
 use std::error::Error as StdError;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
-use std::path::Path;
+use crate::tls::TlsConfigBuilder;
 use std::sync::Arc;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -339,9 +339,8 @@ where
     ///
     /// *This function requires the `"tls"` feature.*
     #[cfg(feature = "tls")]
-    pub fn tls(self, cert: impl AsRef<Path>, key: impl AsRef<Path>) -> TlsServer<S> {
-        let tls = crate::tls::configure(cert.as_ref(), key.as_ref());
-
+    pub fn tls(self, builder: &mut TlsConfigBuilder) -> TlsServer<S> {
+        let tls = builder.build().expect("tls error");
         TlsServer { server: self, tls }
     }
 }
