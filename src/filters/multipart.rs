@@ -113,7 +113,7 @@ impl Stream for FormData {
                 field
                     .data
                     .read_to_end(&mut data)
-                    .map_err(crate::error::Kind::Multipart)?;
+                    .map_err(crate::Error::new)?;
                 Poll::Ready(Some(Ok(Part {
                     name: field.headers.name.to_string(),
                     filename: field.headers.filename,
@@ -122,7 +122,7 @@ impl Stream for FormData {
                 })))
             }
             Ok(None) => Poll::Ready(None),
-            Err(e) => Poll::Ready(Some(Err(crate::error::Kind::Multipart(e).into()))),
+            Err(e) => Poll::Ready(Some(Err(crate::Error::new(e)))),
         }
     }
 }

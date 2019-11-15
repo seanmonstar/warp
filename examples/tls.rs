@@ -11,7 +11,9 @@ async fn main() {
     let routes = warp::any().map(|| "Hello, World!");
 
     warp::serve(routes)
-        .tls("examples/tls/cert.pem", "examples/tls/key.rsa")
+        .tls()
+        .cert_path("examples/tls/cert.pem")
+        .key_path("examples/tls/key.rsa")
         .run(([127, 0, 0, 1], 3030)).await;
 }
 

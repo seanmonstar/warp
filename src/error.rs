@@ -1,14 +1,17 @@
 use std::error::Error as StdError;
 use std::convert::Infallible;
 use std::fmt;
-use std::io;
 
-use hyper::Error as HyperError;
-#[cfg(feature = "websocket")]
-use tungstenite::Error as WsError;
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Errors that can happen inside warp.
-pub struct Error(Box<Kind>);
+pub struct Error(BoxError);
+
+impl Error {
+    pub(crate) fn new<E: Into<BoxError>>(err: E) -> Error {
+        Error(err.into())
+    }
+}
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -19,51 +22,11 @@ impl fmt::Debug for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.0.as_ref() {
-            Kind::Hyper(ref e) => fmt::Display::fmt(e, f),
-            Kind::Multipart(ref e) => fmt::Display::fmt(e, f),
-            #[cfg(feature = "websocket")]
-            Kind::Ws(ref e) => fmt::Display::fmt(e, f),
-        }
+        fmt::Display::fmt(&self.0, f)
     }
 }
 
-impl StdError for Error {
-    #[allow(deprecated)]
-    fn cause(&self) -> Option<&dyn StdError> {
-        match self.0.as_ref() {
-            Kind::Hyper(ref e) => e.cause(),
-            Kind::Multipart(ref e) => e.cause(),
-            #[cfg(feature = "websocket")]
-            Kind::Ws(ref e) => e.cause(),
-        }
-    }
-}
-
-pub(crate) enum Kind {
-    Hyper(HyperError),
-    Multipart(io::Error),
-    #[cfg(feature = "websocket")]
-    Ws(WsError),
-}
-
-impl fmt::Debug for Kind {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Kind::Hyper(ref e) => fmt::Debug::fmt(e, f),
-            Kind::Multipart(ref e) => fmt::Debug::fmt(e, f),
-            #[cfg(feature = "websocket")]
-            Kind::Ws(ref e) => fmt::Debug::fmt(e, f),
-        }
-    }
-}
-
-#[doc(hidden)]
-impl From<Kind> for Error {
-    fn from(kind: Kind) -> Error {
-        Error(Box::new(kind))
-    }
-}
+impl StdError for Error {}
 
 impl From<Infallible> for Error {
     fn from(infallible: Infallible) -> Error {
@@ -75,6 +38,6 @@ impl From<Infallible> for Error {
 fn error_size_of() {
     assert_eq!(
         ::std::mem::size_of::<Error>(),
-        ::std::mem::size_of::<usize>()
+        ::std::mem::size_of::<usize>() * 2
     );
 }

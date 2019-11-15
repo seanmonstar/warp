@@ -13,7 +13,6 @@ use http;
 use tungstenite::protocol::{self, WebSocketConfig};
 use tokio::io::{AsyncRead, AsyncWrite};
 use super::{body, header};
-use crate::error::Kind;
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
@@ -228,13 +227,13 @@ impl Write for AllowStd
     }
 }
 
-fn cvt<T>(r:  tungstenite::error::Result<T>, err_message: &str) -> Poll<Result<T, crate::error::Error>> {
+fn cvt<T>(r:  tungstenite::error::Result<T>, err_message: &str) -> Poll<Result<T, crate::Error>> {
     match r {
         Ok(v) => Poll::Ready(Ok(v)),
         Err(tungstenite::Error::Io(ref e)) if e.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
         Err(e) => {
             log::debug!("{} {}", err_message, e);
-            Poll::Ready(Err(Kind::Ws(e).into()))
+            Poll::Ready(Err(crate::Error::new(e)))
         }
     }
 }
@@ -282,7 +281,7 @@ impl Stream for WebSocket {
                 }
                 Err(e) => {
                     log::debug!("websocket poll error: {}", e);
-                    return Poll::Ready(Some(Err(Kind::Ws(e).into())));
+                    return Poll::Ready(Some(Err(crate::Error::new(e))));
                 }
             };
 
@@ -332,7 +331,7 @@ impl Sink<Message> for WebSocket {
             }
             Err(e) => {
                 log::debug!("websocket start_send error: {}", e);
-                Err(Kind::Ws(e).into())
+                Err(crate::Error::new(e))
             }
         }
     }
@@ -353,7 +352,7 @@ impl Sink<Message> for WebSocket {
             Err(::tungstenite::Error::ConnectionClosed) => Poll::Ready(Ok(())),
             Err(err) => {
                 log::debug!("websocket close error: {}", err);
-                Poll::Ready(Err(Kind::Ws(err).into()))
+                Poll::Ready(Err(crate::Error::new(err)))
             }
         }
     }
