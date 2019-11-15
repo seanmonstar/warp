@@ -282,10 +282,13 @@ pub fn param<T: FromStr + Send + 'static>(
 ///
 /// If the value could not be parsed, rejects with a custom [`Rejection`][].
 ///
+/// You'll need to implement [`reject::Reject`][] as a marker trait.
+///
 /// Since [`warp::reject::custom`][] is used to create a `Rejection` under the hood,
 /// a [`recover`][] filter should convert this `Rejection` into a `Reply`, or else
 /// this will be returned as a `500 Internal Server Error`.
 ///
+/// [`reject::Reject`]: ../../reject/trait.Reject.html
 /// [`Rejection`]: ../../reject/struct.Rejection.html
 /// [`recover`]: ../trait.Filter.html#method.recover
 /// [`warp::reject::custom`]: ../../reject/fn.custom.html
@@ -302,8 +305,11 @@ pub fn param<T: FromStr + Send + 'static>(
 ///         status,
 ///         Response,
 ///     },
+///     reject::{
+///         Reject,
+///         Rejection,
+///     },
 ///     Filter,
-///     Rejection
 /// };
 ///
 /// #[derive(Debug)]
@@ -331,6 +337,7 @@ pub fn param<T: FromStr + Send + 'static>(
 /// }
 ///
 /// impl std::error::Error for MyError {};
+/// impl Reject for MyError {};
 ///
 /// let route = warp::path::param_with_err()
 ///     .map(|id: MyStruct| {
@@ -338,7 +345,7 @@ pub fn param<T: FromStr + Send + 'static>(
 ///     })
 ///    .recover(|err: Rejection| {
 ///        let err = {
-///            if let Some(e) = err.find_cause::<MyError>() {
+///            if let Some(e) = err.find::<MyError>() {
 ///                Ok(Response::builder()
 ///                .status(status::StatusCode::from_u16(404).unwrap())
 ///                .body(e.to_string())
@@ -354,7 +361,7 @@ pub fn param<T: FromStr + Send + 'static>(
 pub fn param_with_err<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send + 'static,
-    T::Err: Into<reject::Cause>,
+    T::Err: reject::Reject,
 {
     segment(|seg| {
         log::trace!("param?: {:?}", seg);
@@ -363,7 +370,7 @@ where
         }
         T::from_str(seg).map(one).map_err(|err| {
             #[allow(deprecated)]
-            reject::custom(err.into())
+            reject::custom(err)
         })
     })
 }
