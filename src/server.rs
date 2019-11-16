@@ -55,8 +55,9 @@ macro_rules! into_service {
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
+            let tls_peer_certificates = Transport::tls_peer_certificates(transport);
             future::ok::<_, hyper::Error>(service_fn(move |req| ReplyFuture {
-                inner: inner.call(req, remote_addr),
+                inner: inner.call(req, remote_addr, tls_peer_certificates.clone()),
             }))
         })
     }};
@@ -442,7 +443,7 @@ pub trait IntoWarpService {
 
 pub trait WarpService {
     type Reply: TryFuture + Send;
-    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
+    fn call(&self, req: Request, remote_addr: Option<SocketAddr>, tls_peer_certificates: Option<Vec<Vec<u8>>>) -> Self::Reply;
 }
 
 // Optimizes better than using Future::then, since it doesn't

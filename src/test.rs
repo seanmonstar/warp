@@ -113,6 +113,7 @@ use self::inner::OneOrTuple;
 pub fn request() -> RequestBuilder {
     RequestBuilder {
         remote_addr: None,
+        tls_peer_certificates: None,
         req: Request::default(),
     }
 }
@@ -130,6 +131,7 @@ pub fn ws() -> WsBuilder {
 #[derive(Debug)]
 pub struct RequestBuilder {
     remote_addr: Option<SocketAddr>,
+    tls_peer_certificates: Option<Vec<Vec<u8>>>,
     req: Request,
 }
 
@@ -337,7 +339,7 @@ impl RequestBuilder {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.remote_addr, self.tls_peer_certificates);
         let mut fut = route::set(&route, move || f.filter())
             .then(|result| {
                 let res = match result {
@@ -369,7 +371,7 @@ impl RequestBuilder {
     {
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.remote_addr, self.tls_peer_certificates);
         let mut fut = route::set(&route, move || f.filter());
         future::poll_fn(move |cx| {
             route::set(&route, || {

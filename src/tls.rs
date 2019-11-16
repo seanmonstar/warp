@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::fs::File;
 use std::io::{self, BufReader, Read, Write};
 use std::net::SocketAddr;
@@ -14,6 +16,8 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
+
+pub use crate::filters::tls::peer_certificates;
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
     let cert = {
@@ -214,6 +218,13 @@ impl<T: AsyncRead + AsyncWrite + Unpin> AsyncWrite for TlsStream<T> {
 impl<T: Transport + Unpin> Transport for TlsStream<T> {
     fn remote_addr(&self) -> Option<SocketAddr> {
         self.io.inner.remote_addr()
+    }
+    fn tls_peer_certificates(&self) -> Option<Vec<Vec<u8>>> {
+        self.session.get_peer_certificates()
+            .map(|v|
+                v.into_iter()
+                .map(|c| c.0)
+                .collect())
     }
 }
 

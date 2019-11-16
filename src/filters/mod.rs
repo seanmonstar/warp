@@ -21,5 +21,7 @@ pub mod reply;
 pub mod sse;
 #[cfg(feature = "websocket")]
 pub mod ws;
+#[cfg(feature = "tls")]
+pub mod tls;
 
 pub use crate::filter::BoxedFilter;

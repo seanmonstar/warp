@@ -95,7 +95,7 @@ mod route;
 mod server;
 pub mod test;
 #[cfg(feature = "tls")]
-mod tls;
+pub mod tls;
 mod transport;
 
 pub use self::error::Error;

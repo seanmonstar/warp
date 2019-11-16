@@ -34,6 +34,7 @@ pub(crate) struct Route {
     remote_addr: Option<SocketAddr>,
     req: Request,
     segments_index: usize,
+    tls_peer_certificates: Option<Vec<Vec<u8>>>
 }
 
 #[derive(Debug)]
@@ -43,7 +44,7 @@ enum BodyState {
 }
 
 impl Route {
-    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
+    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>, tls_peer_certificates: Option<Vec<Vec<u8>>>) -> RefCell<Route> {
         let segments_index = if req.uri().path().starts_with('/') {
             // Skip the beginning slash.
             1
@@ -56,6 +57,7 @@ impl Route {
             remote_addr,
             req,
             segments_index,
+            tls_peer_certificates,
         })
     }
 
@@ -136,5 +138,10 @@ impl Route {
             }
             BodyState::Taken => None,
         }
+    }
+
+    #[cfg(feature = "tls")]
+    pub(crate) fn tls_peer_certificates(&self) -> Option<Vec<Vec<u8>>> {
+        self.tls_peer_certificates.clone()
     }
 }

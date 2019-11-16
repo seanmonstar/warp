@@ -26,10 +26,10 @@ where
     type Reply = FilteredFuture<F::Future>;
 
     #[inline]
-    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply {
+    fn call(&self, req: Request, remote_addr: Option<SocketAddr>, tls_peer_certificates: Option<Vec<Vec<u8>>>) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
-        let route = Route::new(req, remote_addr);
+        let route = Route::new(req, remote_addr, tls_peer_certificates);
         let fut = route::set(&route, || self.filter.filter());
         FilteredFuture {
             future: fut,
