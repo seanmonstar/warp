@@ -17,7 +17,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
 
-pub use crate::filters::tls::peer_certificates;
+pub use crate::filters::tls::{peer_certificates, Certificate};
 
 pub(crate) fn configure(cert: &Path, key: &Path) -> ServerConfig {
     let cert = {
