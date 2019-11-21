@@ -485,10 +485,19 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// that the shorter path filter does not match the longer paths.
 #[macro_export]
 macro_rules! path {
-    (@start $first:tt $(/ $tail:tt)*) => ({
-        let __p = path!(@segment $first);
+        ($($pieces:tt)*) => ({
+            $crate::__internal_path!(@start $($pieces)*)
+        });
+}
+
+#[doc(hidden)]
+#[macro_export]
+// not public API
+macro_rules! __internal_path {
+(@start $first:tt $(/ $tail:tt)*) => ({
+        let __p = $crate::__internal_path!(@segment $first);
         $(
-        let __p = $crate::Filter::and(__p, path!(@segment $tail));
+        let __p = $crate::Filter::and(__p, $crate::__internal_path!(@segment $tail));
         )*
         __p
     });
@@ -498,7 +507,6 @@ macro_rules! path {
     (@segment $s:expr) => (
         $crate::path($s)
     );
-    ($($pieces:tt)*) => (
-        path!(@start $($pieces)*)
-    );
 }
+
+
