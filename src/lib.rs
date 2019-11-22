@@ -145,7 +145,7 @@ pub use self::filters::{
 #[doc(hidden)]
 pub use self::filters::ws::ws;
 #[doc(hidden)]
-pub use self::redirect::{redirect, temporary_redirect};
+pub use self::redirect::redirect;
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::reject::{reject, Rejection};

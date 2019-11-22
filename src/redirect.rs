@@ -37,11 +37,10 @@ pub fn redirect(uri: impl AsLocation) -> impl Reply {
 ///
 /// let route = warp::path("v1")
 ///     .map(|| {
-///         warp::temporary_redirect(Uri::from_static("/v2"))
+///         warp::redirect::temporary(Uri::from_static("/v2"))
 ///     });
 /// ```
-///
-pub fn temporary_redirect(uri: impl AsLocation) -> impl Reply {
+pub fn temporary(uri: impl AsLocation) -> impl Reply {
     reply::with_header(
         StatusCode::TEMPORARY_REDIRECT,
         header::LOCATION,
