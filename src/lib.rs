@@ -152,9 +152,9 @@ pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
-pub use hyper::rt::spawn;
 #[doc(hidden)]
 pub use http;
+pub use hyper::rt::spawn;
 
 #[doc(hidden)]
 pub use bytes::Buf;
