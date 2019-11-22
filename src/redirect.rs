@@ -28,6 +28,27 @@ pub fn redirect(uri: impl AsLocation) -> impl Reply {
     )
 }
 
+/// A simple `307` temporary redirect to a different location.
+///
+/// # Example
+///
+/// ```
+/// use warp::{http::Uri, Filter};
+///
+/// let route = warp::path("v1")
+///     .map(|| {
+///         warp::temporary_redirect(Uri::from_static("/v2"))
+///     });
+/// ```
+///
+pub fn temporary_redirect(uri: impl AsLocation) -> impl Reply {
+    reply::with_header(
+        StatusCode::TEMPORARY_REDIRECT,
+        header::LOCATION,
+        uri.header_value(),
+    )
+}
+
 mod sealed {
     use bytes::Bytes;
     use http::{header::HeaderValue, Uri};

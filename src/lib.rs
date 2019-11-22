@@ -145,16 +145,16 @@ pub use self::filters::{
 #[doc(hidden)]
 pub use self::filters::ws::ws;
 #[doc(hidden)]
-pub use self::redirect::redirect;
+pub use self::redirect::{redirect, temporary_redirect};
 #[doc(hidden)]
 #[allow(deprecated)]
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
-pub use hyper::rt::spawn;
 #[doc(hidden)]
 pub use http;
+pub use hyper::rt::spawn;
 
 #[doc(hidden)]
 pub use bytes::Buf;
