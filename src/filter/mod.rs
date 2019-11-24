@@ -31,6 +31,7 @@ use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
+pub use service::FilteredService;
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -396,6 +397,29 @@ pub trait Filter: FilterBase {
         Self::Error: Into<Rejection>,
     {
         BoxedFilter::new(self)
+    }
+
+    /// Wrap the `Filter` so that it implements `tower_service::Service`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate warp;
+    /// # extern crate tower_service;
+    /// use warp::Filter;
+    /// use tower_service::Service as TowerService;
+    ///
+    /// fn tower_service() -> impl TowerService {
+    ///   warp::any().map(|| "ok").into_service()
+    /// }
+    /// ```
+    fn into_service(self) -> FilteredService<Self>
+    where
+        Self: Sized + Send + Sync + 'static,
+        Self::Extract: crate::Reply,
+        Self::Error: IsReject,
+    {
+       FilteredService{ filter: self }
     }
 }
 

@@ -163,3 +163,4 @@ pub use futures::{Future, Sink, Stream};
 #[doc(hidden)]
 
 pub(crate) type Request = http::Request<hyper::Body>;
+pub(crate) type Response = hyper::Response<hyper::Body>;

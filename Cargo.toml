@@ -40,6 +40,7 @@ rustls = { version = "0.16", optional = true }
 tungstenite = { default-features = false, version = "0.9", optional = true }
 urlencoding = "1.0.0"
 pin-project = "0.4.5"
+tower-service = "0.3.0-alpha.2"
 
 [dev-dependencies]
 pretty_env_logger = "0.3"

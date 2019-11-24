@@ -14,7 +14,7 @@ use crate::{Filter, Request};
 
 #[derive(Copy, Clone, Debug)]
 pub struct FilteredService<F> {
-    filter: F,
+    pub(crate) filter: F,
 }
 
 impl<F> WarpService for FilteredService<F>
@@ -26,7 +26,7 @@ where
     type Reply = FilteredFuture<F::Future>;
 
     #[inline]
-    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply {
+    fn call(&mut self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
         let route = Route::new(req, remote_addr);
@@ -97,5 +97,29 @@ where
     #[inline]
     fn into_warp_service(self) -> Self::Service {
         FilteredService { filter: self }
+    }
+}
+
+impl<F> tower_service::Service<crate::Request> for FilteredService<F>
+where
+    F: Filter,
+    <F::Future as TryFuture>::Ok: Reply,
+    <F::Future as TryFuture>::Error: IsReject,
+{
+    type Response = crate::Response;
+    type Error = std::convert::Infallible;
+    type Future = FilteredFuture<F::Future>;
+
+    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: crate::Request) -> Self::Future {
+        let route = Route::new(req, None);
+        let fut = route::set(&route, || self.filter.filter());
+        FilteredFuture {
+            future: fut,
+            route,
+        }
     }
 }

@@ -2,24 +2,23 @@ use std::error::Error as StdError;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
-use std::sync::Arc;
 use std::future::Future;
 
 use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
-use hyper::service::{make_service_fn, service_fn};
+use hyper::service::make_service_fn;
 use hyper::{Server as HyperServer};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
 use crate::Request;
-use crate::reply::Reply;
+use crate::Reply;
 use crate::reject::IsReject;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
 where
-    S: IntoWarpService + 'static,
+    S: IntoWarpService + 'static + Clone,
 {
     Server {
         pipeline: false,
@@ -43,17 +42,37 @@ pub struct TlsServer<S> {
     tls: ::rustls::ServerConfig,
 }
 
+pub struct HyperService<F> {
+    filter: F,
+    remote_addr: Option<SocketAddr>,
+}
+
+impl<F> tower_service::Service<crate::Request> for HyperService<F>
+where
+    F: WarpService,
+{
+    type Response = crate::Response;
+    type Error = std::convert::Infallible;
+    type Future = F::Reply;
+
+    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: crate::Request) -> Self::Future {
+        self.filter.call(req, self.remote_addr)
+    }
+}
+
 // Getting all various generic bounds to make this a re-usable method is
 // very complicated, so instead this is just a macro.
 macro_rules! into_service {
     ($into:expr) => {{
-        let inner = Arc::new($into.into_warp_service());
+        let inner = $into;
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
-            future::ok::<_, hyper::Error>(service_fn(move |req|
-                inner.call(req, remote_addr),
-            ))
+            future::ok::<_, hyper::Error>(HyperService{ filter: inner.into_warp_service() , remote_addr })
         })
     }};
 }
@@ -117,9 +136,7 @@ macro_rules! try_bind {
 
 impl<S> Server<S>
 where
-    S: IntoWarpService + 'static + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
+    S: IntoWarpService + 'static + Send + Clone,
 {
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
@@ -438,5 +455,6 @@ pub trait IntoWarpService {
 
 pub trait WarpService {
     type Reply: Future<Output = Result<hyper::Response<hyper::Body>, std::convert::Infallible>> + Send;
-    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
+    fn call(&mut self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
 }
+
