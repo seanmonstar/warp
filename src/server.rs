@@ -3,22 +3,18 @@ use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
 use std::sync::Arc;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use std::future::Future;
-use std::convert::Infallible;
 
-use pin_project::pin_project;
 use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Server as HyperServer};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::reject::IsReject;
-use crate::reply::Reply;
 use crate::transport::Transport;
 use crate::Request;
+use crate::reply::Reply;
+use crate::reject::IsReject;
 
 /// Create a `Server` with the provided service.
 pub fn serve<S>(service: S) -> Server<S>
@@ -55,9 +51,9 @@ macro_rules! into_service {
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
-            future::ok::<_, hyper::Error>(service_fn(move |req| ReplyFuture {
-                inner: inner.call(req, remote_addr),
-            }))
+            future::ok::<_, hyper::Error>(service_fn(move |req|
+                inner.call(req, remote_addr),
+            ))
         })
     }};
 }
@@ -121,7 +117,7 @@ macro_rules! try_bind {
 
 impl<S> Server<S>
 where
-    S: IntoWarpService + 'static,
+    S: IntoWarpService + 'static + Send,
     <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
     <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
 {
@@ -441,37 +437,6 @@ pub trait IntoWarpService {
 }
 
 pub trait WarpService {
-    type Reply: TryFuture + Send;
+    type Reply: Future<Output = Result<hyper::Response<hyper::Body>, std::convert::Infallible>> + Send;
     fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
-}
-
-// Optimizes better than using Future::then, since it doesn't
-// have to return an IntoFuture.
-#[pin_project]
-#[derive(Debug)]
-struct ReplyFuture<F> {
-    #[pin]
-    inner: F,
-}
-
-impl<F> Future for ReplyFuture<F>
-where
-    F: TryFuture,
-    F::Ok: Reply,
-    F::Error: IsReject,
-{
-    type Output = Result<crate::reply::Response, Infallible>;
-
-    #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let pin = self.project();
-        match pin.inner.try_poll(cx) {
-            Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok.into_response())),
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(err)) => {
-                log::debug!("rejected: {:?}", err);
-                Poll::Ready(Ok(err.into_response()))
-            }
-        }
-    }
 }
