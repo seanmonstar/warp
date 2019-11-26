@@ -151,10 +151,10 @@ pub use self::redirect::redirect;
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
-pub use self::server::{serve, Server};
+pub use self::server::{serve, serve_service, Server};
+pub use hyper::rt::spawn;
 #[doc(hidden)]
 pub use http;
-pub use hyper::rt::spawn;
 
 #[doc(hidden)]
 pub use bytes::Buf;
@@ -162,5 +162,8 @@ pub use bytes::Buf;
 pub use futures::{Future, Sink, Stream};
 #[doc(hidden)]
 
-pub(crate) type Request = http::Request<hyper::Body>;
-pub(crate) type Response = hyper::Response<hyper::Body>;
+///type alias for a Hyper Request
+pub type Request = http::Request<hyper::Body>;
+
+///type alias for a Hyper Request
+pub type Response = hyper::Response<hyper::Body>;

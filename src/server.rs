@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::future::Future;
 
-use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
+use futures::{future, FutureExt, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::make_service_fn;
 use hyper::{Server as HyperServer};
@@ -15,14 +15,27 @@ use crate::Request;
 use crate::Reply;
 use crate::reject::IsReject;
 
-/// Create a `Server` with the provided service.
-pub fn serve<S>(service: S) -> Server<S>
-where
-    S: IntoWarpService + 'static + Clone,
+/// Create a `Server` with the provided filter
+pub fn serve<F>(filter: F) -> Server<crate::filter::FilteredService<F>> where
+    F: crate::Filter + Send + Sync + 'static,
+    F::Extract: Reply,
+    F::Error: IsReject,
 {
     Server {
         pipeline: false,
-        service,
+        service: filter.into_service(),
+    }
+}
+
+/// Create a `Server` with the provided service.
+pub fn serve_service<S>(service: S) -> Server<crate::filter::TowerService<S>> where
+    S: tower_service::Service<crate::Request, Response = crate::Response> + Send + Sync + 'static,
+    S::Error: crate::reject::Reject,
+    S::Future: Send,
+{
+    Server {
+        pipeline: false,
+        service: service.into_warp_service(),
     }
 }
 
@@ -72,7 +85,7 @@ macro_rules! into_service {
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
-            future::ok::<_, hyper::Error>(HyperService{ filter: inner.into_warp_service() , remote_addr })
+            future::ok::<_, hyper::Error>(HyperService{ filter: inner , remote_addr })
         })
     }};
 }
@@ -134,9 +147,8 @@ macro_rules! try_bind {
 
 // ===== impl Server =====
 
-impl<S> Server<S>
-where
-    S: IntoWarpService + 'static + Send + Clone,
+impl<S> Server<S> where
+S: WarpService + 'static + Send + Clone,
 {
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
@@ -183,7 +195,8 @@ where
     pub fn bind(
         self,
         addr: impl Into<SocketAddr> + 'static,
-    ) -> impl Future<Output = ()> + 'static {
+    ) -> impl Future<Output = ()> + 'static
+ {
         let (_, fut) = self.bind_ephemeral(addr);
         fut
     }
@@ -196,7 +209,8 @@ where
     pub async fn try_bind(
         self,
         addr: impl Into<SocketAddr> + 'static,
-    ) {
+    )
+    {
         let addr = addr.into();
         let srv = match try_bind!(self, &addr) {
             Ok((_, srv)) => srv,
@@ -224,7 +238,8 @@ where
     pub fn bind_ephemeral(
         self,
         addr: impl Into<SocketAddr> + 'static,
-    ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
+    ) -> (SocketAddr, impl Future<Output = ()> + 'static)
+    {
         let (addr, srv) = bind!(self, addr);
         let srv = srv.map(|result| {
             if let Err(err) = result {
@@ -295,7 +310,8 @@ where
         self,
         addr: impl Into<SocketAddr> + 'static,
         signal: impl Future<Output = ()> + Send + 'static,
-    ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
+    ) -> (SocketAddr, impl Future<Output = ()> + 'static)
+    {
         let (addr, srv) = bind!(self, addr);
         let fut = srv
             .with_graceful_shutdown(signal)
@@ -364,9 +380,8 @@ where
 #[cfg(feature = "tls")]
 impl<S> TlsServer<S>
 where
-    S: IntoWarpService + 'static,
-    <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
+    S: WarpService + 'static + Send + Clone,
+
 {
     /// Run this `TlsServer` forever on the current thread.
     ///
@@ -457,4 +472,3 @@ pub trait WarpService {
     type Reply: Future<Output = Result<hyper::Response<hyper::Body>, std::convert::Infallible>> + Send;
     fn call(&mut self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
 }
-

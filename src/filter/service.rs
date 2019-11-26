@@ -72,31 +72,68 @@ where
     }
 }
 
-impl<F> IntoWarpService for FilteredService<F>
+#[derive(Copy, Clone, Debug)]
+pub struct TowerService<F> {
+    pub(crate) service: F,
+}
+
+#[pin_project]
+#[derive(Debug)]
+pub struct TowerServiceFuture<F> {
+    #[pin]
+    pub(crate) future: F,
+}
+
+impl<S> IntoWarpService for S
 where
-    F: Filter + Send + Sync + 'static,
-    F::Extract: Reply,
-    F::Error: IsReject,
+    S: tower_service::Service<crate::Request, Response = crate::Response> + Send + Sync + 'static,
+    S::Error: crate::reject::Reject,
+    S::Future: Send,
 {
-    type Service = FilteredService<F>;
+    type Service = TowerService<S>;
 
     #[inline]
     fn into_warp_service(self) -> Self::Service {
-        self
+        TowerService{ service: self }
     }
 }
 
-impl<F> IntoWarpService for F
+impl<S> WarpService for TowerService<S>
 where
-    F: Filter + Send + Sync + 'static,
-    F::Extract: Reply,
-    F::Error: IsReject,
+    S: tower_service::Service<crate::Request, Response = crate::Response> + Send + Sync + 'static,
+    S::Error: crate::reject::Reject,
+    S::Future: Send
 {
-    type Service = FilteredService<F>;
+    type Reply = TowerServiceFuture<S::Future>;
+
+    fn call(&mut self, req: Request, _remote_addr: Option<SocketAddr>) -> Self::Reply {
+
+        TowerServiceFuture{ future: self.service.call(req) }
+    }
+}
+
+impl<S> Future for TowerServiceFuture<S>
+where
+    S: TryFuture<Ok = crate::Response>,
+    S::Error: crate::reject::Reject,
+{
+    type Output = Result<crate::reply::Response, std::convert::Infallible>;
 
     #[inline]
-    fn into_warp_service(self) -> Self::Service {
-        FilteredService { filter: self }
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        debug_assert!(!route::is_set(), "nested route::set calls");
+
+        let pin = self.project();
+        let fut = pin.future;
+
+        match fut.try_poll(cx) {
+            Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok)),
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => {
+                log::debug!("rejected: {:?}", err);
+                Poll::Ready(Ok(crate::reject::custom(err).into_response()))
+            }
+        }
     }
 }
 
