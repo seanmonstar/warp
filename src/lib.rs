@@ -154,6 +154,8 @@ pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
 #[doc(hidden)]
 pub use http;
+#[doc(hidden)]
+pub use hyper;
 pub use hyper::rt::spawn;
 
 #[doc(hidden)]
