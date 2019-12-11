@@ -52,7 +52,7 @@ use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use serde::Serialize;
 use serde_json;
-use tokio::{clock::now, timer::{self, Delay}};
+use tokio::time::{self, Delay};
 
 use self::sealed::{
     BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper,
@@ -508,7 +508,7 @@ impl KeepAlive {
         S::Ok: ServerSentEvent + Send,
         S::Error: StdError + Send + Sync + 'static,
     {
-        let alive_timer = timer::delay(now() + self.max_interval);
+        let alive_timer = time::delay_for(self.max_interval);
         SseKeepAlive {
             event_stream,
             comment_text: self.comment_text,
@@ -545,7 +545,7 @@ where
     let max_interval = keep_interval
         .into()
         .unwrap_or_else(|| Duration::from_secs(15));
-    let alive_timer = timer::delay(now() + max_interval);
+    let alive_timer = time::delay_for(max_interval);
     SseKeepAlive {
         event_stream,
         comment_text: Cow::Borrowed(""),
@@ -568,7 +568,7 @@ where
 /// use std::time::Duration;
 /// use std::convert::Infallible;
 /// use futures::StreamExt;
-/// use tokio::{clock::now, timer::Interval};
+/// use tokio::time::interval;
 /// use warp::{Filter, Stream, sse::ServerSentEvent};
 ///
 /// // create server-sent event
@@ -581,7 +581,7 @@ where
 ///         .and(warp::sse())
 ///         .map(|sse: warp::sse::Sse| {
 ///             let mut counter: u64 = 0;
-///             let event_stream = Interval::new(now(), Duration::from_secs(15)).map(move |_| {
+///             let event_stream = interval(Duration::from_secs(15)).map(move |_| {
 ///                 counter += 1;
 ///                 sse_counter(counter)
 ///             });
@@ -618,7 +618,7 @@ where
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(_) => {
                     // restart timer
-                    pin.alive_timer.reset(now() + *pin.max_interval);
+                    pin.alive_timer.reset(tokio::time::Instant::now() + *pin.max_interval);
                     let comment_str = pin.comment_text.clone();
                     Poll::Ready(Some(Ok(EitherServerSentEvent::B(SseComment(
                         comment_str,
@@ -627,7 +627,7 @@ where
             },
             Poll::Ready(Some(Ok(event))) => {
                 // restart timer
-                pin.alive_timer.reset(now() + *pin.max_interval);
+                pin.alive_timer.reset(tokio::time::Instant::now() + *pin.max_interval);
                 Poll::Ready(Some(Ok(EitherServerSentEvent::A(event))))
             },
             Poll::Ready(None) => Poll::Ready(None),

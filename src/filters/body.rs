@@ -6,7 +6,6 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
 use bytes::Buf;
 use futures::{future, ready, TryFuture, TryStreamExt, Stream};

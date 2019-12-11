@@ -87,7 +87,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use bytes::Bytes;
-use futures::{future, FutureExt, TryFutureExt, TryStreamExt};
+use futures::{future, FutureExt, TryFutureExt};
 #[cfg(feature = "websocket")]
 use futures::{SinkExt, StreamExt};
 #[cfg(feature = "websocket")]

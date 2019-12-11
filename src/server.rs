@@ -272,7 +272,7 @@ where
     ///     });
     ///
     /// // Spawn the server into a runtime
-    /// warp::spawn(server);
+    /// tokio::task::spawn(server);
     ///
     /// // Later, start the shutdown...
     /// let _ = tx.send(());
