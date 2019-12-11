@@ -58,7 +58,7 @@ async fn text() {
         .await
         .expect("handshake");
 
-    client.send_text("hello warp");
+    client.send_text("hello warp").await;
 
     let msg = client.recv().await.expect("recv");
     assert_eq!(msg.to_str(), Ok("hello warp"));
@@ -73,7 +73,7 @@ async fn binary() {
         .await
         .expect("handshake");
 
-    client.send(warp::ws::Message::binary(&b"bonk"[..]));
+    client.send(warp::ws::Message::binary(&b"bonk"[..])).await;
     let msg = client.recv().await.expect("recv");
     assert!(msg.is_binary());
     assert_eq!(msg.as_bytes(), b"bonk");
@@ -125,8 +125,8 @@ async fn limit_message_size() {
         .await
         .expect("handshake");
 
-    client.send(warp::ws::Message::binary(vec![0; 1025]));
-    client.send_text("hello warp");
+    client.send(warp::ws::Message::binary(vec![0; 1025])).await;
+    client.send_text("hello warp").await;
     assert!(client.recv().await.is_err());
 }
 

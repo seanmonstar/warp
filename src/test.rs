@@ -93,8 +93,8 @@ use futures::{future, FutureExt, TryFutureExt};
 #[cfg(feature = "websocket")]
 use futures::{SinkExt, StreamExt};
 #[cfg(feature = "websocket")]
-use tokio::{
-    sync::{mpsc, oneshot},
+use futures::{
+    channel::{mpsc, oneshot},
 };
 use http::{
     header::{HeaderName, HeaderValue},
@@ -459,8 +459,8 @@ impl WsBuilder {
         F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
-        let (wr_tx, wr_rx) = mpsc::unbounded_channel();
-        let (rd_tx, rd_rx) = mpsc::unbounded_channel();
+        let (wr_tx, wr_rx) = mpsc::unbounded();
+        let (rd_tx, rd_rx) = mpsc::unbounded();
 
         tokio::spawn(async move {
             use tungstenite::protocol;
@@ -539,13 +539,13 @@ impl WsBuilder {
 #[cfg(feature = "websocket")]
 impl WsClient {
     /// Send a "text" websocket message to the server.
-    pub fn send_text(&mut self, text: impl Into<String>) {
-        self.send(crate::ws::Message::text(text));
+    pub async fn send_text(&mut self, text: impl Into<String>) {
+        self.send(crate::ws::Message::text(text)).await;
     }
 
     /// Send a websocket message to the server.
-    pub fn send(&mut self, msg: crate::ws::Message) {
-        self.tx.try_send(msg).unwrap();
+    pub async fn send(&mut self, msg: crate::ws::Message) {
+        self.tx.send(msg).await.unwrap();
     }
 
     /// Receive a websocket message from the server.
