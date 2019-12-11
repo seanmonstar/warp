@@ -79,6 +79,7 @@
 //!     assert_eq!(res.body(), "Sum is 3");
 //! }
 //! ```
+use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fmt;
 use std::net::SocketAddr;
@@ -96,7 +97,7 @@ use tokio::{
 };
 use http::{
     header::{HeaderName, HeaderValue},
-    HttpTryFrom, Response,
+    Response,
 };
 use serde::Serialize;
 use serde_json;
@@ -213,13 +214,13 @@ impl RequestBuilder {
     /// `HeaderName` and `HeaderValue`.
     pub fn header<K, V>(mut self, key: K, value: V) -> Self
     where
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
-        let name: HeaderName = HttpTryFrom::try_from(key)
+        let name: HeaderName = TryFrom::try_from(key)
             .map_err(|_| ())
             .expect("invalid header name");
-        let value = HttpTryFrom::try_from(value)
+        let value = TryFrom::try_from(value)
             .map_err(|_| ())
             .expect("invalid header value");
         self.req.headers_mut().insert(name, value);
@@ -418,8 +419,8 @@ impl WsBuilder {
     /// `HeaderName` and `HeaderValue`.
     pub fn header<K, V>(self, key: K, value: V) -> Self
     where
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
         WsBuilder {
             req: self.req.header(key, value),
