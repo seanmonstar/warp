@@ -770,13 +770,9 @@ mod tests {
     }
 
     async fn response_body_string(resp: crate::reply::Response) -> String {
-        use futures::TryStreamExt;
-
         let (_, body) = resp.into_parts();
-        match body.try_concat().await {
-            Ok(chunk) => String::from_utf8_lossy(&chunk).to_string(),
-            err => unreachable!("{:?}", err),
-        }
+        let body_bytes = hyper::body::to_bytes(body).await.expect("failed concat");
+        String::from_utf8_lossy(&body_bytes).to_string()
     }
 
     #[test]

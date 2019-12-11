@@ -348,7 +348,7 @@ impl RequestBuilder {
                     }
                 };
                 let (parts, body) = res.into_parts();
-                body.try_concat()
+                hyper::body::to_bytes(body)
                     .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
             });
 

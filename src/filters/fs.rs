@@ -10,7 +10,7 @@ use std::future::Future;
 use std::task::Poll;
 use std::convert::Infallible;
 
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, stream, ready, FutureExt, TryFutureExt, Stream, StreamExt};
 use headers::{
@@ -18,7 +18,7 @@ use headers::{
     IfUnmodifiedSince, LastModified, Range,
 };
 use http::StatusCode;
-use hyper::{Body, Chunk};
+use hyper::Body;
 use mime_guess;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
@@ -380,7 +380,7 @@ fn file_stream(
     mut file: TkFile,
     buf_size: usize,
     (start, end): (u64, u64),
-) -> impl Stream<Item = Result<Chunk, io::Error>> + Send {
+) -> impl Stream<Item = Result<Bytes, io::Error>> + Send {
     use std::io::SeekFrom;
 
     let seek = async move {
@@ -420,7 +420,7 @@ fn file_stream(
                     return Poll::Ready(None);
                 }
 
-                let mut chunk = buf.take().freeze();
+                let mut chunk = buf.split().freeze();
                 if n > len {
                     chunk = chunk.split_to(len as usize);
                     len = 0;
@@ -428,7 +428,7 @@ fn file_stream(
                     len -= n;
                 }
 
-                Poll::Ready(Some(Ok(Chunk::from(chunk))))
+                Poll::Ready(Some(Ok(chunk)))
             }))
         })
         .flatten()

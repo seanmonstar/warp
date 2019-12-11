@@ -31,7 +31,7 @@ pub struct FormOptions {
 ///
 /// Extracted with a `warp::multipart::form` filter.
 pub struct FormData {
-    inner: Multipart<Cursor<::hyper::Chunk>>,
+    inner: Multipart<Cursor<::bytes::Bytes>>,
 }
 
 /// A single "part" of a multipart/form-data body.
@@ -86,7 +86,7 @@ impl FilterBase for FormOptions {
             .and(boundary)
             .and(super::body::concat())
             .map(|boundary, body: super::body::FullBody| FormData {
-                inner: Multipart::with_body(Cursor::new(body.into_chunk()), boundary),
+                inner: Multipart::with_body(Cursor::new(body.into_bytes()), boundary),
             });
 
         let fut = filt.filter();
