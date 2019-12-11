@@ -86,6 +86,7 @@ use std::net::SocketAddr;
 use std::future::Future;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
+use std::task::{self, Poll};
 
 use bytes::Bytes;
 use futures::{future, FutureExt, TryFutureExt};
@@ -610,17 +611,21 @@ impl StdError for WsError {
 // ===== impl AddrConnect =====
 
 #[cfg(feature = "websocket")]
+#[derive(Clone)]
 struct AddrConnect(SocketAddr);
 
 #[cfg(feature = "websocket")]
-impl ::hyper::client::connect::Connect for AddrConnect {
-    type Transport = ::tokio::net::tcp::TcpStream;
+impl tower_service::Service<::http::Uri> for AddrConnect {
+    type Response = ::tokio::net::TcpStream;
     type Error = ::std::io::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<(Self::Transport, hyper::client::connect::Connected), Self::Error>> + Send>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn connect(&self, _: ::hyper::client::connect::Destination) -> Self::Future {
-        Box::pin(tokio::net::tcp::TcpStream::connect(self.0)
-                 .map(|result| result.map(|sock| (sock, ::hyper::client::connect::Connected::new()))))
+    fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _: ::http::Uri) -> Self::Future {
+        Box::pin(tokio::net::TcpStream::connect(self.0))
     }
 }
 
