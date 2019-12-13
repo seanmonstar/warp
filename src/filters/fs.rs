@@ -106,8 +106,7 @@ fn path_from_tail(
         .and_then(move |tail: crate::path::Tail| {
             future::ready(sanitize_path(base.as_ref(), tail.as_str()))
                 .and_then(|mut buf| async {
-                    let clone_buf = buf.clone();
-                    let is_dir = tokio::task::spawn_blocking(move || clone_buf.is_dir()).await.expect("FIXME");
+                    let is_dir = tokio::task::block_in_place(|| buf.is_dir());
                     if is_dir {
                         log::debug!("dir: appending index.html to directory path");
                         buf.push("index.html");
