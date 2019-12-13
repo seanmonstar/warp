@@ -22,7 +22,7 @@ features = ["tls"]
 bytes = "0.5.2"
 futures = "0.3"
 futures-util = "0.3"
-headers = { git = "https://github.com/hyperium/headers.git" }
+headers = "0.3"
 http = "0.2"
 hyper = { version = "0.13", features = ["stream"] }
 log = "0.4"
