@@ -20,62 +20,52 @@ async fn file() {
     assert_eq!(res.body(), &*contents);
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test]
 async fn dir() {
     let _ = pretty_env_logger::try_init();
 
-    // https://github.com/tokio-rs/tokio/issues/1532
-    tokio::spawn(async {
-        let file = warp::fs::dir("examples");
+    let file = warp::fs::dir("examples");
 
-        let req = warp::test::request().path("/todos.rs");
+    let req = warp::test::request().path("/todos.rs");
+    let res = req.reply(&file).await;
 
-        let res = req.reply(&file).await;
+    assert_eq!(res.status(), 200);
 
-        assert_eq!(res.status(), 200);
+    let contents = fs::read("examples/todos.rs").expect("fs::read");
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.headers()["content-type"], "text/x-rust");
+    assert_eq!(res.headers()["accept-ranges"], "bytes");
 
-        let contents = fs::read("examples/todos.rs").expect("fs::read");
-        assert_eq!(res.headers()["content-length"], contents.len().to_string());
-        assert_eq!(res.headers()["content-type"], "text/x-rust");
-        assert_eq!(res.headers()["accept-ranges"], "bytes");
-
-        assert_eq!(res.body(), &*contents);
-    }).await.expect("spawn failed");
+    assert_eq!(res.body(), &*contents);
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test]
 async fn dir_encoded() {
     let _ = pretty_env_logger::try_init();
 
-    // https://github.com/tokio-rs/tokio/issues/1532
-    tokio::spawn(async {
-        let file = warp::fs::dir("examples");
+    let file = warp::fs::dir("examples");
 
-        let req = warp::test::request().path("/todos%2ers");
-        let res = req.reply(&file).await;
+    let req = warp::test::request().path("/todos%2ers");
+    let res = req.reply(&file).await;
 
-        assert_eq!(res.status(), 200);
+    assert_eq!(res.status(), 200);
 
-        let contents = fs::read("examples/todos.rs").expect("fs::read");
-        assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    let contents = fs::read("examples/todos.rs").expect("fs::read");
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
 
-        assert_eq!(res.body(), &*contents);
-    }).await.expect("spawn failed");
+    assert_eq!(res.body(), &*contents);
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test]
 async fn dir_not_found() {
     let _ = pretty_env_logger::try_init();
 
-    // https://github.com/tokio-rs/tokio/issues/1532
-    tokio::spawn(async {
-        let file = warp::fs::dir("examples");
+    let file = warp::fs::dir("examples");
 
-        let req = warp::test::request().path("/definitely-not-found");
-        let res = req.reply(&file).await;
+    let req = warp::test::request().path("/definitely-not-found");
+    let res = req.reply(&file).await;
 
-        assert_eq!(res.status(), 404);
-    }).await.expect("spawn failed");
+    assert_eq!(res.status(), 404);
 }
 
 #[tokio::test]
@@ -102,23 +92,20 @@ async fn dir_bad_encoded_path() {
     assert_eq!(res.status(), 404);
 }
 
-#[tokio::test(threaded_scheduler)]
+#[tokio::test]
 async fn dir_fallback_index_on_dir() {
     let _ = pretty_env_logger::try_init();
 
-    // https://github.com/tokio-rs/tokio/issues/1532
-    tokio::spawn(async {
-        let file = warp::fs::dir("examples");
-        let req = warp::test::request().path("/dir");
-        let res = req.reply(&file).await;
-        let contents = fs::read("examples/dir/index.html").expect("fs::read");
-        assert_eq!(res.headers()["content-length"], contents.len().to_string());
-        assert_eq!(res.status(), 200);
-        let req = warp::test::request().path("/dir/");
-        let res = req.reply(&file).await;
-        assert_eq!(res.headers()["content-length"], contents.len().to_string());
-        assert_eq!(res.status(), 200);
-    }).await.expect("spawn failed");
+    let file = warp::fs::dir("examples");
+    let req = warp::test::request().path("/dir");
+    let res = req.reply(&file).await;
+    let contents = fs::read("examples/dir/index.html").expect("fs::read");
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.status(), 200);
+    let req = warp::test::request().path("/dir/");
+    let res = req.reply(&file).await;
+    assert_eq!(res.headers()["content-length"], contents.len().to_string());
+    assert_eq!(res.status(), 200);
 }
 
 #[tokio::test]

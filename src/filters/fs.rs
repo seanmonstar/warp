@@ -85,12 +85,6 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 /// // - `GET /static/app.js` would serve the file `/www/static/app.js`
 /// // - `GET /static/css/app.css` would serve the file `/www/static/css/app.css`
 /// ```
-///
-/// # Note
-///
-/// This filter uses `tokio-fs` to serve files, which requires the server
-/// to be run in the threadpool runtime. This is only important to remember
-/// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     crate::get()
@@ -106,7 +100,11 @@ fn path_from_tail(
         .and_then(move |tail: crate::path::Tail| {
             future::ready(sanitize_path(base.as_ref(), tail.as_str()))
                 .and_then(|mut buf| async {
-                    let is_dir = tokio::task::block_in_place(|| buf.is_dir());
+                    let is_dir = tokio::fs::metadata(buf.clone())
+                        .await
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
+
                     if is_dir {
                         log::debug!("dir: appending index.html to directory path");
                         buf.push("index.html");
