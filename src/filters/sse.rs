@@ -41,7 +41,6 @@ use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter, Write};
 use std::str::FromStr;
-use std::time::Duration;
 use std::task::{Context, Poll};
 use std::pin::Pin;
 use std::future::Future;
@@ -52,7 +51,8 @@ use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use serde::Serialize;
 use serde_json;
-use tokio::{clock::now, timer::{self, Delay}};
+use tokio::time::{Instant, Duration, Delay};
+
 
 use self::sealed::{
     BoxedServerSentEvent, EitherServerSentEvent, SseError, SseField, SseFormat, SseWrapper,
@@ -508,7 +508,7 @@ impl KeepAlive {
         S::Ok: ServerSentEvent + Send,
         S::Error: StdError + Send + Sync + 'static,
     {
-        let alive_timer = timer::delay(now() + self.max_interval);
+        let alive_timer = tokio::time::delay_until(Instant::now() + self.max_interval);
         SseKeepAlive {
             event_stream,
             comment_text: self.comment_text,
@@ -545,7 +545,7 @@ where
     let max_interval = keep_interval
         .into()
         .unwrap_or_else(|| Duration::from_secs(15));
-    let alive_timer = timer::delay(now() + max_interval);
+    let alive_timer = tokio::time::delay_until(Instant::now() + max_interval);
     SseKeepAlive {
         event_stream,
         comment_text: Cow::Borrowed(""),
@@ -618,7 +618,7 @@ where
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(_) => {
                     // restart timer
-                    pin.alive_timer.reset(now() + *pin.max_interval);
+                    pin.alive_timer.reset(Instant::now() + *pin.max_interval);
                     let comment_str = pin.comment_text.clone();
                     Poll::Ready(Some(Ok(EitherServerSentEvent::B(SseComment(
                         comment_str,
@@ -627,7 +627,7 @@ where
             },
             Poll::Ready(Some(Ok(event))) => {
                 // restart timer
-                pin.alive_timer.reset(now() + *pin.max_interval);
+                pin.alive_timer.reset(Instant::now() + *pin.max_interval);
                 Poll::Ready(Some(Ok(EitherServerSentEvent::A(event))))
             },
             Poll::Ready(None) => Poll::Ready(None),

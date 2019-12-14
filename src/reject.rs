@@ -773,7 +773,7 @@ mod tests {
         use futures::TryStreamExt;
 
         let (_, body) = resp.into_parts();
-        match body.try_concat().await {
+        match crate::try_concat(body).await {
             Ok(chunk) => String::from_utf8_lossy(&chunk).to_string(),
             err => unreachable!("{:?}", err),
         }

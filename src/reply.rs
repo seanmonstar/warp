@@ -36,10 +36,11 @@
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt;
+use std::convert::TryFrom;
 
 use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
-use http::{HttpTryFrom, StatusCode};
+use http::StatusCode;
 use hyper::Body;
 use serde::Serialize;
 use serde_json;
@@ -267,11 +268,11 @@ pub trait Reply: BoxedReply + Send {
     fn with_header<K, V>(self, name: K, value: V) -> Reply_
     where
         Self: Sized,
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
-        match <HeaderName as HttpTryFrom<K>>::try_from(name) {
-            Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
+        match <HeaderName as TryFrom<K>>::try_from(name) {
+            Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
                 Ok(value) => {
                     let mut res = self.into_response();
                     res.headers_mut().append(name, value);
@@ -352,19 +353,21 @@ impl<T: Reply> Reply for WithStatus<T> {
 /// ```
 pub fn with_header<T: Reply, K, V>(reply: T, name: K, value: V) -> WithHeader<T>
 where
-    HeaderName: HttpTryFrom<K>,
-    HeaderValue: HttpTryFrom<V>,
+    HeaderName: TryFrom<K>,
+    HeaderValue: TryFrom<V>,
+    <HeaderName as TryFrom<K>>::Error: std::fmt::Display,
+    <HeaderValue as TryFrom<V>>::Error: std::fmt::Display,
 {
-    let header = match <HeaderName as HttpTryFrom<K>>::try_from(name) {
-        Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
+    let header = match <HeaderName as TryFrom<K>>::try_from(name) {
+        Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
             Ok(value) => Some((name, value)),
             Err(err) => {
-                log::error!("with_header value error: {}", err.into());
+                log::error!("with_header value error: {}", err);
                 None
             }
         },
         Err(err) => {
-            log::error!("with_header name error: {}", err.into());
+            log::error!("with_header name error: {}", err);
             None
         }
     };

@@ -156,7 +156,7 @@ pub use self::server::{serve, Server};
 pub use http;
 #[doc(hidden)]
 pub use hyper;
-pub use hyper::rt::spawn;
+pub use tokio::spawn;
 
 #[doc(hidden)]
 pub use bytes::Buf;
@@ -165,3 +165,13 @@ pub use futures::{Future, Sink, Stream};
 #[doc(hidden)]
 
 pub(crate) type Request = http::Request<hyper::Body>;
+
+pub(crate) async fn try_concat(mut body: hyper::Body) -> Result<bytes::Bytes, <hyper::Body as futures::TryStream>::Error> {
+    use futures_util::StreamExt;
+    let mut buf = bytes::BytesMut::new();
+    while let Some(result) = body.next().await {
+        let bytes = result?;
+        buf.extend_from_slice(&bytes);
+    }
+    Ok(buf.freeze())
+}

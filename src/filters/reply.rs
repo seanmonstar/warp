@@ -20,9 +20,9 @@
 //! the inner filter (though the `with::header` wrapper does not).
 
 use std::sync::Arc;
+use std::convert::TryFrom;
 
 use http::header::{HeaderMap, HeaderName, HeaderValue};
-use http::HttpTryFrom;
 
 use self::sealed::{WithDefaultHeader_, WithHeader_, WithHeaders_};
 use crate::filter::{Filter, Map, WrapSealed};
@@ -48,8 +48,8 @@ use crate::reply::Reply;
 /// ```
 pub fn header<K, V>(name: K, value: V) -> WithHeader
 where
-    HeaderName: HttpTryFrom<K>,
-    HeaderValue: HttpTryFrom<V>,
+    HeaderName: TryFrom<K>,
+    HeaderValue: TryFrom<V>,
 {
     let (name, value) = assert_name_and_value(name, value);
     WithHeader { name, value }
@@ -107,8 +107,8 @@ pub fn headers(headers: HeaderMap) -> WithHeaders {
 /// ```
 pub fn default_header<K, V>(name: K, value: V) -> WithDefaultHeader
 where
-    HeaderName: HttpTryFrom<K>,
-    HeaderValue: HttpTryFrom<V>,
+    HeaderName: TryFrom<K>,
+    HeaderValue: TryFrom<V>,
 {
     let (name, value) = assert_name_and_value(name, value);
     WithDefaultHeader { name, value }
@@ -175,15 +175,13 @@ where
 
 fn assert_name_and_value<K, V>(name: K, value: V) -> (HeaderName, HeaderValue)
 where
-    HeaderName: HttpTryFrom<K>,
-    HeaderValue: HttpTryFrom<V>,
+    HeaderName: TryFrom<K>,
+    HeaderValue: TryFrom<V>,
 {
-    let name = <HeaderName as HttpTryFrom<K>>::try_from(name)
-        .map_err(Into::into)
+    let name = <HeaderName as TryFrom<K>>::try_from(name)
         .unwrap_or_else(|_| panic!("invalid header name"));
 
-    let value = <HeaderValue as HttpTryFrom<V>>::try_from(value)
-        .map_err(Into::into)
+    let value = <HeaderValue as TryFrom<V>>::try_from(value)
         .unwrap_or_else(|_| panic!("invalid header value"));
 
     (name, value)
@@ -242,7 +240,7 @@ mod sealed {
         fn call(&self, args: One<R>) -> Self::Output {
             let mut resp = args.0.into_response();
             resp.headers_mut()
-                .entry(&self.with.name)
+                .try_entry(&self.with.name)
                 .expect("parsed headername is always valid")
                 .or_insert_with(|| self.with.value.clone());
 

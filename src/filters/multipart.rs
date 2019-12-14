@@ -31,7 +31,7 @@ pub struct FormOptions {
 ///
 /// Extracted with a `warp::multipart::form` filter.
 pub struct FormData {
-    inner: Multipart<Cursor<::hyper::Chunk>>,
+    inner: Multipart<Cursor<bytes::Bytes>>,
 }
 
 /// A single "part" of a multipart/form-data body.

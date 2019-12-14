@@ -9,10 +9,11 @@ use std::task::{Context, Poll};
 use std::future::Future;
 
 use bytes::Buf;
-use futures::{future, ready, TryFuture, TryStreamExt, Stream};
+use bytes::Bytes as Chunk;
+use futures::{future, ready, TryFuture, Stream};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
-use hyper::{Body, Chunk};
+use hyper::Body;
 use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
@@ -106,7 +107,7 @@ pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Cop
 /// ```
 pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
     body().and_then(|body: ::hyper::Body| Concat {
-        fut: body.try_concat(),
+        fut: Box::pin(crate::try_concat(body)),
     })
 }
 
@@ -252,7 +253,7 @@ impl Buf for FullBody {
 
 #[allow(missing_debug_implementations)]
 struct Concat {
-    fut: futures_util::try_stream::TryConcat<Body>,
+    fut: Pin<Box<dyn Future<Output = Result<bytes::Bytes, <hyper::Body as futures::TryStream>::Error>> + Send>>,
 }
 
 impl Future for Concat {

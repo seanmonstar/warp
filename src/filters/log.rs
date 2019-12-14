@@ -2,10 +2,9 @@
 
 use std::fmt;
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
+use tokio::time::{Duration, Instant};
 
 use http::{self, header, StatusCode};
-use tokio::clock;
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -153,7 +152,7 @@ impl<'a> Info<'a> {
 
     /// View the `Duration` that elapsed for the request.
     pub fn elapsed(&self) -> Duration {
-        clock::now() - self.start
+        Instant::now() - self.start
     }
 
     /// View the host of the request
@@ -178,7 +177,7 @@ impl<T: fmt::Display> fmt::Display for OptFmt<T> {
 }
 
 mod internal {
-    use std::time::Instant;
+    use tokio::time::Instant;
     use std::task::{Context, Poll};
     use std::pin::Pin;
     use std::future::Future;
@@ -221,7 +220,7 @@ mod internal {
         type Future = WithLogFuture<FN, F::Future>;
 
         fn filter(&self) -> Self::Future {
-            let started = ::tokio::clock::now();
+            let started = Instant::now();
             WithLogFuture {
                 log: self.log.clone(),
                 future: self.filter.filter(),

@@ -143,7 +143,7 @@ where
                    log::debug!("ws upgrade error: {}", err);
                 }
             });
-        ::hyper::rt::spawn(fut);
+        tokio::spawn(fut);
 
         let mut res = http::Response::default();
 

@@ -64,7 +64,7 @@ mod sealed {
     impl Sealed for Uri {
         fn header_value(self) -> HeaderValue {
             let bytes = Bytes::from(self.to_string());
-            HeaderValue::from_shared(bytes).expect("Uri is a valid HeaderValue")
+            HeaderValue::from_maybe_shared(bytes).expect("Uri is a valid HeaderValue")
         }
     }
 }

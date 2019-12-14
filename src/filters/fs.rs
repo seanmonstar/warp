@@ -11,6 +11,7 @@ use std::task::Poll;
 use std::convert::Infallible;
 
 use bytes::{BufMut, BytesMut};
+use bytes::Bytes as Chunk;
 use futures::future::Either;
 use futures::{future, stream, ready, FutureExt, TryFutureExt, Stream, StreamExt};
 use headers::{
@@ -18,7 +19,7 @@ use headers::{
     IfUnmodifiedSince, LastModified, Range,
 };
 use http::StatusCode;
-use hyper::{Body, Chunk};
+use hyper::Body;
 use mime_guess;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
@@ -107,7 +108,7 @@ fn path_from_tail(
             future::ready(sanitize_path(base.as_ref(), tail.as_str()))
                 .and_then(|mut buf| async {
                     let clone_buf = buf.clone();
-                    let is_dir = tokio_executor::blocking::run(move || clone_buf.is_dir()).await;
+                    let is_dir = tokio::task::spawn_blocking(move || clone_buf.is_dir()).await.expect("Joint error"); // TODO
                     if is_dir {
                         log::debug!("dir: appending index.html to directory path");
                         buf.push("index.html");
@@ -420,7 +421,7 @@ fn file_stream(
                     return Poll::Ready(None);
                 }
 
-                let mut chunk = buf.take().freeze();
+                let mut chunk = buf.split().freeze();
                 if n > len {
                     chunk = chunk.split_to(len as usize);
                     len = 0;

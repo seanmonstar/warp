@@ -83,20 +83,23 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::net::SocketAddr;
 use std::future::Future;
+use std::convert::TryFrom;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
+use std::task::Poll;
 
 use bytes::Bytes;
-use futures::{future, FutureExt, TryFutureExt, TryStreamExt};
+use futures::future;
+use futures_util::{FutureExt, TryFutureExt};
 #[cfg(feature = "websocket")]
-use futures::{SinkExt, StreamExt};
+use futures::StreamExt;
 #[cfg(feature = "websocket")]
 use tokio::{
     sync::{mpsc, oneshot},
 };
 use http::{
     header::{HeaderName, HeaderValue},
-    HttpTryFrom, Response,
+    Response,
 };
 use serde::Serialize;
 use serde_json;
@@ -213,13 +216,13 @@ impl RequestBuilder {
     /// `HeaderName` and `HeaderValue`.
     pub fn header<K, V>(mut self, key: K, value: V) -> Self
     where
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
-        let name: HeaderName = HttpTryFrom::try_from(key)
+        let name: HeaderName = TryFrom::try_from(key)
             .map_err(|_| ())
             .expect("invalid header name");
-        let value = HttpTryFrom::try_from(value)
+        let value = TryFrom::try_from(value)
             .map_err(|_| ())
             .expect("invalid header value");
         self.req.headers_mut().insert(name, value);
@@ -348,7 +351,7 @@ impl RequestBuilder {
                     }
                 };
                 let (parts, body) = res.into_parts();
-                body.try_concat()
+                crate::try_concat(body)
                     .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
             });
 
@@ -379,6 +382,7 @@ impl RequestBuilder {
         })
     }
 }
+
 
 #[cfg(feature = "websocket")]
 impl WsBuilder {
@@ -418,8 +422,8 @@ impl WsBuilder {
     /// `HeaderName` and `HeaderValue`.
     pub fn header<K, V>(self, key: K, value: V) -> Self
     where
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
         WsBuilder {
             req: self.req.header(key, value),
@@ -503,22 +507,25 @@ impl WsBuilder {
                 Default::default(),
             );
 
+             
             let (tx, rx) = ws.split();
             let write = wr_rx
                 .map(Ok)
                 .forward(tx)
                 .map(|_| ());
 
-            let read = rx
+            let mut read = rx
                 .take_while(|result| {
                     match result {
                         Err(_) => future::ready(false),
                         Ok(m) => future::ready(!m.is_close())
                     }
-                })
-                .map(Ok)
-                .forward(rd_tx.sink_map_err(|e| panic!("ws receive error: {}", e)))
-                .map(|_| ());
+                });
+            let read = async move {
+                while let Some(msg) = read.next().await {
+                    rd_tx.send(msg).unwrap_or_else(|e| panic!("ws receive error: {}", e));
+                }
+            };
 
             future::join(write, read).await;
         });
@@ -543,7 +550,7 @@ impl WsClient {
 
     /// Send a websocket message to the server.
     pub fn send(&mut self, msg: crate::ws::Message) {
-        self.tx.try_send(msg).unwrap();
+        self.tx.send(msg).unwrap();
     }
 
     /// Receive a websocket message from the server.
@@ -609,19 +616,34 @@ impl StdError for WsError {
 // ===== impl AddrConnect =====
 
 #[cfg(feature = "websocket")]
+#[derive(Clone)]
 struct AddrConnect(SocketAddr);
 
 #[cfg(feature = "websocket")]
-impl ::hyper::client::connect::Connect for AddrConnect {
-    type Transport = ::tokio::net::tcp::TcpStream;
-    type Error = ::std::io::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<(Self::Transport, hyper::client::connect::Connected), Self::Error>> + Send>>;
+impl hyper::service::Service<hyper::Uri> for AddrConnect {
+    type Response = tokio::net::TcpStream;
+    type Error = tokio::io::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<tokio::net::TcpStream, tokio::io::Error>> + Send>>;
 
-    fn connect(&self, _: ::hyper::client::connect::Destination) -> Self::Future {
-        Box::pin(tokio::net::tcp::TcpStream::connect(self.0)
-                 .map(|result| result.map(|sock| (sock, ::hyper::client::connect::Connected::new()))))
+
+    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _dst: hyper::Uri) -> Self::Future {
+        Box::pin(tokio::net::TcpStream::connect(self.0))
     }
 }
+//impl ::hyper::client::connect::Connect for AddrConnect {
+//    type Transport = ::tokio::net::TcpStream;
+//    type Error = ::std::io::Error;
+//    type Future = Pin<Box<dyn Future<Output = Result<(Self::Transport, hyper::client::connect::Connected), Self::Error>> + Send>>;
+//
+//    fn connect(&self, _: ::hyper::client::connect::Destination) -> Self::Future {
+//        Box::pin(tokio::net::TcpStream::connect(self.0)
+//                 .map(|result| result.map(|sock| (sock, ::hyper::client::connect::Connected::new()))))
+//    }
+//}
 
 mod inner {
     pub trait OneOrTuple {
