@@ -634,16 +634,6 @@ impl hyper::service::Service<hyper::Uri> for AddrConnect {
         Box::pin(tokio::net::TcpStream::connect(self.0))
     }
 }
-//impl ::hyper::client::connect::Connect for AddrConnect {
-//    type Transport = ::tokio::net::TcpStream;
-//    type Error = ::std::io::Error;
-//    type Future = Pin<Box<dyn Future<Output = Result<(Self::Transport, hyper::client::connect::Connected), Self::Error>> + Send>>;
-//
-//    fn connect(&self, _: ::hyper::client::connect::Destination) -> Self::Future {
-//        Box::pin(tokio::net::TcpStream::connect(self.0)
-//                 .map(|result| result.map(|sock| (sock, ::hyper::client::connect::Connected::new()))))
-//    }
-//}
 
 mod inner {
     pub trait OneOrTuple {
