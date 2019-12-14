@@ -113,7 +113,7 @@ fn user_message(my_id: usize, msg: Message, users: &Users) {
     // appears to have disconnected.
     for (&uid, tx) in users.lock().unwrap().iter_mut() {
         if my_id != uid {
-            match tx.try_send(Ok(Message::text(new_msg.clone()))) {
+            match tx.send(Ok(Message::text(new_msg.clone()))) {
                 Ok(()) => (),
                 Err(_disconnected) => {
                     // The tx is disconnected, our `user_disconnected` code

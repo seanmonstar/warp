@@ -565,10 +565,9 @@ where
 /// as shown below.
 ///
 /// ```
-/// use std::time::Duration;
 /// use std::convert::Infallible;
 /// use futures::StreamExt;
-/// use tokio::{clock::now, timer::Interval};
+/// use tokio::time::{Duration, interval};
 /// use warp::{Filter, Stream, sse::ServerSentEvent};
 ///
 /// // create server-sent event
@@ -581,7 +580,7 @@ where
 ///         .and(warp::sse())
 ///         .map(|sse: warp::sse::Sse| {
 ///             let mut counter: u64 = 0;
-///             let event_stream = Interval::new(now(), Duration::from_secs(15)).map(move |_| {
+///             let event_stream = interval(Duration::from_secs(15)).map(move |_| {
 ///                 counter += 1;
 ///                 sse_counter(counter)
 ///             });

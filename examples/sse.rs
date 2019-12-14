@@ -1,6 +1,5 @@
-use std::time::Duration;
 use std::convert::Infallible;
-use tokio::{clock::now, timer::Interval};
+use tokio::time::{interval, Duration};
 use futures::StreamExt;
 use warp::{Filter, sse::ServerSentEvent};
 
@@ -18,7 +17,7 @@ async fn main() {
         .map(|sse: warp::sse::Sse| {
             let mut counter: u64 = 0;
             // create server event source
-            let event_stream = Interval::new(now(), Duration::from_secs(1)).map(move |_| {
+            let event_stream = interval(Duration::from_secs(1)).map(move |_| {
                 counter += 1;
                 sse_counter(counter)
             });

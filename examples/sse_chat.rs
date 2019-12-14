@@ -86,9 +86,9 @@ fn user_connected(
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the event source...
-    let (mut tx, rx) = mpsc::unbounded_channel();
+    let (tx, rx) = mpsc::unbounded_channel();
 
-    match tx.try_send(Message::UserId(my_id)) {
+    match tx.send(Message::UserId(my_id)) {
         Ok(()) => (),
         Err(_disconnected) => {
             // The tx is disconnected, our `user_disconnected` code
@@ -131,7 +131,7 @@ fn user_message(my_id: usize, msg: String, users: &Users) {
     // appears to have disconnected.
     for (&uid, tx) in users.lock().unwrap().iter_mut() {
         if my_id != uid {
-            match tx.try_send(Message::Reply(new_msg.clone())) {
+            match tx.send(Message::Reply(new_msg.clone())) {
                 Ok(()) => (),
                 Err(_disconnected) => {
                     // The tx is disconnected, our `user_disconnected` code
