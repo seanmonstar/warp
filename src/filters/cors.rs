@@ -293,9 +293,6 @@ impl ::std::fmt::Display for CorsForbidden {
 }
 
 impl StdError for CorsForbidden {
-    fn description(&self) -> &str {
-        "CORS request forbidden"
-    }
 }
 
 #[derive(Clone, Debug)]

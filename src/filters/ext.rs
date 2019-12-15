@@ -48,7 +48,4 @@ impl ::std::fmt::Display for MissingExtension {
 }
 
 impl StdError for MissingExtension {
-    fn description(&self) -> &str {
-        "Missing request extension"
-    }
 }

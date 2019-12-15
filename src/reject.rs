@@ -474,9 +474,6 @@ impl ::std::fmt::Display for InvalidQuery {
 }
 
 impl StdError for InvalidQuery {
-    fn description(&self) -> &str {
-        "Invalid query string"
-    }
 }
 
 /// HTTP method not allowed
@@ -490,9 +487,6 @@ impl fmt::Display for MethodNotAllowed {
 }
 
 impl StdError for MethodNotAllowed {
-    fn description(&self) -> &str {
-        "HTTP method not allowed"
-    }
 }
 
 /// A content-length header is required
@@ -506,9 +500,6 @@ impl fmt::Display for LengthRequired {
 }
 
 impl StdError for LengthRequired {
-    fn description(&self) -> &str {
-        "A content-length header is required"
-    }
 }
 
 /// The request payload is too large
@@ -522,9 +513,6 @@ impl fmt::Display for PayloadTooLarge {
 }
 
 impl StdError for PayloadTooLarge {
-    fn description(&self) -> &str {
-        "The request payload is too large"
-    }
 }
 
 /// The request's content-type is not supported
@@ -538,9 +526,6 @@ impl fmt::Display for UnsupportedMediaType {
 }
 
 impl StdError for UnsupportedMediaType {
-    fn description(&self) -> &str {
-        "The request's content-type is not supported"
-    }
 }
 
 /// Missing request header
@@ -554,9 +539,6 @@ impl ::std::fmt::Display for MissingHeader {
 }
 
 impl StdError for MissingHeader {
-    fn description(&self) -> &str {
-        "Missing request header"
-    }
 }
 
 /// Invalid request header
@@ -570,9 +552,6 @@ impl ::std::fmt::Display for InvalidHeader {
 }
 
 impl StdError for InvalidHeader {
-    fn description(&self) -> &str {
-        "Invalid request header"
-    }
 }
 
 /// Missing cookie
@@ -586,9 +565,6 @@ impl ::std::fmt::Display for MissingCookie {
 }
 
 impl StdError for MissingCookie {
-    fn description(&self) -> &str {
-        "Missing request cookie"
-    }
 }
 
 mod sealed {

@@ -653,9 +653,6 @@ mod sealed {
     }
 
     impl StdError for SseError {
-        fn description(&self) -> &str {
-            "sse error"
-        }
     }
 
     impl Display for SseField {

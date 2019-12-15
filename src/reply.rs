@@ -136,14 +136,11 @@ pub(crate) struct ReplyJsonError;
 
 impl fmt::Display for ReplyJsonError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(self.description())
+        f.write_str("warp::reply::json() failed")
     }
 }
 
 impl StdError for ReplyJsonError {
-    fn description(&self) -> &str {
-        "warp::reply::json() failed"
-    }
 }
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
@@ -436,9 +433,6 @@ impl ::std::fmt::Display for ReplyHttpError {
 }
 
 impl StdError for ReplyHttpError {
-    fn description(&self) -> &str {
-        "http::Response::builder error"
-    }
 }
 
 impl Reply for String {
