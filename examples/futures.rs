@@ -1,8 +1,8 @@
 #![deny(warnings)]
 
 use std::str::FromStr;
-use std::time::{Duration, Instant};
-use tokio::timer::delay;
+use std::time::Duration;
+use tokio::time::delay_for;
 use warp::Filter;
 
 /// A newtype to enforce our maximum allowed seconds.
@@ -27,7 +27,7 @@ async fn main() {
     let routes = warp::path::param()
         // and_then create a `Future` that will simply wait N seconds...
         .and_then(|Seconds(seconds): Seconds| async move {
-            delay(Instant::now() + Duration::from_secs(seconds)).await;
+            delay_for(Duration::from_secs(seconds)).await;
             Ok::<String, warp::Rejection>(format!("I waited {} seconds!", seconds))
         });
 

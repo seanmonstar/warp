@@ -156,7 +156,6 @@ pub use self::server::{serve, Server};
 pub use http;
 #[doc(hidden)]
 pub use hyper;
-pub use hyper::rt::spawn;
 
 #[doc(hidden)]
 pub use bytes::Buf;

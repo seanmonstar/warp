@@ -1,6 +1,7 @@
 //! CORS Filters
 
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::sync::Arc;
 
@@ -10,7 +11,6 @@ use headers::{
 use http::{
     self,
     header::{self, HeaderName, HeaderValue},
-    HttpTryFrom,
 };
 
 use crate::filter::{Filter, WrapSealed};
@@ -80,9 +80,9 @@ impl Cors {
     /// Panics if the provided argument is not a valid `http::Method`.
     pub fn allow_method<M>(mut self, method: M) -> Self
     where
-        http::Method: HttpTryFrom<M>,
+        http::Method: TryFrom<M>,
     {
-        let method = match HttpTryFrom::try_from(method) {
+        let method = match TryFrom::try_from(method) {
             Ok(m) => m,
             Err(_) => panic!("illegal Method"),
         };
@@ -98,9 +98,9 @@ impl Cors {
     pub fn allow_methods<I>(mut self, methods: I) -> Self
     where
         I: IntoIterator,
-        http::Method: HttpTryFrom<I::Item>,
+        http::Method: TryFrom<I::Item>,
     {
-        let iter = methods.into_iter().map(|m| match HttpTryFrom::try_from(m) {
+        let iter = methods.into_iter().map(|m| match TryFrom::try_from(m) {
             Ok(m) => m,
             Err(_) => panic!("illegal Method"),
         });
@@ -115,9 +115,9 @@ impl Cors {
     /// Panics if the provided argument is not a valid `http::header::HeaderName`.
     pub fn allow_header<H>(mut self, header: H) -> Self
     where
-        HeaderName: HttpTryFrom<H>,
+        HeaderName: TryFrom<H>,
     {
-        let header = match HttpTryFrom::try_from(header) {
+        let header = match TryFrom::try_from(header) {
             Ok(m) => m,
             Err(_) => panic!("illegal Header"),
         };
@@ -133,9 +133,9 @@ impl Cors {
     pub fn allow_headers<I>(mut self, headers: I) -> Self
     where
         I: IntoIterator,
-        HeaderName: HttpTryFrom<I::Item>,
+        HeaderName: TryFrom<I::Item>,
     {
-        let iter = headers.into_iter().map(|h| match HttpTryFrom::try_from(h) {
+        let iter = headers.into_iter().map(|h| match TryFrom::try_from(h) {
             Ok(h) => h,
             Err(_) => panic!("illegal Header"),
         });
@@ -150,9 +150,9 @@ impl Cors {
     /// Panics if the provided argument is not a valid `http::header::HeaderName`.
     pub fn expose_header<H>(mut self, header: H) -> Self
     where
-        HeaderName: HttpTryFrom<H>,
+        HeaderName: TryFrom<H>,
     {
-        let header = match HttpTryFrom::try_from(header) {
+        let header = match TryFrom::try_from(header) {
             Ok(m) => m,
             Err(_) => panic!("illegal Header"),
         };
@@ -168,9 +168,9 @@ impl Cors {
     pub fn expose_headers<I>(mut self, headers: I) -> Self
     where
         I: IntoIterator,
-        HeaderName: HttpTryFrom<I::Item>,
+        HeaderName: TryFrom<I::Item>,
     {
-        let iter = headers.into_iter().map(|h| match HttpTryFrom::try_from(h) {
+        let iter = headers.into_iter().map(|h| match TryFrom::try_from(h) {
             Ok(h) => h,
             Err(_) => panic!("illegal Header"),
         });

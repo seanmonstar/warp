@@ -10,7 +10,7 @@ use std::future::Future;
 use std::task::Poll;
 use std::convert::Infallible;
 
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, stream, ready, FutureExt, TryFutureExt, Stream, StreamExt};
 use headers::{
@@ -18,7 +18,7 @@ use headers::{
     IfUnmodifiedSince, LastModified, Range,
 };
 use http::StatusCode;
-use hyper::{Body, Chunk};
+use hyper::Body;
 use mime_guess;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
@@ -85,12 +85,6 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 /// // - `GET /static/app.js` would serve the file `/www/static/app.js`
 /// // - `GET /static/css/app.css` would serve the file `/www/static/css/app.css`
 /// ```
-///
-/// # Note
-///
-/// This filter uses `tokio-fs` to serve files, which requires the server
-/// to be run in the threadpool runtime. This is only important to remember
-/// if starting a runtime manually.
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     crate::get()
@@ -106,8 +100,11 @@ fn path_from_tail(
         .and_then(move |tail: crate::path::Tail| {
             future::ready(sanitize_path(base.as_ref(), tail.as_str()))
                 .and_then(|mut buf| async {
-                    let clone_buf = buf.clone();
-                    let is_dir = tokio_executor::blocking::run(move || clone_buf.is_dir()).await;
+                    let is_dir = tokio::fs::metadata(buf.clone())
+                        .await
+                        .map(|m| m.is_dir())
+                        .unwrap_or(false);
+
                     if is_dir {
                         log::debug!("dir: appending index.html to directory path");
                         buf.push("index.html");
@@ -380,7 +377,7 @@ fn file_stream(
     mut file: TkFile,
     buf_size: usize,
     (start, end): (u64, u64),
-) -> impl Stream<Item = Result<Chunk, io::Error>> + Send {
+) -> impl Stream<Item = Result<Bytes, io::Error>> + Send {
     use std::io::SeekFrom;
 
     let seek = async move {
@@ -420,7 +417,7 @@ fn file_stream(
                     return Poll::Ready(None);
                 }
 
-                let mut chunk = buf.take().freeze();
+                let mut chunk = buf.split().freeze();
                 if n > len {
                     chunk = chunk.split_to(len as usize);
                     len = 0;
@@ -428,7 +425,7 @@ fn file_stream(
                     len -= n;
                 }
 
-                Poll::Ready(Some(Ok(Chunk::from(chunk))))
+                Poll::Ready(Some(Ok(chunk)))
             }))
         })
         .flatten()

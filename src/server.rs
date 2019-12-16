@@ -129,7 +129,6 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-
         log::info!("warp drive engaged: listening on http://{}", addr);
 
         fut.await;
@@ -141,7 +140,7 @@ where
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     pub async fn run_incoming<I>(self, incoming: I)
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -150,7 +149,7 @@ where
 
     async fn run_incoming2<I>(self, incoming: I)
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: Transport + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -272,7 +271,7 @@ where
     ///     });
     ///
     /// // Spawn the server into a runtime
-    /// warp::spawn(server);
+    /// tokio::task::spawn(server);
     ///
     /// // Later, start the shutdown...
     /// let _ = tx.send(());
@@ -311,7 +310,7 @@ where
 
     async fn serve_incoming2<I>(self, incoming: I)
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: Transport + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {

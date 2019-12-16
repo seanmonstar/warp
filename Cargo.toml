@@ -19,12 +19,12 @@ publish = false # while in pre-0.2.x alpha dev
 features = ["tls"]
 
 [dependencies]
-bytes = "0.4.8"
-futures-preview = "0.3.0-alpha.19"
-futures-util-preview = "0.3.0-alpha.19"
-headers = "0.2"
-http = "0.1"
-hyper = { version = "=0.13.0-alpha.4", features = ["unstable-stream"] }
+bytes = "0.5"
+futures = "0.3"
+futures-util = "0.3"
+headers = "0.3"
+http = "0.2"
+hyper = { version = "0.13", features = ["stream"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -33,8 +33,8 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.6"
-tokio = "0.2.0-alpha.6"
-tokio-executor = "=0.2.0-alpha.6"
+tokio = { version = "0.2", features = ["blocking", "fs", "macros", "rt-threaded", "stream", "sync", "time"] }
+tower-service = "0.3"
 rustls = { version = "0.16", optional = true }
 # tls is enabled by default, we don't want that yet
 tungstenite = { default-features = false, version = "0.9", optional = true }
@@ -66,6 +66,10 @@ required-features = ["multipart"]
 [[test]]
 name = "ws"
 required-features = ["websocket"]
+
+[[example]]
+name = "unix_socket"
+required-features = ["tokio/uds"]
 
 [[example]]
 name = "websockets"

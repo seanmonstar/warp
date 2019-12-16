@@ -6,13 +6,12 @@ use std::error::Error as StdError;
 use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use bytes::Buf;
-use futures::{future, ready, TryFuture, TryStreamExt, Stream};
+use bytes::{Bytes, Buf};
+use futures::{future, ready, TryFutureExt, Stream};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
-use hyper::{Body, Chunk};
+use hyper::Body;
 use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
@@ -105,9 +104,14 @@ pub fn stream() -> impl Filter<Extract = (BodyStream,), Error = Rejection> + Cop
 ///     });
 /// ```
 pub fn concat() -> impl Filter<Extract = (FullBody,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| Concat {
-        fut: body.try_concat(),
-    })
+    body().and_then(|body: ::hyper::Body|
+        hyper::body::to_bytes(body)
+            .map_ok(|bytes| FullBody { bytes })
+            .map_err(|err| {
+                log::debug!("concat error: {}", err);
+                reject::known(BodyReadError(err))
+            })
+    )
 }
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
@@ -171,7 +175,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
     is_content_type(mime::APPLICATION, mime::JSON)
         .and(concat())
         .and_then(|buf: FullBody| {
-            future::ready(serde_json::from_slice(&buf.chunk).map_err(|err| {
+            future::ready(serde_json::from_slice(&buf.bytes).map_err(|err| {
                 log::debug!("request json body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
             }))
@@ -206,7 +210,7 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
     is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
         .and(concat())
         .and_then(|buf: FullBody| {
-            future::ready(serde_urlencoded::from_bytes(&buf.chunk).map_err(|err| {
+            future::ready(serde_urlencoded::from_bytes(&buf.bytes).map_err(|err| {
                 log::debug!("request form body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err.into() })
             }))
@@ -223,49 +227,30 @@ pub struct FullBody {
     // By concealing how a full body (concat()) is represented, this can be
     // improved to be a `Vec<Chunk>` or similar, thus reducing copies required
     // in the common case.
-    chunk: Chunk,
+    bytes: Bytes,
 }
 
 impl FullBody {
     #[cfg(feature = "multipart")]
-    pub(super) fn into_chunk(self) -> Chunk {
-        self.chunk
+    pub(super) fn into_bytes(self) -> Bytes {
+        self.bytes
     }
 }
 
 impl Buf for FullBody {
     #[inline]
     fn remaining(&self) -> usize {
-        self.chunk.remaining()
+        self.bytes.remaining()
     }
 
     #[inline]
     fn bytes(&self) -> &[u8] {
-        self.chunk.bytes()
+        self.bytes.bytes()
     }
 
     #[inline]
     fn advance(&mut self, cnt: usize) {
-        self.chunk.advance(cnt);
-    }
-}
-
-#[allow(missing_debug_implementations)]
-struct Concat {
-    fut: futures_util::try_stream::TryConcat<Body>,
-}
-
-impl Future for Concat {
-    type Output = Result<FullBody, Rejection>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match ready!(Pin::new(&mut self.get_mut().fut).try_poll(cx)) {
-            Ok(chunk) => Poll::Ready(Ok(FullBody { chunk })),
-            Err(err) => {
-                log::debug!("concat error: {}", err);
-                Poll::Ready(Err(reject::known(BodyReadError(err))))
-            }
-        }
+        self.bytes.advance(cnt);
     }
 }
 
@@ -280,7 +265,7 @@ impl Stream for BodyStream {
     type Item = Result<StreamBuf, crate::Error>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let opt_item: Option<Result<Chunk, hyper::Error>> = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
+        let opt_item: Option<Result<Bytes, hyper::Error>> = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
         match opt_item {
             None =>  Poll::Ready(None),
@@ -305,7 +290,7 @@ impl fmt::Debug for BodyStream {
 ///
 /// Yielded by a `BodyStream`.
 pub struct StreamBuf {
-    chunk: Chunk,
+    chunk: Bytes,
 }
 
 impl Buf for StreamBuf {
