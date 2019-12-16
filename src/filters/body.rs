@@ -328,9 +328,6 @@ impl fmt::Display for BodyDeserializeError {
 }
 
 impl StdError for BodyDeserializeError {
-    fn description(&self) -> &str {
-        "Request body deserialize error"
-    }
 }
 
 #[derive(Debug)]
@@ -343,9 +340,6 @@ impl ::std::fmt::Display for BodyReadError {
 }
 
 impl StdError for BodyReadError {
-    fn description(&self) -> &str {
-        "Request body read error"
-    }
 }
 
 #[derive(Debug)]
@@ -358,7 +352,4 @@ impl ::std::fmt::Display for BodyConsumedMultipleTimes {
 }
 
 impl StdError for BodyConsumedMultipleTimes {
-    fn description(&self) -> &str {
-        "Request body consumed multiple times"
-    }
 }

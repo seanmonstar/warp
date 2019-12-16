@@ -1,5 +1,4 @@
 #![deny(warnings)]
-use std::error::Error;
 use std::sync::Arc;
 
 use handlebars::Handlebars;
@@ -17,7 +16,7 @@ where
     T: Serialize,
 {
     hbs.render(template.name, &template.value)
-        .unwrap_or_else(|err| err.description().to_owned())
+        .unwrap_or_else(|err| err.to_string())
 }
 
 #[tokio::main]
