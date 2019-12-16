@@ -1,5 +1,6 @@
 # warp
 
+[![GHA Build Status](https://github.com/seanmonstar/warp/workflows/CI/badge.svg)](https://github.com/seanmonstar/warp/actions?query=workflow%3ACI)
 [![Travis Build Status](https://travis-ci.org/seanmonstar/warp.svg?branch=master)](https://travis-ci.org/seanmonstar/warp)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![crates.io](https://img.shields.io/crates/v/warp.svg)](https://crates.io/crates/warp)
