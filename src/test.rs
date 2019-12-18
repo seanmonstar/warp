@@ -228,6 +228,15 @@ impl RequestBuilder {
         self
     }
 
+    /// Add a type to the request's `http::Extensions`.
+    pub fn extension<T>(mut self, ext: T) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        self.req.extensions_mut().insert(ext);
+        self
+    }
+
     /// Set the bytes of this request body.
     ///
     /// Default is an empty body.
