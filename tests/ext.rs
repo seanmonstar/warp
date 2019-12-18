@@ -6,14 +6,9 @@ struct Ext1(i32);
 
 #[tokio::test]
 async fn set_and_get() {
-    let ext = warp::any()
-        .map(|| {
-            warp::ext::set(Ext1(55));
-        })
-        .untuple_one()
-        .and(warp::ext::get::<Ext1>());
+    let ext = warp::ext::get::<Ext1>();
 
-    let extracted = warp::test::request().filter(&ext).await.unwrap();
+    let extracted = warp::test::request().extension(Ext1(55)).filter(&ext).await.unwrap();
 
     assert_eq!(extracted, Ext1(55));
 }
@@ -26,10 +21,4 @@ async fn get_missing() {
 
     assert_eq!(res.status(), 500);
     assert_eq!(res.body(), "Missing request extension");
-}
-
-#[test]
-#[should_panic]
-fn set_outside_of_filter_should_panic() {
-    warp::ext::set(Ext1(55));
 }

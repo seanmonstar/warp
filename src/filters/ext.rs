@@ -21,20 +21,6 @@ pub fn get<T: Clone + Send + Sync + 'static>(
     })
 }
 
-/// Set an arbitrary value in the current route extensions.
-///
-/// After setting the value, it can be retrieved in another filter by
-/// use `get` with the same type.
-///
-/// # Panics
-///
-/// This function panics if not called within the context of a `Filter`.
-pub fn set<T: Send + Sync + 'static>(val: T) {
-    crate::route::with(move |route| {
-        route.extensions_mut().insert(val);
-    });
-}
-
 /// An error used to reject if `get` cannot find the extension.
 #[derive(Debug)]
 pub struct MissingExtension {
@@ -47,5 +33,4 @@ impl ::std::fmt::Display for MissingExtension {
     }
 }
 
-impl StdError for MissingExtension {
-}
+impl StdError for MissingExtension {}
