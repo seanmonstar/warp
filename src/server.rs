@@ -1,8 +1,10 @@
 use std::error::Error as StdError;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
-use std::path::Path;
+use crate::tls::TlsConfigBuilder;
 use std::sync::Arc;
+#[cfg(feature = "tls")]
+use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::future::Future;
@@ -44,7 +46,8 @@ pub struct Server<S> {
 #[cfg(feature = "tls")]
 pub struct TlsServer<S> {
     server: Server<S>,
-    tls: ::rustls::ServerConfig,
+    tls: TlsConfigBuilder,
+    //tls: ::rustls::ServerConfig,
 }
 
 // Getting all various generic bounds to make this a re-usable method is
@@ -78,16 +81,17 @@ macro_rules! bind_inner {
         let srv = HyperServer::builder(incoming)
             .http1_pipeline_flush($this.pipeline)
             .serve(service);
-        Ok::<_, hyper::error::Error>((addr, srv))
+        Ok::<_, hyper::Error>((addr, srv))
     }};
 
     (tls: $this:ident, $addr:expr) => {{
         let service = into_service!($this.server.service);
         let (addr, incoming) = addr_incoming!($addr);
-        let srv = HyperServer::builder(crate::tls::TlsAcceptor::new($this.tls, incoming))
+        let tls = $this.tls.build()?;
+        let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming))
             .http1_pipeline_flush($this.server.pipeline)
             .serve(service);
-        Ok::<_, hyper::error::Error>((addr, srv))
+        Ok::<_, Box<dyn std::error::Error + Send + Sync>>((addr, srv))
     }};
 }
 
@@ -231,10 +235,10 @@ where
     pub fn try_bind_ephemeral(
         self,
         addr: impl Into<SocketAddr> + 'static,
-    ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), hyper::error::Error>
+    ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error>
     {
         let addr = addr.into();
-        let (addr, srv) = try_bind!(self, &addr)?;
+        let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
         let srv = srv.map(|result| {
             if let Err(err) = result {
                 log::error!("server error: {}", err)
@@ -334,14 +338,15 @@ where
         self
     }
 
-    /// Configure a server to use TLS with the supplied certificate and key files.
+    /// Configure a server to use TLS.
     ///
     /// *This function requires the `"tls"` feature.*
     #[cfg(feature = "tls")]
-    pub fn tls(self, cert: impl AsRef<Path>, key: impl AsRef<Path>) -> TlsServer<S> {
-        let tls = crate::tls::configure(cert.as_ref(), key.as_ref());
-
-        TlsServer { server: self, tls }
+    pub fn tls(self) -> TlsServer<S> {
+        TlsServer {
+            server: self,
+            tls: TlsConfigBuilder::new(),
+        }
     }
 }
 
@@ -354,6 +359,39 @@ where
     <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
     <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
 {
+    // TLS config methods
+
+    /// Specify the file path to read the private key.
+    pub fn key_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.key_path(path))
+    }
+
+    /// Specify the file path to read the certificate.
+    pub fn cert_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.cert_path(path))
+    }
+
+    /// Specify the in-memory contents of the private key.
+    pub fn key(self, key: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.key(key.as_ref()))
+    }
+
+    /// Specify the in-memory contents of the certificate.
+    pub fn cert(self, cert: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.cert(cert.as_ref()))
+    }
+
+    fn with_tls<F>(self, func: F) -> Self
+    where
+        F: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
+    {
+        let TlsServer { server, tls } = self;
+        let tls = func(tls);
+        TlsServer { server, tls }
+    }
+
+    // Server run methods
+
     /// Run this `TlsServer` forever on the current thread.
     ///
     /// *This function requires the `"tls"` feature.*
@@ -366,7 +404,7 @@ where
     }
 
     /// Bind to a socket address, returning a `Future` that can be
-    /// executed on any runtime.
+    /// executed on a runtime.
     ///
     /// *This function requires the `"tls"` feature.*
     pub async fn bind(

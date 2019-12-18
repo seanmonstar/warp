@@ -271,7 +271,7 @@ impl Stream for BodyStream {
             None =>  Poll::Ready(None),
             Some(item) => {
                 let stream_buf = item
-                    .map_err(|e| crate::Error::from(crate::error::Kind::Hyper(e)))
+                    .map_err(crate::Error::new)
                     .map(|chunk| StreamBuf { chunk });
 
                 Poll::Ready(Some(stream_buf))
