@@ -5,7 +5,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use tokio::sync::{mpsc, oneshot};
-use warp::{sse::ServerSentEvent, Buf, Filter};
+use warp::{sse::ServerSentEvent, Filter};
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
@@ -41,8 +41,8 @@ async fn main() {
         .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
-        .and(warp::body::concat().and_then(|body: warp::body::FullBody| async move {
-            std::str::from_utf8(body.bytes())
+        .and(warp::body::bytes().and_then(|body: bytes::Bytes| async move {
+            std::str::from_utf8(&body)
                 .map(String::from)
                 .map_err(|_e| warp::reject::custom(NotUtf8))
         }))

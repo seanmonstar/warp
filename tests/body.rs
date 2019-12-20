@@ -8,7 +8,7 @@ use bytes::Buf;
 async fn matches() {
     let _ = pretty_env_logger::try_init();
 
-    let concat = warp::body::concat();
+    let concat = warp::body::bytes();
 
     let req = warp::test::request().path("/nothing-matches-me");
 
@@ -26,7 +26,7 @@ async fn matches() {
 async fn server_error_if_taking_body_multiple_times() {
     let _ = pretty_env_logger::try_init();
 
-    let concat = warp::body::concat();
+    let concat = warp::body::bytes();
     let double = concat.and(concat).map(|_, _| warp::reply());
 
     let res = warp::test::request().reply(&double).await;
@@ -188,7 +188,7 @@ async fn stream() {
         .await
         .expect("filter() stream");
 
-    let bufs: Result<Vec<warp::filters::body::StreamBuf>, warp::Error> = body.try_collect().await;
+    let bufs: Result<Vec<_>, warp::Error> = body.try_collect().await;
     let bufs = bufs.unwrap();
 
     assert_eq!(bufs.len(), 1);

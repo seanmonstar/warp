@@ -84,9 +84,9 @@ impl FilterBase for FormOptions {
 
         let filt = super::body::content_length_limit(self.max_length)
             .and(boundary)
-            .and(super::body::concat())
-            .map(|boundary, body: super::body::FullBody| FormData {
-                inner: Multipart::with_body(Cursor::new(body.into_bytes()), boundary),
+            .and(super::body::bytes())
+            .map(|boundary, body| FormData {
+                inner: Multipart::with_body(Cursor::new(body), boundary),
             });
 
         let fut = filt.filter();
