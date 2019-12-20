@@ -25,9 +25,11 @@
 //!     ])
 //! }
 //!
-//! let app = warp::path("push-notifications").and(warp::sse()).map(|sse: warp::sse::Sse| {
-//!     sse.reply(warp::sse::keep_alive().stream(sse_events()))
-//! });
+//! let app = warp::path("push-notifications")
+//!     .and(warp::get())
+//!     .map(|| {
+//!         warp::sse::reply(warp::sse::keep_alive().stream(sse_events()))
+//!     });
 //! ```
 //!
 //! Each field already is event which can be sent to client.
@@ -311,127 +313,90 @@ where
         })
 }
 
-/// Creates a Server-sent Events filter.
+/// Server-sent events reply
 ///
-/// The yielded `Sse` is used to reply with stream of events.
-///
-/// # Note
-///
-/// This filter combines multiple filters internally, so you don't need them:
-///
-/// - Method must be `GET`
-/// - Header `connection` must be `keep-alive` when it present.
-///
-/// If the filters are met, yields a `Sse`. Calling `Sse::reply` will return
-/// a reply with:
+/// This function converts stream of server events into a `Reply` with:
 ///
 /// - Status of `200 OK`
 /// - Header `content-type: text/event-stream`
 /// - Header `cache-control: no-cache`.
-pub fn sse() -> impl Filter<Extract = One<Sse>, Error = Rejection> + Copy {
-    crate::get()
-        .and(
-            header::exact_ignore_case("connection", "keep-alive").or_else(
-                |rejection: Rejection| {
-                    if rejection.find::<crate::reject::MissingHeader>().is_some() {
-                        return future::ok(());
-                    }
-                    future::err(rejection)
-                },
-            ),
-        )
-        .map(|| Sse)
-}
-
-/// Extracted by the [`sse`](sse) filter, and used to reply with stream of events.
-pub struct Sse;
-
-impl Sse {
-    /// Server-sent events reply
-    ///
-    /// This function converts stream of server events into reply.
-    ///
-    /// ```
-    ///
-    /// use std::time::Duration;
-    /// use futures::Stream;
-    /// use futures::stream::iter;
-    /// use std::convert::Infallible;
-    /// use warp::{Filter, sse::ServerSentEvent};
-    /// use serde_derive::Serialize;
-    ///
-    /// #[derive(Serialize)]
-    /// struct Msg {
-    ///     from: u32,
-    ///     text: String,
-    /// }
-    ///
-    /// fn event_stream() -> impl Stream<Item = Result<impl ServerSentEvent, Infallible>> {
-    ///         iter(vec![
-    ///             // Unnamed event with data only
-    ///             Ok(warp::sse::data("payload").boxed()),
-    ///             // Named event with ID and retry timeout
-    ///             Ok((
-    ///                 warp::sse::data("other message\nwith next line"),
-    ///                 warp::sse::event("chat"),
-    ///                 warp::sse::id(1),
-    ///                 warp::sse::retry(Duration::from_millis(15000))
-    ///             ).boxed()),
-    ///             // Event with JSON data
-    ///             Ok((
-    ///                 warp::sse::id(2),
-    ///                 warp::sse::json(Msg {
-    ///                     from: 2,
-    ///                     text: "hello".into(),
-    ///                 }),
-    ///             ).boxed()),
-    ///         ])
-    /// }
-    ///
-    /// async {
-    ///     let app = warp::path("sse").and(warp::sse()).map(|sse: warp::sse::Sse| {
-    ///        sse.reply(event_stream())
-    ///     });
-    ///
-    ///     let res = warp::test::request()
-    ///         .method("GET")
-    ///         .header("Connection", "Keep-Alive")
-    ///         .path("/sse")
-    ///         .reply(&app)
-    ///         .await
-    ///         .into_body();
-    ///
-    ///     assert_eq!(
-    ///         res,
-    ///         r#"data:payload
-    ///
-    /// event:chat
-    /// data:other message
-    /// data:with next line
-    /// id:1
-    /// retry:15000
-    ///
-    /// data:{"from":2,"text":"hello"}
-    /// id:2
-    ///
-    /// "#
-    ///     );
-    /// };
-    /// ```
-    pub fn reply<S>(self, event_stream: S) -> impl Reply
-    where
-        S: TryStream + Send + Sync + 'static,
-        S::Ok: ServerSentEvent,
-        S::Error: StdError + Send + Sync + 'static,
-    {
-        SseReply { event_stream }
-    }
-}
-
-impl fmt::Debug for Sse {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Sse").finish()
-    }
+///
+/// # Example
+///
+/// ```
+///
+/// use std::time::Duration;
+/// use futures::Stream;
+/// use futures::stream::iter;
+/// use std::convert::Infallible;
+/// use warp::{Filter, sse::ServerSentEvent};
+/// use serde_derive::Serialize;
+///
+/// #[derive(Serialize)]
+/// struct Msg {
+///     from: u32,
+///     text: String,
+/// }
+///
+/// fn event_stream() -> impl Stream<Item = Result<impl ServerSentEvent, Infallible>> {
+///         iter(vec![
+///             // Unnamed event with data only
+///             Ok(warp::sse::data("payload").boxed()),
+///             // Named event with ID and retry timeout
+///             Ok((
+///                 warp::sse::data("other message\nwith next line"),
+///                 warp::sse::event("chat"),
+///                 warp::sse::id(1),
+///                 warp::sse::retry(Duration::from_millis(15000))
+///             ).boxed()),
+///             // Event with JSON data
+///             Ok((
+///                 warp::sse::id(2),
+///                 warp::sse::json(Msg {
+///                     from: 2,
+///                     text: "hello".into(),
+///                 }),
+///             ).boxed()),
+///         ])
+/// }
+///
+/// async {
+///     let app = warp::path("sse").and(warp::get()).map(|| {
+///        warp::sse::reply(event_stream())
+///     });
+///
+///     let res = warp::test::request()
+///         .method("GET")
+///         .header("Connection", "Keep-Alive")
+///         .path("/sse")
+///         .reply(&app)
+///         .await
+///         .into_body();
+///
+///     assert_eq!(
+///         res,
+///         r#"data:payload
+///
+/// event:chat
+/// data:other message
+/// data:with next line
+/// id:1
+/// retry:15000
+///
+/// data:{"from":2,"text":"hello"}
+/// id:2
+///
+/// "#
+///     );
+/// };
+/// ```
+pub fn reply<S>(event_stream: S) -> impl Reply
+where
+    S: TryStream + Send + Sync + 'static,
+    S::Ok: ServerSentEvent,
+    S::Error: StdError + Send + Sync + 'static,
+{
+    SseReply { event_stream }
 }
 
 #[allow(missing_debug_implementations)]
@@ -578,8 +543,8 @@ where
 ///
 /// fn main() {
 ///     let routes = warp::path("ticks")
-///         .and(warp::sse())
-///         .map(|sse: warp::sse::Sse| {
+///         .and(warp::get())
+///         .map(|| {
 ///             let mut counter: u64 = 0;
 ///             let event_stream = interval(Duration::from_secs(15)).map(move |_| {
 ///                 counter += 1;
@@ -590,7 +555,7 @@ where
 ///                 .interval(Duration::from_secs(5))
 ///                 .text("thump".to_string())
 ///                 .stream(event_stream);
-///             sse.reply(stream)
+///             warp::sse::reply(stream)
 ///         });
 /// }
 /// ```

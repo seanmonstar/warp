@@ -14,8 +14,8 @@ async fn main() {
     pretty_env_logger::init();
 
     let routes = warp::path("ticks")
-        .and(warp::sse())
-        .map(|sse: warp::sse::Sse| {
+        .and(warp::get())
+        .map(|| {
             let mut counter: u64 = 0;
             // create server event source
             let event_stream = interval(Duration::from_secs(1)).map(move |_| {
@@ -23,7 +23,7 @@ async fn main() {
                 sse_counter(counter)
             });
             // reply using server-sent events
-            sse.reply(event_stream)
+            warp::sse::reply(event_stream)
         });
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
