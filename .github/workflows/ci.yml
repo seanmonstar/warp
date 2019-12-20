@@ -30,8 +30,8 @@ jobs:
   #         command: fmt
   #         args: --all -- --check
 
-  build:
-    name: Build
+  test:
+    name: Test
     # needs: [style]
 
     runs-on: ubuntu-latest
