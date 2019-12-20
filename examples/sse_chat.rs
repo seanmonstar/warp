@@ -55,12 +55,12 @@ async fn main() {
     // GET /chat -> messages stream
     let chat_recv =
         warp::path("chat")
-            .and(warp::sse())
+            .and(warp::get())
             .and(users)
-            .map(|sse: warp::sse::Sse, users| {
+            .map(|users| {
                 // reply using server-sent events
                 let stream = user_connected(users);
-                sse.reply(warp::sse::keep_alive().stream(stream))
+                warp::sse::reply(warp::sse::keep_alive().stream(stream))
             });
 
     // GET / -> index html
