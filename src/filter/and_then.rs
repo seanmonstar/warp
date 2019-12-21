@@ -1,6 +1,6 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
 use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
@@ -65,8 +65,10 @@ where
     F::Output: TryFuture + Send,
     <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
-    type Output = Result<(<F::Output as TryFuture>::Ok,),
-                         <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One>;
+    type Output = Result<
+        (<F::Output as TryFuture>::Ok,),
+        <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One,
+    >;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -76,20 +78,22 @@ where
             let (ex1, second) = match pin.state.project() {
                 State::First(first, second) => match ready!(first.try_poll(cx)) {
                     Ok(first) => (first, second),
-                    Err(err) => return Poll::Ready(Err(From::from(err)))
+                    Err(err) => return Poll::Ready(Err(From::from(err))),
                 },
                 State::Second(second) => {
                     let ex3 = match ready!(second.try_poll(cx)) {
                         Ok(item) => Ok((item,)),
-                        Err(err) => Err(From::from(err))
+                        Err(err) => Err(From::from(err)),
                     };
-                    self.set(AndThenFuture{ state: State::Done });
-                    return Poll::Ready(ex3)
+                    self.set(AndThenFuture { state: State::Done });
+                    return Poll::Ready(ex3);
                 }
                 State::Done => panic!("polled after complete"),
             };
             let fut2 = second.call(ex1);
-            self.set(AndThenFuture{ state: State::Second(fut2) });
+            self.set(AndThenFuture {
+                state: State::Second(fut2),
+            });
         }
     }
 }

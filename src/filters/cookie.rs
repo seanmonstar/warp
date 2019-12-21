@@ -1,12 +1,12 @@
 //! Cookie Filters
 
-use headers::Cookie;
 use futures::future;
+use headers::Cookie;
 
 use super::header;
-use std::convert::Infallible;
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
+use std::convert::Infallible;
 
 /// Creates a `Filter` that requires a cookie by name.
 ///

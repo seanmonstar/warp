@@ -6,12 +6,12 @@
 //!
 //! There is also [`warp::method()`](method), which never rejects
 //! a request, and just extracts the method to be used in your filter chains.
-use http::Method;
 use futures::future;
+use http::Method;
 
-use std::convert::Infallible;
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
-use crate::reject::{Rejection};
+use crate::reject::Rejection;
+use std::convert::Infallible;
 
 /// Create a `Filter` that requires the request method to be `GET`.
 ///
@@ -139,4 +139,3 @@ where
         }
     })
 }
-

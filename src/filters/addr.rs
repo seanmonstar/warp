@@ -1,7 +1,7 @@
 //! Socket Address filters.
 
-use std::net::SocketAddr;
 use std::convert::Infallible;
+use std::net::SocketAddr;
 
 use crate::filter::{filter_fn_one, Filter};
 

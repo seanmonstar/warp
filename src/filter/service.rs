@@ -1,10 +1,10 @@
-use std::net::SocketAddr;
-use std::task::{Context, Poll};
-use std::pin::Pin;
 use std::future::Future;
+use std::net::SocketAddr;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use pin_project::pin_project;
 use futures::future::TryFuture;
+use pin_project::pin_project;
 
 use crate::reject::IsReject;
 use crate::reply::Reply;
@@ -31,10 +31,7 @@ where
 
         let route = Route::new(req, remote_addr);
         let fut = route::set(&route, || self.filter.filter());
-        FilteredFuture {
-            future: fut,
-            route,
-        }
+        FilteredFuture { future: fut, route }
     }
 }
 

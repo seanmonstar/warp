@@ -1,18 +1,18 @@
 //! File System Filters
 
 use std::cmp;
+use std::convert::Infallible;
 use std::fs::Metadata;
+use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::pin::Pin;
-use std::future::Future;
+use std::sync::Arc;
 use std::task::Poll;
-use std::convert::Infallible;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::future::Either;
-use futures::{future, stream, ready, FutureExt, TryFutureExt, Stream, StreamExt};
+use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
     AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
     IfUnmodifiedSince, LastModified, Range,
@@ -44,12 +44,6 @@ use crate::reply::{Reply, Response};
 /// // Always serves this file from the file system.
 /// let route = warp::fs::file("/www/static/app.js");
 /// ```
-///
-/// # Note
-///
-/// This filter uses `tokio-fs` to serve files, which requires the server
-/// to be run in the threadpool runtime. This is only important to remember
-/// if starting a runtime manually.
 pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let path = Arc::new(path.into());
     crate::any()
@@ -58,9 +52,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
             ArcPath(path.clone())
         })
         .and(conditionals())
-    .and_then(|path, conditionals| {
-        file_reply(path, conditionals)
-        })
+        .and_then(|path, conditionals| file_reply(path, conditionals))
 }
 
 /// Creates a `Filter` that serves a directory at the base `path` joined
@@ -96,23 +88,23 @@ pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Er
 fn path_from_tail(
     base: Arc<PathBuf>,
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
-    crate::path::tail()
-        .and_then(move |tail: crate::path::Tail| {
-            future::ready(sanitize_path(base.as_ref(), tail.as_str()))
-                .and_then(|mut buf| async {
-                    let is_dir = tokio::fs::metadata(buf.clone())
-                        .await
-                        .map(|m| m.is_dir())
-                        .unwrap_or(false);
+    crate::path::tail().and_then(move |tail: crate::path::Tail| {
+        future::ready(sanitize_path(base.as_ref(), tail.as_str())).and_then(|mut buf| {
+            async {
+                let is_dir = tokio::fs::metadata(buf.clone())
+                    .await
+                    .map(|m| m.is_dir())
+                    .unwrap_or(false);
 
-                    if is_dir {
-                        log::debug!("dir: appending index.html to directory path");
-                        buf.push("index.html");
-                    }
-                    log::trace!("dir: {:?}", buf);
-                    Ok(ArcPath(Arc::new(buf)))
-                })
+                if is_dir {
+                    log::debug!("dir: appending index.html to directory path");
+                    buf.push("index.html");
+                }
+                log::trace!("dir: {:?}", buf);
+                Ok(ArcPath(Arc::new(buf)))
+            }
         })
+    })
 }
 
 fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejection> {
@@ -267,15 +259,13 @@ fn file_reply(
 }
 
 async fn file_metadata(f: TkFile) -> Result<(TkFile, Metadata), Rejection> {
-        match f.metadata().await {
-            Ok(meta) => {
-                Ok((f, meta))
-            }
-            Err(err) => {
-                log::debug!("file metadata error: {}", err);
-                Err(reject::not_found())
-            }
+    match f.metadata().await {
+        Ok(meta) => Ok((f, meta)),
+        Err(err) => {
+            log::debug!("file metadata error: {}", err);
+            Err(reject::not_found())
         }
+    }
 }
 
 fn file_conditional(
@@ -393,11 +383,10 @@ fn file_stream(
             let mut len = end - start;
             let mut f = match result {
                 Ok(f) => f,
-                Err(f) => return Either::Left(stream::once(future::err(f)))
+                Err(f) => return Either::Left(stream::once(future::err(f))),
             };
 
             Either::Right(stream::poll_fn(move |cx| {
-
                 if len == 0 {
                     return Poll::Ready(None);
                 }
@@ -409,7 +398,7 @@ fn file_stream(
                     Err(err) => {
                         log::debug!("file read error: {}", err);
                         return Poll::Ready(Some(Err(err)));
-                    },
+                    }
                 };
 
                 if n == 0 {

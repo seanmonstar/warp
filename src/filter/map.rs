@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::pin_project;
 use futures::{ready, TryFuture};
+use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Func};
 
@@ -52,7 +52,7 @@ where
             Ok(ex) => {
                 let ex = (pin.callback.call(ex),);
                 Poll::Ready(Ok(ex))
-            },
+            }
             Err(err) => Poll::Ready(Err(err)),
         }
     }

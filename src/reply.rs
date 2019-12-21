@@ -141,8 +141,7 @@ impl fmt::Display for ReplyJsonError {
     }
 }
 
-impl StdError for ReplyJsonError {
-}
+impl StdError for ReplyJsonError {}
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
 ///
@@ -435,8 +434,7 @@ impl ::std::fmt::Display for ReplyHttpError {
     }
 }
 
-impl StdError for ReplyHttpError {
-}
+impl StdError for ReplyHttpError {}
 
 impl Reply for String {
     #[inline]

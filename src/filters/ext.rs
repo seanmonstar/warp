@@ -1,7 +1,7 @@
 //! Request Extensions
 
-use std::error::Error as StdError;
 use futures::future;
+use std::error::Error as StdError;
 
 use crate::filter::{filter_fn_one, Filter};
 use crate::reject::{self, Rejection};

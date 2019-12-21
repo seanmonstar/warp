@@ -2,8 +2,8 @@
 #[macro_use]
 extern crate warp;
 
-use warp::Filter;
 use futures::future;
+use warp::Filter;
 
 #[tokio::test]
 async fn path() {
@@ -89,7 +89,10 @@ async fn end() {
     );
 
     assert!(
-        warp::test::request().path("localhost:1234").matches(&end).await,
+        warp::test::request()
+            .path("localhost:1234")
+            .matches(&end)
+            .await,
         "end() matches authority-form"
     );
 
@@ -144,14 +147,10 @@ async fn tail() {
 
     // sets unmatched path index to end
     let m = tail.and(warp::path("foo"));
-    assert!(!warp::test::request()
-        .path("/foo/bar")
-        .matches(&m).await);
+    assert!(!warp::test::request().path("/foo/bar").matches(&m).await);
 
     let m = tail.and(warp::path::end());
-    assert!(warp::test::request()
-        .path("/foo/bar")
-        .matches(&m).await);
+    assert!(warp::test::request().path("/foo/bar").matches(&m).await);
 }
 
 #[tokio::test]
@@ -239,7 +238,11 @@ async fn full_path() {
     assert_eq!(ex.as_str(), "/42/vroom");
 
     // matches index
-    let ex = warp::test::request().path("/").filter(&full_path).await.unwrap();
+    let ex = warp::test::request()
+        .path("/")
+        .filter(&full_path)
+        .await
+        .unwrap();
     assert_eq!(ex.as_str(), "/");
 
     // does not include query
@@ -279,9 +282,7 @@ async fn full_path() {
 
     // does not modify matching
     let m = full_path.and(foo).and(bar);
-    assert!(warp::test::request()
-        .path("/foo/bar")
-        .matches(&m).await);
+    assert!(warp::test::request().path("/foo/bar").matches(&m).await);
 }
 
 #[tokio::test]
@@ -341,9 +342,7 @@ async fn peek() {
 
     // does not modify matching
     let and = peek.and(foo).and(bar);
-    assert!(warp::test::request()
-        .path("/foo/bar")
-        .matches(&and).await);
+    assert!(warp::test::request().path("/foo/bar").matches(&and).await);
 }
 
 #[tokio::test]

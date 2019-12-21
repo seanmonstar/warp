@@ -1,7 +1,7 @@
 #![deny(warnings)]
 
-use warp::Filter;
 use futures::{FutureExt, StreamExt};
+use warp::Filter;
 
 #[tokio::test]
 async fn upgrade() {
@@ -83,22 +83,12 @@ async fn binary() {
 async fn closed() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::ws().map(|ws: warp::ws::Ws| {
-        ws.on_upgrade(|websocket| {
-            websocket
-                .close()
-                .map(|_| ())
-        })
-    });
+    let route =
+        warp::ws().map(|ws: warp::ws::Ws| ws.on_upgrade(|websocket| websocket.close().map(|_| ())));
 
-    let mut client = warp::test::ws().
-        handshake(route)
-        .await
-        .expect("handshake");
+    let mut client = warp::test::ws().handshake(route).await.expect("handshake");
 
-    client.recv_closed()
-        .await
-        .expect("closed");
+    client.recv_closed().await.expect("closed");
 }
 
 #[tokio::test]
@@ -109,21 +99,16 @@ async fn limit_message_size() {
         ws.max_message_size(1024).on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
-            rx
-                .forward(tx)
-                .map(|result| {
-                    assert!(result.is_err());
-                    assert_eq!(
-                        format!("{}", result.unwrap_err()).as_str(),
-                        "Space limit exceeded: Message too big: 0 + 1025 > 1024"
-                    );
-                })
+            rx.forward(tx).map(|result| {
+                assert!(result.is_err());
+                assert_eq!(
+                    format!("{}", result.unwrap_err()).as_str(),
+                    "Space limit exceeded: Message too big: 0 + 1025 > 1024"
+                );
+            })
         })
     });
-    let mut client = warp::test::ws()
-        .handshake(echo)
-        .await
-        .expect("handshake");
+    let mut client = warp::test::ws().handshake(echo).await.expect("handshake");
 
     client.send(warp::ws::Message::binary(vec![0; 1025])).await;
     client.send_text("hello warp").await;
@@ -135,9 +120,7 @@ fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection>
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
-            rx
-                .forward(tx)
-                .map(|_| ())
+            rx.forward(tx).map(|_| ())
         })
     })
 }

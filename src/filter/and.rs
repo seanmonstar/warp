@@ -1,6 +1,6 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
 use futures::ready;
 use pin_project::{pin_project, project};
@@ -67,21 +67,23 @@ where
             let (ex1, fut2) = match pin.state.project() {
                 State::First(first, second) => match ready!(first.poll(cx)) {
                     Ok(first) => (first, second.filter()),
-                    Err(err) => return Poll::Ready(Err(From::from(err)))
-                }
+                    Err(err) => return Poll::Ready(Err(From::from(err))),
+                },
                 State::Second(ex1, second) => {
                     let ex2 = match ready!(second.poll(cx)) {
                         Ok(second) => second,
-                        Err(err) => return Poll::Ready(Err(From::from(err)))
+                        Err(err) => return Poll::Ready(Err(From::from(err))),
                     };
                     let ex3 = ex1.take().unwrap().hlist().combine(ex2.hlist()).flatten();
-                    self.set(AndFuture{ state: State::Done });
+                    self.set(AndFuture { state: State::Done });
                     return Poll::Ready(Ok(ex3));
                 }
                 State::Done => panic!("polled after complete"),
             };
 
-            self.set(AndFuture{ state: State::Second(Some(ex1), fut2) });
+            self.set(AndFuture {
+                state: State::Second(Some(ex1), fut2),
+            });
         }
     }
 }

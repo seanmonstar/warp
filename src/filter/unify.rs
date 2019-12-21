@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::pin_project;
 use futures::{ready, TryFuture};
+use pin_project::pin_project;
 
 use super::{Either, Filter, FilterBase, Tuple};
 
@@ -46,7 +46,7 @@ where
         let unified = match ready!(self.project().inner.try_poll(cx)) {
             Ok((Either::A(a),)) => Ok(a),
             Ok((Either::B(b),)) => Ok(b),
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         };
         Poll::Ready(unified)
     }

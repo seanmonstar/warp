@@ -1,8 +1,8 @@
 #![deny(warnings)]
 
+use bytes::Buf;
 use futures::TryStreamExt;
 use warp::Filter;
-use bytes::Buf;
 
 #[tokio::test]
 async fn matches() {
