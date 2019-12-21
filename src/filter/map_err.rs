@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::pin_project;
 use futures::TryFuture;
+use pin_project::pin_project;
 
 use super::{Filter, FilterBase};
 use crate::reject::IsReject;
@@ -49,6 +49,10 @@ where
 
     #[inline]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.as_mut().project().extract.try_poll(cx).map_err(|err| (self.callback)(err))
+        self.as_mut()
+            .project()
+            .extract
+            .try_poll(cx)
+            .map_err(|err| (self.callback)(err))
     }
 }

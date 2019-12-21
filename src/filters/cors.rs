@@ -292,8 +292,7 @@ impl ::std::fmt::Display for CorsForbidden {
     }
 }
 
-impl StdError for CorsForbidden {
-}
+impl StdError for CorsForbidden {}
 
 #[derive(Clone, Debug)]
 struct Configured {
@@ -328,9 +327,7 @@ impl Configured {
                         return Err(Forbidden::MethodNotAllowed);
                     }
                 } else {
-                    log::trace!(
-                        "preflight request missing access-control-request-method header"
-                    );
+                    log::trace!("preflight request missing access-control-request-method header");
                     return Err(Forbidden::MethodNotAllowed);
                 }
 
@@ -409,15 +406,15 @@ impl Configured {
 }
 
 mod internal {
+    use std::future::Future;
+    use std::pin::Pin;
     use std::sync::Arc;
     use std::task::{Context, Poll};
-    use std::pin::Pin;
-    use std::future::Future;
 
-    use pin_project::pin_project;
     use futures::{future, ready, TryFuture};
     use headers::Origin;
     use http::header;
+    use pin_project::pin_project;
 
     use super::{Configured, CorsForbidden, Validated};
     use crate::filter::{Filter, FilterBase, One};
@@ -523,8 +520,10 @@ mod internal {
         F: TryFuture,
         F::Error: CombineRejection<Rejection>,
     {
-        type Output = Result<One<Either<One<Preflight>, One<Either<One<Wrapped<F::Ok>>, F::Ok>>>>, <F::Error as CombineRejection<Rejection>>::One>;
-
+        type Output = Result<
+            One<Either<One<Preflight>, One<Either<One<Wrapped<F::Ok>>, F::Ok>>>>,
+            <F::Error as CombineRejection<Rejection>>::One,
+        >;
 
         fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
             let pin = self.project();
@@ -541,7 +540,7 @@ mod internal {
                     };
                     let item = (Either::B(item),);
                     Poll::Ready(Ok(item))
-                },
+                }
                 Err(err) => Poll::Ready(Err(err.into())),
             }
         }

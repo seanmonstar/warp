@@ -42,16 +42,16 @@
 use std::borrow::Cow;
 use std::error::Error as StdError;
 use std::fmt::{self, Display, Formatter, Write};
-use std::str::FromStr;
-use std::time::Duration;
-use std::task::{Context, Poll};
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
+use std::str::FromStr;
+use std::task::{Context, Poll};
+use std::time::Duration;
 
-use pin_project::pin_project;
 use futures::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
+use pin_project::pin_project;
 use serde::Serialize;
 use serde_json;
 use tokio::time::{self, Delay};
@@ -467,7 +467,8 @@ impl KeepAlive {
     ) -> impl TryStream<
         Ok = impl ServerSentEvent + Send + 'static,
         Error = impl StdError + Send + Sync + 'static,
-    > + Send + 'static
+    > + Send
+           + 'static
     where
         S: TryStream + Send + 'static,
         S::Ok: ServerSentEvent + Send,
@@ -501,7 +502,8 @@ pub fn keep<S>(
 ) -> impl TryStream<
     Ok = impl ServerSentEvent + Send + 'static,
     Error = impl StdError + Send + Sync + 'static,
-> + Send + 'static
+> + Send
+       + 'static
 where
     S: TryStream + Send + 'static,
     S::Ok: ServerSentEvent + Send,
@@ -583,18 +585,18 @@ where
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(_) => {
                     // restart timer
-                    pin.alive_timer.reset(tokio::time::Instant::now() + *pin.max_interval);
+                    pin.alive_timer
+                        .reset(tokio::time::Instant::now() + *pin.max_interval);
                     let comment_str = pin.comment_text.clone();
-                    Poll::Ready(Some(Ok(EitherServerSentEvent::B(SseComment(
-                        comment_str,
-                    )))))
+                    Poll::Ready(Some(Ok(EitherServerSentEvent::B(SseComment(comment_str)))))
                 }
             },
             Poll::Ready(Some(Ok(event))) => {
                 // restart timer
-                pin.alive_timer.reset(tokio::time::Instant::now() + *pin.max_interval);
+                pin.alive_timer
+                    .reset(tokio::time::Instant::now() + *pin.max_interval);
                 Poll::Ready(Some(Ok(EitherServerSentEvent::A(event))))
-            },
+            }
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Ready(Some(Err(error))) => {
                 log::error!("sse::keep error: {}", error);
@@ -617,8 +619,7 @@ mod sealed {
         }
     }
 
-    impl StdError for SseError {
-    }
+    impl StdError for SseError {}
 
     impl Display for SseField {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {

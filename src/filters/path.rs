@@ -131,12 +131,12 @@
 //! with an invalid body for route `/right-path-wrong-body` may try matching against `/wrong-path`
 //! and return the error from `/wrong-path` instead of the correct body-related error.
 
+use std::convert::Infallible;
 use std::fmt;
 use std::str::FromStr;
-use std::convert::Infallible;
 
-use http::uri::PathAndQuery;
 use futures::future;
+use http::uri::PathAndQuery;
 
 use crate::filter::{filter_fn, one, Filter, One, Tuple};
 use crate::reject::{self, Rejection};
@@ -228,7 +228,8 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///         format!("You asked for /{}", id)
 ///     });
 /// ```
-pub fn param<T: FromStr + Send + 'static>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
+pub fn param<T: FromStr + Send + 'static>(
+) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     segment(|seg| {
         log::trace!("param?: {:?}", seg);
         if seg.is_empty() {
@@ -314,7 +315,7 @@ pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Infallible> + Copy {
         let path = path_and_query(&route);
         let idx = route.matched_path_index();
 
-       future::ok(one(Peek {
+        future::ok(one(Peek {
             path,
             start_index: idx,
         }))
@@ -508,5 +509,3 @@ macro_rules! __internal_path {
         $crate::path($s)
     );
 }
-
-

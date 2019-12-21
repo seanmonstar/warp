@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::{pin_project, project};
 use futures::{ready, TryFuture};
+use pin_project::{pin_project, project};
 
 use super::{Filter, FilterBase, Func};
 use crate::generic::Either;
@@ -74,7 +74,10 @@ where
     F: Func<T::Error>,
     F::Output: TryFuture<Error = T::Error> + Send,
 {
-    type Output = Result<(Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,), <F::Output as TryFuture>::Error>;
+    type Output = Result<
+        (Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,),
+        <F::Output as TryFuture>::Error,
+    >;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -91,7 +94,10 @@ where
                         Ok(ex2) => Ok((Either::B((ex2,)),)),
                         Err(e) => Err(e),
                     };
-                    self.set(RecoverFuture{ state: State::Done, ..*self });
+                    self.set(RecoverFuture {
+                        state: State::Done,
+                        ..*self
+                    });
                     return Poll::Ready(ex2);
                 }
                 State::Done => panic!("polled after complete"),
@@ -99,7 +105,10 @@ where
 
             pin.original_path_index.reset_path();
             let fut2 = second.call(err);
-            self.set(RecoverFuture{ state: State::Second(fut2), ..*self});
+            self.set(RecoverFuture {
+                state: State::Second(fut2),
+                ..*self
+            });
         }
     }
 }

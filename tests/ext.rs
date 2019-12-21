@@ -8,7 +8,11 @@ struct Ext1(i32);
 async fn set_and_get() {
     let ext = warp::ext::get::<Ext1>();
 
-    let extracted = warp::test::request().extension(Ext1(55)).filter(&ext).await.unwrap();
+    let extracted = warp::test::request()
+        .extension(Ext1(55))
+        .filter(&ext)
+        .await
+        .unwrap();
 
     assert_eq!(extracted, Ext1(55));
 }

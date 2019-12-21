@@ -82,20 +82,18 @@
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fmt;
-use std::net::SocketAddr;
 use std::future::Future;
+use std::net::SocketAddr;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
 use std::task::{self, Poll};
 
 use bytes::Bytes;
+#[cfg(feature = "websocket")]
+use futures::channel::{mpsc, oneshot};
 use futures::{future, FutureExt, TryFutureExt};
 #[cfg(feature = "websocket")]
 use futures::{SinkExt, StreamExt};
-#[cfg(feature = "websocket")]
-use futures::{
-    channel::{mpsc, oneshot},
-};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
@@ -349,24 +347,24 @@ impl RequestBuilder {
         assert!(!route::is_set(), "nested test filter calls");
 
         let route = Route::new(self.req, self.remote_addr);
-        let mut fut = route::set(&route, move || f.filter())
-            .then(|result| {
-                let res = match result {
-                    Ok(rep) => rep.into_response(),
-                    Err(rej) => {
-                        log::debug!("rejected: {:?}", rej);
-                        rej.into_response()
-                    }
-                };
-                let (parts, body) = res.into_parts();
-                hyper::body::to_bytes(body)
-                    .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
-            });
+        let mut fut = route::set(&route, move || f.filter()).then(|result| {
+            let res = match result {
+                Ok(rep) => rep.into_response(),
+                Err(rej) => {
+                    log::debug!("rejected: {:?}", rej);
+                    rej.into_response()
+                }
+            };
+            let (parts, body) = res.into_parts();
+            hyper::body::to_bytes(body).map_ok(|chunk| Response::from_parts(parts, chunk.into()))
+        });
 
-        let fut = future::poll_fn(move |cx| route::set(&route, || {
-            let fut = unsafe {std::pin::Pin::new_unchecked(&mut fut)};
-            fut.poll(cx)
-        }));
+        let fut = future::poll_fn(move |cx| {
+            route::set(&route, || {
+                let fut = unsafe { std::pin::Pin::new_unchecked(&mut fut) };
+                fut.poll(cx)
+            })
+        });
 
         fut.await.expect("reply shouldn't fail")
     }
@@ -515,17 +513,12 @@ impl WsBuilder {
             );
 
             let (tx, rx) = ws.split();
-            let write = wr_rx
-                .map(Ok)
-                .forward(tx)
-                .map(|_| ());
+            let write = wr_rx.map(Ok).forward(tx).map(|_| ());
 
             let read = rx
-                .take_while(|result| {
-                    match result {
-                        Err(_) => future::ready(false),
-                        Ok(m) => future::ready(!m.is_close())
-                    }
+                .take_while(|result| match result {
+                    Err(_) => future::ready(false),
+                    Ok(m) => future::ready(!m.is_close()),
                 })
                 .map(Ok)
                 .forward(rd_tx.sink_map_err(|e| panic!("ws receive error: {}", e)))
@@ -537,7 +530,7 @@ impl WsBuilder {
         match upgraded_rx.await {
             Ok(Ok(())) => Ok(WsClient {
                 tx: wr_tx,
-                rx: rd_rx
+                rx: rd_rx,
             }),
             Ok(Err(err)) => Err(WsError::new(err)),
             Err(_canceled) => panic!("websocket handshake thread panicked"),
@@ -559,16 +552,14 @@ impl WsClient {
 
     /// Receive a websocket message from the server.
     pub async fn recv(&mut self) -> Result<crate::filters::ws::Message, WsError> {
-        self.rx.next().await
-            .map(|unbounded_result| {
-                unbounded_result.map_err(WsError::new)
-            })
+        self.rx
+            .next()
+            .await
+            .map(|unbounded_result| unbounded_result.map_err(WsError::new))
             .unwrap_or_else(|| {
                 // websocket is closed
                 Err(WsError::new("closed"))
             })
-
-
     }
 
     /// Assert the server has closed the connection.

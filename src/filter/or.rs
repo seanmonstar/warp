@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::{pin_project, project};
 use futures::{ready, TryFuture};
+use pin_project::{pin_project, project};
 
 use super::{Filter, FilterBase};
 use crate::generic::Either;
@@ -46,7 +46,7 @@ pub struct EitherFuture<T: Filter, U: Filter> {
 #[pin_project]
 enum State<T: Filter, U: Filter> {
     First(#[pin] T::Future, U),
-    Second(Option<T::Error>,#[pin] U::Future),
+    Second(Option<T::Error>, #[pin] U::Future),
     Done,
 }
 
@@ -65,7 +65,10 @@ where
     U: Filter,
     U::Error: CombineRejection<T::Error>,
 {
-    type Output = Result<(Either<T::Extract, U::Extract>,), <U::Error as CombineRejection<T::Error>>::Combined>;
+    type Output = Result<
+        (Either<T::Extract, U::Extract>,),
+        <U::Error as CombineRejection<T::Error>>::Combined,
+    >;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -84,22 +87,26 @@ where
                 },
                 State::Second(err1, second) => {
                     let ex2 = match ready!(second.try_poll(cx)) {
-                        Ok(ex2) => {
-                            Ok((Either::B(ex2),))
-                        },
+                        Ok(ex2) => Ok((Either::B(ex2),)),
                         Err(e) => {
                             pin.original_path_index.reset_path();
                             let err1 = err1.take().expect("polled after complete");
                             Err(e.combine(err1))
                         }
                     };
-                    self.set(EitherFuture{ state: State::Done, ..*self});
-                    return Poll::Ready(ex2)
+                    self.set(EitherFuture {
+                        state: State::Done,
+                        ..*self
+                    });
+                    return Poll::Ready(ex2);
                 }
                 State::Done => panic!("polled after complete"),
             };
 
-            self.set(EitherFuture{ state: State::Second(Some(err1), fut2), ..*self });
+            self.set(EitherFuture {
+                state: State::Second(Some(err1), fut2),
+                ..*self
+            });
         }
     }
 }

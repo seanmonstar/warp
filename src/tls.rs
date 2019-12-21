@@ -2,15 +2,15 @@ use std::fs::File;
 use std::io::{self, BufReader, Cursor, Read, Write};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::pin::Pin;
 use std::ptr::null_mut;
-use std::task::{Poll, Context};
+use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use futures::ready;
-use rustls::{self, ServerConfig, ServerSession, Session, Stream, TLSError};
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
+use rustls::{self, ServerConfig, ServerSession, Session, Stream, TLSError};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
@@ -28,7 +28,7 @@ pub(crate) enum TlsConfigError {
     /// An error from an empty key
     EmptyKey,
     /// An error from an invalid key
-    InvalidKey(TLSError)
+    InvalidKey(TLSError),
 }
 
 impl std::fmt::Display for TlsConfigError {
@@ -54,8 +54,7 @@ pub(crate) struct TlsConfigBuilder {
 
 impl std::fmt::Debug for TlsConfigBuilder {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.debug_struct("TlsConfigBuilder")
-            .finish()
+        f.debug_struct("TlsConfigBuilder").finish()
     }
 }
 
@@ -83,7 +82,6 @@ impl TlsConfigBuilder {
         self
     }
 
-
     /// Specify the file path for the TLS certificate to use.
     pub(crate) fn cert_path(mut self, path: impl AsRef<Path>) -> Self {
         self.cert = Box::new(LazyFile {
@@ -107,7 +105,8 @@ impl TlsConfigBuilder {
         let key = {
             // convert it to Vec<u8> to allow reading it again if key is RSA
             let mut key_vec = Vec::new();
-            self.key.read_to_end(&mut key_vec)
+            self.key
+                .read_to_end(&mut key_vec)
                 .map_err(TlsConfigError::Io)?;
 
             if key_vec.is_empty() {
@@ -132,7 +131,8 @@ impl TlsConfigBuilder {
         };
 
         let mut config = ServerConfig::new(rustls::NoClientAuth::new());
-        config.set_single_cert(cert, key)
+        config
+            .set_single_cert(cert, key)
             .map_err(|err| TlsConfigError::InvalidKey(err))?;
         config.set_protocols(&["h2".into(), "http/1.1".into()]);
         Ok(config)
@@ -158,7 +158,10 @@ impl Read for LazyFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.lazy_read(buf).map_err(|err| {
             let kind = err.kind();
-            io::Error::new(kind, format!("error reading file ({:?}): {}", self.path.display(), err))
+            io::Error::new(
+                kind,
+                format!("error reading file ({:?}): {}", self.path.display(), err),
+            )
         })
     }
 }
@@ -253,7 +256,10 @@ pub(crate) struct TlsStream<T> {
 impl<T> TlsStream<T> {
     pub(crate) fn new(io: T, session: ServerSession) -> Self {
         TlsStream {
-            io: AllowStd{ inner: io, context: null_mut() },
+            io: AllowStd {
+                inner: io,
+                context: null_mut(),
+            },
             is_shutdown: false,
             session,
         }
@@ -271,25 +277,22 @@ impl<T> TlsStream<T> {
 }
 
 impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TlsStream<T> {
-
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>> {
-        self.with_context(cx, |io, session| {
-            cvt(Stream::new(session, io).read(buf))
-        })
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<usize>> {
+        self.with_context(cx, |io, session| cvt(Stream::new(session, io).read(buf)))
     }
-
 }
 
 impl<T: AsyncRead + AsyncWrite + Unpin> AsyncWrite for TlsStream<T> {
-
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.with_context(cx, |io, session| {
-            cvt(Stream::new(session, io).write(buf))
-        })
+        self.with_context(cx, |io, session| cvt(Stream::new(session, io).write(buf)))
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -333,7 +336,10 @@ pub(crate) struct TlsAcceptor {
 
 impl TlsAcceptor {
     pub(crate) fn new(config: ServerConfig, incoming: AddrIncoming) -> TlsAcceptor {
-        TlsAcceptor{ config: Arc::new(config), incoming }
+        TlsAcceptor {
+            config: Arc::new(config),
+            incoming,
+        }
     }
 }
 
@@ -341,16 +347,19 @@ impl Accept for TlsAcceptor {
     type Conn = TlsStream<AddrStream>;
     type Error = io::Error;
 
-    fn poll_accept(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
+    fn poll_accept(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
         let pin = self.get_mut();
         match ready!(Pin::new(&mut pin.incoming).poll_accept(cx)) {
             Some(Ok(sock)) => {
                 let session = ServerSession::new(&pin.config.clone());
                 // let tls = Arc::new($this.config);
                 return Poll::Ready(Some(Ok(TlsStream::new(sock, session))));
-            },
+            }
             Some(Err(e)) => Poll::Ready(Some(Err(e))),
-            None => Poll::Ready(None)
+            None => Poll::Ready(None),
         }
     }
 }

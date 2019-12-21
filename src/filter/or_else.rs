@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::{pin_project, project};
 use futures::{ready, TryFuture};
+use pin_project::{pin_project, project};
 
 use super::{Filter, FilterBase, Func};
 use crate::route;
@@ -18,7 +18,7 @@ impl<T, F> FilterBase for OrElse<T, F>
 where
     T: Filter,
     F: Func<T::Error> + Clone + Send,
-    F::Output: TryFuture<Ok =  T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
 {
     type Extract = <F::Output as TryFuture>::Ok;
     type Error = <F::Output as TryFuture>::Error;
@@ -39,7 +39,7 @@ pub struct OrElseFuture<T: Filter, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok =  T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
 {
     #[pin]
     state: State<T, F>,
@@ -51,7 +51,7 @@ enum State<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok =  T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
 {
     First(#[pin] T::Future, F),
     Second(#[pin] F::Output),
@@ -71,7 +71,7 @@ impl<T, F> Future for OrElseFuture<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok =  T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
 {
     type Output = Result<<F::Output as TryFuture>::Ok, <F::Output as TryFuture>::Error>;
 
@@ -87,7 +87,10 @@ where
                 },
                 State::Second(second) => {
                     let ex2 = ready!(second.try_poll(cx));
-                    self.set(OrElseFuture{ state: State::Done, ..*self });
+                    self.set(OrElseFuture {
+                        state: State::Done,
+                        ..*self
+                    });
                     return Poll::Ready(ex2);
                 }
                 State::Done => panic!("polled after complete"),
@@ -95,7 +98,10 @@ where
 
             pin.original_path_index.reset_path();
             let fut2 = second.call(err);
-            self.set(OrElseFuture{ state: State::Second(fut2), ..*self });
+            self.set(OrElseFuture {
+                state: State::Second(fut2),
+                ..*self
+            });
         }
     }
 }

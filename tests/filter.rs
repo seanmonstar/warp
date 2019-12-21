@@ -38,32 +38,20 @@ async fn flattens_tuples() {
 
     // combine 3 values
     let and = str1.and(str1).and(true1);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", "warp", true));
 
     // combine 2 with unit
     let and = str1.and(unit1).and(true1);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", true));
 
     let and = unit1.and(str1).and(true1);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", true));
 
     let and = str1.and(true1).and(unit1);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", true));
 
     // nested tuples
@@ -71,17 +59,11 @@ async fn flattens_tuples() {
     let unit_str_true = unit1.and(str1).and(true1);
 
     let and = str_true_unit.and(unit_str_true);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", true, "warp", true));
 
     let and = unit_str_true.and(unit1).and(str1).and(str_true_unit);
-    let ext = warp::test::request()
-        .filter(&and)
-        .await
-        .unwrap();
+    let ext = warp::test::request().filter(&and).await.unwrap();
     assert_eq!(ext, ("warp", true, "warp", "warp", true));
 }
 
@@ -104,11 +86,7 @@ async fn unify() {
     let b = warp::path::param::<u32>();
     let f = a.or(b).unify();
 
-    let ex = warp::test::request()
-        .path("/1")
-        .filter(&f)
-        .await
-        .unwrap();
+    let ex = warp::test::request().path("/1").filter(&f).await.unwrap();
 
     assert_eq!(ex, 1);
 }

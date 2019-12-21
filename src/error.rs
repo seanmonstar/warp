@@ -1,5 +1,5 @@
-use std::error::Error as StdError;
 use std::convert::Infallible;
+use std::error::Error as StdError;
 use std::fmt;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;

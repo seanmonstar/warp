@@ -177,13 +177,13 @@ impl<T: fmt::Display> fmt::Display for OptFmt<T> {
 }
 
 mod internal {
-    use std::time::Instant;
-    use std::task::{Context, Poll};
-    use std::pin::Pin;
     use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use std::time::Instant;
 
-    use pin_project::pin_project;
     use futures::{ready, TryFuture};
+    use pin_project::pin_project;
 
     use super::{Info, Log};
     use crate::filter::{Filter, FilterBase};
@@ -254,7 +254,6 @@ mod internal {
                     let resp = reply.into_response();
                     let status = resp.status();
                     (Poll::Ready(Ok((Logged(resp),))), status)
-
                 }
                 Err(reject) => {
                     let status = reject.status();

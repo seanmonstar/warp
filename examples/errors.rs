@@ -24,13 +24,11 @@ struct ErrorMessage<'a> {
 async fn main() {
     let hello = warp::path::end().map(warp::reply);
 
-    let oops = warp::path("oops").and_then(|| async {
-        Err::<StatusCode, _>(reject::custom(Error::Oops))
-    });
+    let oops =
+        warp::path("oops").and_then(|| async { Err::<StatusCode, _>(reject::custom(Error::Oops)) });
 
-    let nope = warp::path("nope").and_then(|| async {
-        Err::<StatusCode, _>(reject::custom(Error::Nope))
-    });
+    let nope =
+        warp::path("nope").and_then(|| async { Err::<StatusCode, _>(reject::custom(Error::Nope)) });
 
     let routes = warp::get()
         .and(hello.or(oops).or(nope))
@@ -48,11 +46,11 @@ async fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
             Error::Oops => (StatusCode::INTERNAL_SERVER_ERROR, ":fire: this is fine"),
         };
 
-            let json = warp::reply::json(&ErrorMessage {
-                code: code.as_u16(),
-                message: msg,
-            });
-            Ok(warp::reply::with_status(json, code))
+        let json = warp::reply::json(&ErrorMessage {
+            code: code.as_u16(),
+            message: msg,
+        });
+        Ok(warp::reply::with_status(json, code))
     } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
         // We can handle a specific error, here METHOD_NOT_ALLOWED,
         // and render it however we want

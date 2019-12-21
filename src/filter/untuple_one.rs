@@ -1,9 +1,9 @@
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::future::Future;
 
-use pin_project::pin_project;
 use futures::{ready, TryFuture};
+use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Tuple};
 

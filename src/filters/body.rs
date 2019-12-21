@@ -7,8 +7,8 @@ use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{Bytes, Buf, buf::BufExt};
-use futures::{future, ready, TryFutureExt, Stream};
+use bytes::{buf::BufExt, Buf, Bytes};
+use futures::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::Body;
@@ -72,10 +72,11 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rej
 ///
 /// This does not have a default size limit, it would be wise to use one to
 /// prevent a overly large request from using too much memory.
-pub fn stream() -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, crate::Error>>,), Error = Rejection> + Copy {
+pub fn stream(
+) -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, crate::Error>>,), Error = Rejection> + Copy
+{
     body().map(|body: Body| BodyStream { body })
 }
-
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
 /// concatenated body.
@@ -101,13 +102,12 @@ pub fn stream() -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, cr
 ///     });
 /// ```
 pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
-    body().and_then(|body: hyper::Body|
-        hyper::body::to_bytes(body)
-            .map_err(|err| {
-                log::debug!("to_bytes error: {}", err);
-                reject::known(BodyReadError(err))
-            })
-    )
+    body().and_then(|body: hyper::Body| {
+        hyper::body::to_bytes(body).map_err(|err| {
+            log::debug!("to_bytes error: {}", err);
+            reject::known(BodyReadError(err))
+        })
+    })
 }
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of an
@@ -140,13 +140,12 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 ///     .map(full_body);
 /// ```
 pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body|
-        hyper::body::aggregate(body)
-            .map_err(|err| {
-                log::debug!("aggregate error: {}", err);
-                reject::known(BodyReadError(err))
-            })
-    )
+    body().and_then(|body: ::hyper::Body| {
+        hyper::body::aggregate(body).map_err(|err| {
+            log::debug!("aggregate error: {}", err);
+            reject::known(BodyReadError(err))
+        })
+    })
 }
 
 // Require the `content-type` header to be this type (or, if there's no `content-type`
@@ -267,10 +266,9 @@ impl Stream for BodyStream {
         let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
         match opt_item {
-            None =>  Poll::Ready(None),
+            None => Poll::Ready(None),
             Some(item) => {
-                let stream_buf = item
-                    .map_err(crate::Error::new);
+                let stream_buf = item.map_err(crate::Error::new);
 
                 Poll::Ready(Some(stream_buf))
             }
@@ -292,8 +290,7 @@ impl fmt::Display for BodyDeserializeError {
     }
 }
 
-impl StdError for BodyDeserializeError {
-}
+impl StdError for BodyDeserializeError {}
 
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
@@ -304,8 +301,7 @@ impl ::std::fmt::Display for BodyReadError {
     }
 }
 
-impl StdError for BodyReadError {
-}
+impl StdError for BodyReadError {}
 
 #[derive(Debug)]
 pub(crate) struct BodyConsumedMultipleTimes(());
@@ -316,5 +312,4 @@ impl ::std::fmt::Display for BodyConsumedMultipleTimes {
     }
 }
 
-impl StdError for BodyConsumedMultipleTimes {
-}
+impl StdError for BodyConsumedMultipleTimes {}

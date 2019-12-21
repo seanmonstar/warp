@@ -41,10 +41,12 @@ async fn main() {
         .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
-        .and(warp::body::bytes().and_then(|body: bytes::Bytes| async move {
-            std::str::from_utf8(&body)
-                .map(String::from)
-                .map_err(|_e| warp::reject::custom(NotUtf8))
+        .and(warp::body::bytes().and_then(|body: bytes::Bytes| {
+            async move {
+                std::str::from_utf8(&body)
+                    .map(String::from)
+                    .map_err(|_e| warp::reject::custom(NotUtf8))
+            }
         }))
         .and(users.clone())
         .map(|my_id, msg, users| {
@@ -53,15 +55,11 @@ async fn main() {
         });
 
     // GET /chat -> messages stream
-    let chat_recv =
-        warp::path("chat")
-            .and(warp::get())
-            .and(users)
-            .map(|users| {
-                // reply using server-sent events
-                let stream = user_connected(users);
-                warp::sse::reply(warp::sse::keep_alive().stream(stream))
-            });
+    let chat_recv = warp::path("chat").and(warp::get()).and(users).map(|users| {
+        // reply using server-sent events
+        let stream = user_connected(users);
+        warp::sse::reply(warp::sse::keep_alive().stream(stream))
+    });
 
     // GET / -> index html
     let index = warp::path::end().map(|| {
@@ -77,7 +75,7 @@ async fn main() {
 
 fn user_connected(
     users: Users,
-) -> impl Stream<Item = Result<impl ServerSentEvent + Send + 'static, warp::Error >> + Send + 'static
+) -> impl Stream<Item = Result<impl ServerSentEvent + Send + 'static, warp::Error>> + Send + 'static
 {
     // Use a counter to assign a new unique ID for this user.
     let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);

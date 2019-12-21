@@ -5,8 +5,8 @@ use std::sync::{
     Arc, Mutex,
 };
 
-use tokio::sync::mpsc;
 use futures::{future, Future, FutureExt, StreamExt};
+use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -59,15 +59,11 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Output = Result<()
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the websocket...
     let (tx, rx) = mpsc::unbounded_channel();
-    tokio::task::spawn(
-        rx
-            .forward(user_ws_tx)
-            .map(|result| {
-                if let Err(e) = result {
-                    eprintln!("websocket send error: {}", e);
-                }
-            })
-    );
+    tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
+        if let Err(e) = result {
+            eprintln!("websocket send error: {}", e);
+        }
+    }));
 
     // Save the sender in our list of connected users.
     users.lock().unwrap().insert(my_id, tx);
@@ -91,10 +87,10 @@ fn user_connected(ws: WebSocket, users: Users) -> impl Future<Output = Result<()
             user_disconnected(my_id, &users2);
             future::ok(result)
         })
-        // If at any time, there was a websocket error, log here...
-        // .map_err(move |e| {
-        //     eprintln!("websocket error(uid={}): {}", my_id, e);
-        // })
+    // If at any time, there was a websocket error, log here...
+    // .map_err(move |e| {
+    //     eprintln!("websocket error(uid={}): {}", my_id, e);
+    // })
 }
 
 fn user_message(my_id: usize, msg: Message, users: &Users) {

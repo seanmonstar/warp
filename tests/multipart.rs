@@ -1,21 +1,26 @@
 #![deny(warnings)]
-use warp::Filter;
 use futures::{FutureExt, StreamExt, TryStreamExt};
-
+use warp::Filter;
 
 #[tokio::test]
 async fn form_fields() {
     let _ = pretty_env_logger::try_init();
 
-    let route = warp::multipart::form().and_then(|form: warp::multipart::FormData| async {
-         // Collect the fields into (name, value): (String, Vec<u8>)
-        let part: Result<Vec<(String, Vec<u8>)>, warp::Rejection> = form.and_then(|part| {
-            let name = part.name().to_string();
-            part.concat().map(move |value| Ok((name, value)))
-        })
-            .try_collect().await
-            .map_err(|e| { panic!("multipart error: {:?}", e); });
-        part
+    let route = warp::multipart::form().and_then(|form: warp::multipart::FormData| {
+        async {
+            // Collect the fields into (name, value): (String, Vec<u8>)
+            let part: Result<Vec<(String, Vec<u8>)>, warp::Rejection> = form
+                .and_then(|part| {
+                    let name = part.name().to_string();
+                    part.concat().map(move |value| Ok((name, value)))
+                })
+                .try_collect()
+                .await
+                .map_err(|e| {
+                    panic!("multipart error: {:?}", e);
+                });
+            part
+        }
     });
 
     let boundary = "--abcdef1234--";

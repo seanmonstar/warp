@@ -14,7 +14,8 @@ async fn main() {
         .tls()
         .cert_path("examples/tls/cert.pem")
         .key_path("examples/tls/key.rsa")
-        .run(([127, 0, 0, 1], 3030)).await;
+        .run(([127, 0, 0, 1], 3030))
+        .await;
 }
 
 #[cfg(not(feature = "tls"))]

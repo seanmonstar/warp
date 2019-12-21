@@ -11,8 +11,8 @@ mod unify;
 mod untuple_one;
 mod wrap;
 
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
 
 use futures::{future, TryFuture, TryFutureExt};
 
@@ -137,7 +137,7 @@ pub trait Filter: FilterBase {
     /// ```
     fn or<F>(self, other: F) -> Or<Self, F>
     where
-        Self: Filter<Error=Rejection> + Sized,
+        Self: Filter<Error = Rejection> + Sized,
         F: Filter,
         F::Error: CombineRejection<Self::Error>,
     {
@@ -239,7 +239,7 @@ pub trait Filter: FilterBase {
     /// same item and error types.
     fn or_else<F>(self, fun: F) -> OrElse<Self, F>
     where
-        Self: Filter<Error=Rejection> + Sized,
+        Self: Filter<Error = Rejection> + Sized,
         F: Func<Rejection>,
         F::Output: Future<Output = Result<Self::Extract, Self::Error>> + Send,
     {
@@ -258,7 +258,7 @@ pub trait Filter: FilterBase {
     /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/errors.rs
     fn recover<F>(self, fun: F) -> Recover<Self, F>
     where
-        Self: Filter<Error=Rejection> + Sized,
+        Self: Filter<Error = Rejection> + Sized,
         F: Func<Rejection>,
         F::Output: TryFuture<Error = Self::Error> + Send,
     {
@@ -452,7 +452,8 @@ where
 {
     type Extract = U::Ok;
     type Error = U::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send + 'static>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send + 'static>>;
 
     #[inline]
     fn filter(&self) -> Self::Future {

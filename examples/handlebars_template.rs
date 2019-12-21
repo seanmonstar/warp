@@ -2,8 +2,8 @@
 use std::sync::Arc;
 
 use handlebars::Handlebars;
-use serde_json::json;
 use serde::Serialize;
+use serde_json::json;
 use warp::Filter;
 
 struct WithTemplate<T: Serialize> {

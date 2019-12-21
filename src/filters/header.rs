@@ -4,12 +4,12 @@
 //! of them, like `exact` and `exact_ignore_case`, are just predicates,
 //! they don't extract any values. The `header` filter allows parsing
 //! a type from any header.
-use std::str::FromStr;
 use std::convert::Infallible;
+use std::str::FromStr;
 
+use futures::future;
 use headers::{Header, HeaderMapExt};
 use http::HeaderMap;
-use futures::future;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
 use crate::reject::{self, Rejection};
@@ -48,8 +48,8 @@ pub fn header<T: FromStr + Send + 'static>(
     })
 }
 
-pub(crate) fn header2<T: Header + Send + 'static>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
-{
+pub(crate) fn header2<T: Header + Send + 'static>(
+) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(move |route| {
         log::trace!("header2({:?})", T::name());
         let route = route
@@ -150,7 +150,7 @@ pub fn exact(
                     Err(reject::invalid_header(name))
                 }
             });
-            future::ready(route)
+        future::ready(route)
     })
 }
 

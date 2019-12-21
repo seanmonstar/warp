@@ -28,9 +28,9 @@
 //! ```
 
 use std::any::Any;
+use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
-use std::convert::Infallible;
 
 use http::{
     self,
@@ -115,7 +115,6 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 pub fn custom<T: Reject>(err: T) -> Rejection {
     Rejection::custom(Box::new(err))
 }
-
 
 /// Protect against re-rejecting a rejection.
 ///
@@ -239,7 +238,6 @@ macro_rules! enum_known {
     );
 }
 
-
 enum_known! {
     MethodNotAllowed(MethodNotAllowed),
     InvalidHeader(InvalidHeader),
@@ -258,7 +256,6 @@ enum_known! {
     ReplyJsonError(crate::reply::ReplyJsonError),
     BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
 }
-
 
 impl Rejection {
     fn known(known: Known) -> Self {
@@ -376,21 +373,21 @@ impl Rejections {
         match *self {
             Rejections::Known(ref k) => match *k {
                 Known::MethodNotAllowed(_) => StatusCode::METHOD_NOT_ALLOWED,
-                Known::InvalidHeader(_) |
-                Known::MissingHeader(_) |
-                Known::MissingCookie(_) |
-                Known::InvalidQuery(_) |
-                Known::BodyReadError(_) |
-                Known::BodyDeserializeError(_) |
-                Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
+                Known::InvalidHeader(_)
+                | Known::MissingHeader(_)
+                | Known::MissingCookie(_)
+                | Known::InvalidQuery(_)
+                | Known::BodyReadError(_)
+                | Known::BodyDeserializeError(_)
+                | Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
                 Known::LengthRequired(_) => StatusCode::LENGTH_REQUIRED,
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
-                Known::MissingExtension(_) |
-                Known::ReplyHttpError(_) |
-                Known::ReplyJsonError(_) |
-                Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                Known::MissingExtension(_)
+                | Known::ReplyHttpError(_)
+                | Known::ReplyJsonError(_)
+                | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
@@ -473,8 +470,7 @@ impl ::std::fmt::Display for InvalidQuery {
     }
 }
 
-impl StdError for InvalidQuery {
-}
+impl StdError for InvalidQuery {}
 
 /// HTTP method not allowed
 #[derive(Debug)]
@@ -486,8 +482,7 @@ impl fmt::Display for MethodNotAllowed {
     }
 }
 
-impl StdError for MethodNotAllowed {
-}
+impl StdError for MethodNotAllowed {}
 
 /// A content-length header is required
 #[derive(Debug)]
@@ -499,8 +494,7 @@ impl fmt::Display for LengthRequired {
     }
 }
 
-impl StdError for LengthRequired {
-}
+impl StdError for LengthRequired {}
 
 /// The request payload is too large
 #[derive(Debug)]
@@ -512,8 +506,7 @@ impl fmt::Display for PayloadTooLarge {
     }
 }
 
-impl StdError for PayloadTooLarge {
-}
+impl StdError for PayloadTooLarge {}
 
 /// The request's content-type is not supported
 #[derive(Debug)]
@@ -525,8 +518,7 @@ impl fmt::Display for UnsupportedMediaType {
     }
 }
 
-impl StdError for UnsupportedMediaType {
-}
+impl StdError for UnsupportedMediaType {}
 
 /// Missing request header
 #[derive(Debug)]
@@ -538,8 +530,7 @@ impl ::std::fmt::Display for MissingHeader {
     }
 }
 
-impl StdError for MissingHeader {
-}
+impl StdError for MissingHeader {}
 
 /// Invalid request header
 #[derive(Debug)]
@@ -551,8 +542,7 @@ impl ::std::fmt::Display for InvalidHeader {
     }
 }
 
-impl StdError for InvalidHeader {
-}
+impl StdError for InvalidHeader {}
 
 /// Missing cookie
 #[derive(Debug)]
@@ -564,8 +554,7 @@ impl ::std::fmt::Display for MissingCookie {
     }
 }
 
-impl StdError for MissingCookie {
-}
+impl StdError for MissingCookie {}
 
 mod sealed {
     use super::{Reason, Rejection, Rejections};
@@ -703,7 +692,10 @@ mod tests {
         let resp = reject.into_response();
 
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp).await, "Unhandled rejection: Left")
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Left"
+        )
     }
 
     #[tokio::test]
@@ -714,7 +706,10 @@ mod tests {
         let resp = reject.into_response();
 
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp).await, "Unhandled rejection: Right")
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        )
     }
 
     #[tokio::test]
@@ -723,7 +718,10 @@ mod tests {
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp).await, "Unhandled rejection: Right");
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        );
 
         // There's no real way to determine which is worse, since both are a 500,
         // so pick the first one.
@@ -731,7 +729,10 @@ mod tests {
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp).await, "Unhandled rejection: Left");
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Left"
+        );
 
         // With many rejections, custom still is top priority.
         let reject = not_found()
@@ -742,7 +743,10 @@ mod tests {
 
         let resp = reject.into_response();
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(response_body_string(resp).await, "Unhandled rejection: Right");
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        );
     }
 
     async fn response_body_string(resp: crate::reply::Response) -> String {
@@ -760,10 +764,7 @@ mod tests {
         let rej = rej.combine(method_not_allowed());
 
         assert_eq!(rej.find::<Left>(), Some(&Left));
-        assert!(
-            rej.find::<MethodNotAllowed>().is_some(),
-            "MethodNotAllowed"
-        );
+        assert!(rej.find::<MethodNotAllowed>().is_some(), "MethodNotAllowed");
     }
 
     #[test]

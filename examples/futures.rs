@@ -26,9 +26,11 @@ async fn main() {
     // Match `/:Seconds`...
     let routes = warp::path::param()
         // and_then create a `Future` that will simply wait N seconds...
-        .and_then(|Seconds(seconds): Seconds| async move {
-            delay_for(Duration::from_secs(seconds)).await;
-            Ok::<String, warp::Rejection>(format!("I waited {} seconds!", seconds))
+        .and_then(|Seconds(seconds): Seconds| {
+            async move {
+                delay_for(Duration::from_secs(seconds)).await;
+                Ok::<String, warp::Rejection>(format!("I waited {} seconds!", seconds))
+            }
         });
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
