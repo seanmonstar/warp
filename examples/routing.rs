@@ -1,6 +1,4 @@
 #![deny(warnings)]
-#[macro_use]
-extern crate warp;
 
 use warp::Filter;
 
@@ -17,17 +15,17 @@ async fn main() {
     // How about multiple segments? First, we could use the `path!` macro:
     //
     // GET /hello/from/warp
-    let hello_from_warp = path!("hello" / "from" / "warp").map(|| "Hello from warp!");
+    let hello_from_warp = warp::path!("hello" / "from" / "warp").map(|| "Hello from warp!");
 
     // Fine, but how do I handle parameters in paths?
     //
     // GET /sum/:u32/:u32
-    let sum = path!("sum" / u32 / u32).map(|a, b| format!("{} + {} = {}", a, b, a + b));
+    let sum = warp::path!("sum" / u32 / u32).map(|a, b| format!("{} + {} = {}", a, b, a + b));
 
     // Any type that implements FromStr can be used, and in any order:
     //
     // GET /:u16/times/:u16
-    let times = path!(u16 / "times" / u16).map(|a, b| format!("{} times {} = {}", a, b, a * b));
+    let times = warp::path!(u16 / "times" / u16).map(|a, b| format!("{} times {} = {}", a, b, a * b));
 
     // Oh shoot, those math routes should be mounted at a different path,
     // is that possible? Yep.

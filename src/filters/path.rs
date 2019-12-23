@@ -25,37 +25,31 @@
 //! How about multiple segments? It's easiest with the `path!` macro:
 //!
 //! ```
-//! # #[macro_use] extern crate warp; fn main() {
 //! # use warp::Filter;
 //! // GET /hello/from/warp
-//! let hello_from_warp = path!("hello" / "from" / "warp").map(|| {
+//! let hello_from_warp = warp::path!("hello" / "from" / "warp").map(|| {
 //!     "Hello from warp!"
 //! });
-//! # }
 //! ```
 //!
 //! Neat! But how do I handle **parameters** in paths?
 //!
 //! ```
-//! # #[macro_use] extern crate warp; fn main() {
 //! # use warp::Filter;
 //! // GET /sum/:u32/:u32
-//! let sum = path!("sum" / u32 / u32).map(|a, b| {
+//! let sum = warp::path!("sum" / u32 / u32).map(|a, b| {
 //!     format!("{} + {} = {}", a, b, a + b)
 //! });
-//! # }
 //! ```
 //!
 //! In fact, any type that implements `FromStr` can be used, in any order:
 //!
 //! ```
-//! # #[macro_use] extern crate warp; fn main() {
 //! # use warp::Filter;
 //! // GET /:u16/times/:u16
-//! let times = path!(u16 / "times" / u16).map(|a, b| {
+//! let times = warp::path!(u16 / "times" / u16).map(|a, b| {
 //!     format!("{} times {} = {}", a, b, a * b)
 //! });
-//! # }
 //! ```
 //!
 //! Oh shoot, those math routes should be **mounted** at a different path,
@@ -436,15 +430,13 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// # Example
 ///
 /// ```
-/// # #[macro_use] extern crate warp; fn main() {
 /// use warp::Filter;
 ///
 /// // Match `/sum/:a/:b`
-/// let route = path!("sum" / u32 / u32)
+/// let route = warp::path!("sum" / u32 / u32)
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
 ///     });
-/// # }
 /// ```
 ///
 /// The equivalent filter chain without using the `path!` macro looks this:
@@ -467,17 +459,15 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// match longer ones:
 ///
 /// ```
-/// # #[macro_use] extern crate warp; fn main() {
 /// use warp::Filter;
 ///
-/// let sum = path!("math" / "sum" / u32 /u32)
+/// let sum = warp::path!("math" / "sum" / u32 / u32)
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
 ///     });
-/// let help = path!("math" / "sum")
+/// let help = warp::path!("math" / "sum")
 ///     .map(|| "This API returns the sum of two u32's");
 /// let api = help.or(sum);
-/// # }
 /// ```
 ///
 /// In the above example, the `sum` path won't actually be hit because
@@ -486,16 +476,16 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// that the shorter path filter does not match the longer paths.
 #[macro_export]
 macro_rules! path {
-        ($($pieces:tt)*) => ({
-            $crate::__internal_path!(@start $($pieces)*)
-        });
+    ($($pieces:tt)*) => ({
+        $crate::__internal_path!(@start $($pieces)*)
+    });
 }
 
 #[doc(hidden)]
 #[macro_export]
 // not public API
 macro_rules! __internal_path {
-(@start $first:tt $(/ $tail:tt)*) => ({
+    (@start $first:tt $(/ $tail:tt)*) => ({
         let __p = $crate::__internal_path!(@segment $first);
         $(
         let __p = $crate::Filter::and(__p, $crate::__internal_path!(@segment $tail));
