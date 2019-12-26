@@ -15,8 +15,10 @@ fn render<T>(template: WithTemplate<T>, hbs: Arc<Handlebars>) -> impl warp::Repl
 where
     T: Serialize,
 {
-    hbs.render(template.name, &template.value)
-        .unwrap_or_else(|err| err.to_string())
+    let render = hbs
+        .render(template.name, &template.value)
+        .unwrap_or_else(|err| err.to_string());
+    warp::reply::html(render)
 }
 
 #[tokio::main]
