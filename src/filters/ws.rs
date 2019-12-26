@@ -19,7 +19,7 @@ use tungstenite::protocol::{self, WebSocketConfig};
 
 /// Creates a Websocket Filter.
 ///
-/// The yielded `Ws2` is used to finish the websocket upgrade.
+/// The yielded `Ws` is used to finish the websocket upgrade.
 ///
 /// # Note
 ///
@@ -31,7 +31,7 @@ use tungstenite::protocol::{self, WebSocketConfig};
 /// - Header `sec-websocket-version` must be `13`
 /// - Header `sec-websocket-key` must be set.
 ///
-/// If the filters are met, yields a `Ws2`. Calling `Ws2::on_upgrade` will
+/// If the filters are met, yields a `Ws`. Calling `Ws::on_upgrade` will
 /// return a reply with:
 ///
 /// - Status of `101 Switching Protocols`
