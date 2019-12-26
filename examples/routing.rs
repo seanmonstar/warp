@@ -25,7 +25,8 @@ async fn main() {
     // Any type that implements FromStr can be used, and in any order:
     //
     // GET /:u16/times/:u16
-    let times = warp::path!(u16 / "times" / u16).map(|a, b| format!("{} times {} = {}", a, b, a * b));
+    let times =
+        warp::path!(u16 / "times" / u16).map(|a, b| format!("{} times {} = {}", a, b, a * b));
 
     // Oh shoot, those math routes should be mounted at a different path,
     // is that possible? Yep.
