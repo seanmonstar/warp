@@ -417,7 +417,7 @@ mod internal {
     use pin_project::pin_project;
 
     use super::{Configured, CorsForbidden, Validated};
-    use crate::filter::{Filter, FilterBase, One};
+    use crate::filter::{Filter, FilterBase, Internal, One};
     use crate::generic::Either;
     use crate::reject::{CombineRejection, Rejection};
     use crate::route;
@@ -443,7 +443,7 @@ mod internal {
             WrappedFuture<F::Future>,
         >;
 
-        fn filter(&self) -> Self::Future {
+        fn filter(&self, _: Internal) -> Self::Future {
             let validated =
                 route::with(|route| self.config.check_request(route.method(), route.headers()));
 
@@ -456,11 +456,11 @@ mod internal {
                     future::Either::Left(future::ok((Either::A((preflight,)),)))
                 }
                 Ok(Validated::Simple(origin)) => future::Either::Right(WrappedFuture {
-                    inner: self.inner.filter(),
+                    inner: self.inner.filter(Internal),
                     wrapped: Some((self.config.clone(), origin)),
                 }),
                 Ok(Validated::NotCors) => future::Either::Right(WrappedFuture {
-                    inner: self.inner.filter(),
+                    inner: self.inner.filter(Internal),
                     wrapped: None,
                 }),
                 Err(err) => {

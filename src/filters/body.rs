@@ -48,7 +48,7 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     crate::filters::header::header2()
-        .map_err(|_| {
+        .map_err(crate::filter::Internal, |_| {
             log::debug!("content-length missing");
             reject::length_required()
         })

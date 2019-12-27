@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::TryFuture;
 use pin_project::pin_project;
 
-use super::{Filter, FilterBase};
+use super::{Filter, FilterBase, Internal};
 use crate::reject::IsReject;
 
 #[derive(Clone, Copy, Debug)]
@@ -24,9 +24,9 @@ where
     type Error = E;
     type Future = MapErrFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         MapErrFuture {
-            extract: self.filter.filter(),
+            extract: self.filter.filter(Internal),
             callback: self.callback.clone(),
         }
     }

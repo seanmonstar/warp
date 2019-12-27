@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
 
-use super::{Filter, FilterBase, Func};
+use super::{Filter, FilterBase, Func, Internal};
 use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
@@ -25,9 +25,9 @@ where
     type Error = <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One;
     type Future = AndThenFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AndThenFuture {
-            state: State::First(self.filter.filter(), self.callback.clone()),
+            state: State::First(self.filter.filter(Internal), self.callback.clone()),
         }
     }
 }

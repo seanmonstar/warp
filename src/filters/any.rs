@@ -4,7 +4,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::filter::{Filter, FilterBase};
+use crate::filter::{Filter, FilterBase, Internal};
 
 /// A filter that matches any route.
 ///
@@ -58,7 +58,7 @@ impl FilterBase for Any {
     type Future = AnyFut;
 
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AnyFut
     }
 }

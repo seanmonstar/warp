@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use futures::TryFutureExt;
 
-use super::{Filter, FilterBase, Tuple};
+use super::{Filter, FilterBase, Internal, Tuple};
 use crate::reject::Rejection;
 
 /// A type representing a boxed `Filter` trait object.
@@ -46,7 +46,7 @@ impl<T: Tuple + Send> BoxedFilter<T> {
     {
         BoxedFilter {
             filter: Arc::new(BoxingFilter {
-                filter: filter.map_err(Into::into),
+                filter: filter.map_err(super::Internal, Into::into),
             }),
         }
     }
@@ -76,8 +76,8 @@ impl<T: Tuple + Send> FilterBase for BoxedFilter<T> {
     type Error = Rejection;
     type Future = Pin<Box<dyn Future<Output = Result<T, Rejection>> + Send>>;
 
-    fn filter(&self) -> Self::Future {
-        self.filter.filter()
+    fn filter(&self, _: Internal) -> Self::Future {
+        self.filter.filter(Internal)
     }
 }
 
@@ -94,7 +94,7 @@ where
     type Error = F::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send>>;
 
-    fn filter(&self) -> Self::Future {
-        Box::pin(self.filter.filter().into_future())
+    fn filter(&self, _: Internal) -> Self::Future {
+        Box::pin(self.filter.filter(Internal).into_future())
     }
 }

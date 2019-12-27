@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
 
-use super::{Filter, FilterBase, Func};
+use super::{Filter, FilterBase, Func, Internal};
 use crate::generic::Either;
 use crate::route;
 
@@ -25,10 +25,10 @@ where
     type Error = <F::Output as TryFuture>::Error;
     type Future = RecoverFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         let idx = route::with(|route| route.matched_path_index());
         RecoverFuture {
-            state: State::First(self.filter.filter(), self.callback.clone()),
+            state: State::First(self.filter.filter(Internal), self.callback.clone()),
             original_path_index: PathIndex(idx),
         }
     }
