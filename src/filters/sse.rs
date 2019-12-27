@@ -299,18 +299,11 @@ tuple_fmt!((A, B, C, D, E, F, G, H) => (0, 1, 2, 3, 4, 5, 6, 7));
 ///     );
 ///};
 /// ```
-pub fn last_event_id<T>() -> impl Filter<Extract = One<Option<T>>, Error = Rejection>
+pub fn last_event_id<T>() -> impl Filter<Extract = One<Option<T>>, Error = Rejection> + Copy
 where
     T: FromStr + Send + Sync + 'static,
 {
-    header::header("last-event-id")
-        .map(Some)
-        .or_else(|rejection: Rejection| {
-            if rejection.find::<crate::reject::MissingHeader>().is_some() {
-                return future::ok((None,));
-            }
-            future::err(rejection)
-        })
+    header::optional("last-event-id")
 }
 
 /// Server-sent events reply
