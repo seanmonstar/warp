@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::pin_project;
 
-use super::{Filter, FilterBase, Tuple};
+use super::{Filter, FilterBase, Internal, Tuple};
 
 #[derive(Clone, Copy, Debug)]
 pub struct UntupleOne<F> {
@@ -21,9 +21,9 @@ where
     type Error = F::Error;
     type Future = UntupleOneFuture<F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         UntupleOneFuture {
-            extract: self.filter.filter(),
+            extract: self.filter.filter(Internal),
         }
     }
 }

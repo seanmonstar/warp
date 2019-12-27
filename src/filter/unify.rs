@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::pin_project;
 
-use super::{Either, Filter, FilterBase, Tuple};
+use super::{Either, Filter, FilterBase, Internal, Tuple};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unify<F> {
@@ -21,9 +21,9 @@ where
     type Error = F::Error;
     type Future = UnifyFuture<F::Future>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         UnifyFuture {
-            inner: self.filter.filter(),
+            inner: self.filter.filter(Internal),
         }
     }
 }

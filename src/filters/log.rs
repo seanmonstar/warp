@@ -186,7 +186,7 @@ mod internal {
     use pin_project::pin_project;
 
     use super::{Info, Log};
-    use crate::filter::{Filter, FilterBase};
+    use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
     use crate::route;
@@ -219,11 +219,11 @@ mod internal {
         type Error = F::Error;
         type Future = WithLogFuture<FN, F::Future>;
 
-        fn filter(&self) -> Self::Future {
+        fn filter(&self, _: Internal) -> Self::Future {
             let started = tokio::time::Instant::now().into_std();
             WithLogFuture {
                 log: self.log.clone(),
-                future: self.filter.filter(),
+                future: self.filter.filter(Internal),
                 started,
             }
         }

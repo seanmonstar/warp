@@ -39,9 +39,9 @@ pub trait FilterBase {
     type Error: IsReject;
     type Future: Future<Output = Result<Self::Extract, Self::Error>> + Send;
 
-    fn filter(&self) -> Self::Future;
+    fn filter(&self, internal: Internal) -> Self::Future;
 
-    fn map_err<F, E>(self, fun: F) -> MapErr<Self, F>
+    fn map_err<F, E>(self, _internal: Internal, fun: F) -> MapErr<Self, F>
     where
         Self: Sized,
         F: Fn(Self::Error) -> E + Clone,
@@ -54,20 +54,18 @@ pub trait FilterBase {
     }
 }
 
-/// This just makes use of rustdoc's ability to make compile_fail tests.
-/// This is specifically testing to make sure `Filter::filter` isn't
-/// able to be called from outside the crate (since rustdoc tests are
-/// compiled as new crates).
-///
-/// ```compile_fail
-/// use warp::Filter;
-///
-/// let _ = warp::any().filter();
-/// ```
-pub fn __warp_filter_compilefail_doctest() {
-    // Duplicate code to make sure the code is otherwise valid.
-    let _ = crate::any().filter();
-}
+// A crate-private argument to prevent users from calling methods on
+// the `FilterBase` trait.
+//
+// For instance, this innocent user code could otherwise call `filter`:
+//
+// ```
+// async fn with_filter<F: Filter>(f: F) -> Result<F::Extract, F::Error> {
+//     f.filter().await
+// }
+// ```
+#[allow(missing_debug_implementations)]
+pub struct Internal;
 
 /// Composable request filters.
 ///
@@ -456,7 +454,7 @@ where
         Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send + 'static>>;
 
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         Box::pin(route::with(|route| (self.func)(route)).into_future())
     }
 }

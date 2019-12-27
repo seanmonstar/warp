@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::pin_project;
 
-use super::{Filter, FilterBase, Func};
+use super::{Filter, FilterBase, Func, Internal};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
@@ -22,9 +22,9 @@ where
     type Error = T::Error;
     type Future = MapFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         MapFuture {
-            extract: self.filter.filter(),
+            extract: self.filter.filter(Internal),
             callback: self.callback.clone(),
         }
     }

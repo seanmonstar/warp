@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::ready;
 use pin_project::{pin_project, project};
 
-use super::{Combine, Filter, FilterBase, HList, Tuple};
+use super::{Combine, Filter, FilterBase, HList, Internal, Tuple};
 use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
@@ -27,9 +27,9 @@ where
     type Error = <U::Error as CombineRejection<T::Error>>::One;
     type Future = AndFuture<T, U>;
 
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AndFuture {
-            state: State::First(self.first.filter(), self.second.clone()),
+            state: State::First(self.first.filter(Internal), self.second.clone()),
         }
     }
 }
@@ -66,7 +66,7 @@ where
             #[project]
             let (ex1, fut2) = match pin.state.project() {
                 State::First(first, second) => match ready!(first.poll(cx)) {
-                    Ok(first) => (first, second.filter()),
+                    Ok(first) => (first, second.filter(Internal)),
                     Err(err) => return Poll::Ready(Err(From::from(err))),
                 },
                 State::Second(ex1, second) => {

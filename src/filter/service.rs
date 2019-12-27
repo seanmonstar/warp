@@ -30,7 +30,7 @@ where
         debug_assert!(!route::is_set(), "nested route::set calls");
 
         let route = Route::new(req, remote_addr);
-        let fut = route::set(&route, || self.filter.filter());
+        let fut = route::set(&route, || self.filter.filter(super::Internal));
         FilteredFuture { future: fut, route }
     }
 }

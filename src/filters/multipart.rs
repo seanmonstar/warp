@@ -13,7 +13,7 @@ use headers::ContentType;
 use mime::Mime;
 use multipart::server::Multipart;
 
-use crate::filter::{Filter, FilterBase};
+use crate::filter::{Filter, FilterBase, Internal};
 use crate::reject::{self, Rejection};
 
 // If not otherwise configured, default to 2MB.
@@ -73,7 +73,7 @@ impl FilterBase for FormOptions {
     type Error = Rejection;
     type Future = FormFut;
 
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         let boundary = super::header::header2::<ContentType>().and_then(|ct| {
             let mime = Mime::from(ct);
             let mime = mime
@@ -90,7 +90,7 @@ impl FilterBase for FormOptions {
                 inner: Multipart::with_body(Cursor::new(body), boundary),
             });
 
-        let fut = filt.filter();
+        let fut = filt.filter(Internal);
 
         Box::pin(fut)
     }

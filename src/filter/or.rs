@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
 
-use super::{Filter, FilterBase};
+use super::{Filter, FilterBase, Internal};
 use crate::generic::Either;
 use crate::reject::CombineRejection;
 use crate::route;
@@ -26,10 +26,10 @@ where
     type Error = <U::Error as CombineRejection<T::Error>>::Combined;
     type Future = EitherFuture<T, U>;
 
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         let idx = route::with(|route| route.matched_path_index());
         EitherFuture {
-            state: State::First(self.first.filter(), self.second.clone()),
+            state: State::First(self.first.filter(Internal), self.second.clone()),
             original_path_index: PathIndex(idx),
         }
     }
@@ -82,7 +82,7 @@ where
                     }
                     Err(e) => {
                         pin.original_path_index.reset_path();
-                        (e, second.filter())
+                        (e, second.filter(Internal))
                     }
                 },
                 State::Second(err1, second) => {
