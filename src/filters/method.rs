@@ -139,3 +139,12 @@ where
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn method_size_of() {
+        // See comment on `method_is` function.
+        assert_eq!(std::mem::size_of_val(&super::get()), 0,);
+    }
+}
