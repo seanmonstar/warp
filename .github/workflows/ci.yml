@@ -35,7 +35,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls]
+        build: [stable, beta, nightly, tls, no-default-features]
 
         include:
           - build: beta
@@ -45,6 +45,9 @@ jobs:
             benches: true
           - build: tls
             features: "--features tls"
+          - build: no-default-features
+            features: "--no-default-features"
+
 
     steps:
       - name: Checkout

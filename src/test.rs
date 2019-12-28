@@ -86,6 +86,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
+#[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
 use bytes::Bytes;
