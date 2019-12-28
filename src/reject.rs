@@ -190,9 +190,10 @@ enum Rejections {
 }
 
 macro_rules! enum_known {
-    ($($var:ident($ty:path),)+) => (
+     ($($(#[$attr:meta])* $var:ident($ty:path),)+) => (
         pub(crate) enum Known {
             $(
+            $(#[$attr])*
             $var($ty),
             )+
         }
@@ -201,6 +202,7 @@ macro_rules! enum_known {
             fn inner_as_any(&self) -> &dyn Any {
                 match *self {
                     $(
+                    $(#[$attr])*
                     Known::$var(ref t) => t,
                     )+
                 }
@@ -211,6 +213,7 @@ macro_rules! enum_known {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match *self {
                     $(
+                    $(#[$attr])*
                     Known::$var(ref t) => t.fmt(f),
                     )+
                 }
@@ -221,6 +224,7 @@ macro_rules! enum_known {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match *self {
                     $(
+                    $(#[$attr])*
                     Known::$var(ref t) => t.fmt(f),
                     )+
                 }
@@ -229,6 +233,7 @@ macro_rules! enum_known {
 
         $(
         #[doc(hidden)]
+        $(#[$attr])*
         impl From<$ty> for Known {
             fn from(ty: $ty) -> Known {
                 Known::$var(ty)
@@ -250,6 +255,7 @@ enum_known! {
     BodyReadError(crate::body::BodyReadError),
     BodyDeserializeError(crate::body::BodyDeserializeError),
     CorsForbidden(crate::cors::CorsForbidden),
+    #[cfg(feature = "websocket")]
     MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
     MissingExtension(crate::ext::MissingExtension),
     ReplyHttpError(crate::reply::ReplyHttpError),
@@ -378,8 +384,9 @@ impl Rejections {
                 | Known::MissingCookie(_)
                 | Known::InvalidQuery(_)
                 | Known::BodyReadError(_)
-                | Known::BodyDeserializeError(_)
-                | Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
+                | Known::BodyDeserializeError(_) => StatusCode::BAD_REQUEST,
+                #[cfg(feature = "websocket")]
+                Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
                 Known::LengthRequired(_) => StatusCode::LENGTH_REQUIRED,
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
