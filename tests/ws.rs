@@ -76,7 +76,7 @@ async fn binary() {
     client.send(warp::ws::Message::binary(&b"bonk"[..])).await;
     let msg = client.recv().await.expect("recv");
     assert!(msg.is_binary());
-    assert_eq!(msg.as_bytes(), b"bonk");
+    assert_eq!(msg.as_bytes(), Some(&b"bonk"[..]));
 }
 
 #[tokio::test]
