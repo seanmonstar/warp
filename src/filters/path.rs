@@ -140,14 +140,15 @@ use crate::route::Route;
 ///
 /// This will try to match exactly to the current request path segment.
 ///
-/// Warning:
-///     - [`end()`](./fn.end.html) should be used to match the end of a path to avoid having
-///         filters for shorter paths like `/math` unintentionally match a longer
-///         path such as `/math/sum`
-///     - path-related filters should generally come **before** other types of filters, such
-///         as those checking headers or body types. Including those other filters before
-///         the path checks may result in strange errors being returned because a given request
-///         does not match the parameters for a completely separate route.
+/// # Note
+///
+/// - [`end()`](./fn.end.html) should be used to match the end of a path to avoid having
+///   filters for shorter paths like `/math` unintentionally match a longer
+///   path such as `/math/sum`
+/// - Path-related filters should generally come **before** other types of filters, such
+///   as those checking headers or body types. Including those other filters before
+///   the path checks may result in strange errors being returned because a given request
+///   does not match the parameters for a completely separate route.
 ///
 /// # Panics
 ///
@@ -447,33 +448,34 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// let route = warp::path("sum")
 ///     .and(warp::path::param::<u32>())
 ///     .and(warp::path::param::<u32>())
+///     .and(warp::path::end())
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
 ///     });
 /// ```
 ///
-/// In fact, this is exactly what the macro expands to.
+/// # Path Prefixes
 ///
-/// Note that path! does not automatically include an `end()` filter
-/// so you should be careful to avoid letting shorter paths accidentally
-/// match longer ones:
+/// The `path!` macro automatically assumes the path should include an `end()`
+/// filter. To build up a path filter *prefix*, such that the `end()` isn't
+/// included, use the `/ ..` syntax.
+///
 ///
 /// ```
 /// use warp::Filter;
 ///
-/// let sum = warp::path!("math" / "sum" / u32 / u32)
+/// let prefix = warp::path!("math" / "sum" / ..);
+///
+/// let sum = warp::path!(u32 / u32)
 ///     .map(|a, b| {
 ///         format!("{} + {} = {}", a, b, a + b)
 ///     });
-/// let help = warp::path!("math" / "sum")
-///     .map(|| "This API returns the sum of two u32's");
-/// let api = help.or(sum);
-/// ```
 ///
-/// In the above example, the `sum` path won't actually be hit because
-/// the `help` filter will match all requests. We would need to change
-/// help to be `path!("math" / "sum").and(warp::path::end())` to ensure
-/// that the shorter path filter does not match the longer paths.
+/// let help = warp::path::end()
+///     .map(|| "This API returns the sum of two u32's");
+///
+/// let api = prefix.and(sum.or(help));
+/// ```
 #[macro_export]
 macro_rules! path {
     ($($pieces:tt)*) => ({
@@ -485,13 +487,33 @@ macro_rules! path {
 #[macro_export]
 // not public API
 macro_rules! __internal_path {
-    (@start $first:tt $(/ $tail:tt)*) => ({
-        let __p = $crate::__internal_path!(@segment $first);
-        $(
-        let __p = $crate::Filter::and(__p, $crate::__internal_path!(@segment $tail));
-        )*
-        __p
+    (@start ..) => ({
+        compile_error!("'..' cannot be the only segment")
     });
+    (@start $first:tt $(/ $tail:tt)*) => ({
+        $crate::__internal_path!(@munch $crate::any(); [$first] [$(/ $tail)*])
+    });
+
+    (@munch $sum:expr; [$cur:tt] [/ $next:tt $(/ $tail:tt)*]) => ({
+        $crate::__internal_path!(@munch $crate::Filter::and($sum, $crate::__internal_path!(@segment $cur)); [$next] [$(/ $tail)*])
+    });
+    (@munch $sum:expr; [$cur:tt] []) => ({
+        $crate::__internal_path!(@last $sum; $cur)
+    });
+
+    (@last $sum:expr; ..) => (
+        $sum
+    );
+    (@last $sum:expr; $end:tt) => (
+        $crate::Filter::and(
+            $crate::Filter::and($sum, $crate::__internal_path!(@segment $end)),
+            $crate::path::end()
+        )
+    );
+
+    (@segment ..) => (
+        compile_error!("'..' must be the last segment")
+    );
     (@segment $param:ty) => (
         $crate::path::param::<$param>()
     );
@@ -499,3 +521,26 @@ macro_rules! __internal_path {
         $crate::path($s)
     );
 }
+
+// path! compile fail tests
+
+/// ```compile_fail
+/// warp::path!("foo" / .. / "bar");
+/// ```
+///
+/// ```compile_fail
+/// warp::path!(.. / "bar");
+/// ```
+///
+/// ```compile_fail
+/// warp::path!("foo" ..);
+/// ```
+///
+/// ```compile_fail
+/// warp::path!("foo" / .. /);
+/// ```
+///
+/// ```compile_fail
+/// warp::path!(..);
+/// ```
+fn _path_macro_compile_fail() {}
