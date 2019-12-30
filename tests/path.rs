@@ -219,6 +219,26 @@ async fn path_macro() {
     let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / String);
     assert_eq!(req.filter(&p).await.unwrap(), "bar");
+
+    // Requires path end
+
+    let req = warp::test::request().path("/foo/bar/baz");
+    let p = path!("foo" / "bar");
+    assert!(!req.matches(&p).await);
+
+    let req = warp::test::request().path("/foo/bar/baz");
+    let p = path!("foo" / "bar").and(warp::path("baz"));
+    assert!(!req.matches(&p).await);
+
+    // Prefix syntax
+
+    let req = warp::test::request().path("/foo/bar/baz");
+    let p = path!("foo" / "bar" / ..);
+    assert!(req.matches(&p).await);
+
+    let req = warp::test::request().path("/foo/bar/baz");
+    let p = path!("foo" / "bar" / ..).and(warp::path!("baz"));
+    assert!(req.matches(&p).await);
 }
 
 #[tokio::test]
