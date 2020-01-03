@@ -133,7 +133,7 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        log::info!("warp drive engaged: listening on http://{}", addr);
+        log::info!("listening on http://{}", addr);
 
         fut.await;
     }
@@ -160,7 +160,7 @@ where
     {
         let fut = self.serve_incoming2(incoming);
 
-        log::info!("warp drive engaged: listening with custom incoming");
+        log::info!("listening with custom incoming");
 
         fut.await;
     }
@@ -392,7 +392,7 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        log::info!("warp drive engaged: listening on https://{}", addr);
+        log::info!("listening on https://{}", addr);
 
         fut.await;
     }
