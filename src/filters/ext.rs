@@ -21,6 +21,17 @@ pub fn get<T: Clone + Send + Sync + 'static>(
     })
 }
 
+/// Get a previously set extension of the current route.
+///
+/// If the extension doesn't exist, it yields `None`.
+pub fn get_optional<T: Clone + Send + Sync + 'static>(
+) -> impl Filter<Extract = (Option<T>,), Error = Rejection> + Copy {
+    filter_fn_one(|route| {
+        let route = Ok(route.extensions().get::<T>().cloned());
+        future::ready(route)
+    })
+}
+
 /// An error used to reject if `get` cannot find the extension.
 #[derive(Debug)]
 pub struct MissingExtension {
