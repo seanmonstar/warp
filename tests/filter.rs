@@ -90,3 +90,14 @@ async fn unify() {
 
     assert_eq!(ex, 1);
 }
+
+#[should_panic]
+#[tokio::test]
+async fn nested() {
+    let f = warp::any().and_then(|| async {
+        let p = warp::path::param::<u32>();
+        warp::test::request().filter(&p).await
+    });
+
+    let _ = warp::test::request().filter(&f).await;
+}
