@@ -1,7 +1,7 @@
 //! Request Extensions
 
 use futures::future;
-use std::error::Error as StdError;
+use std::{convert::Infallible, error::Error as StdError};
 
 use crate::filter::{filter_fn_one, Filter};
 use crate::reject::{self, Rejection};
@@ -25,7 +25,7 @@ pub fn get<T: Clone + Send + Sync + 'static>(
 ///
 /// If the extension doesn't exist, it yields `None`.
 pub fn get_optional<T: Clone + Send + Sync + 'static>(
-) -> impl Filter<Extract = (Option<T>,), Error = Rejection> + Copy {
+) -> impl Filter<Extract = (Option<T>,), Error = Infallible> + Copy {
     filter_fn_one(|route| {
         let route = Ok(route.extensions().get::<T>().cloned());
         future::ready(route)
