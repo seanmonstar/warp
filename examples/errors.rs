@@ -38,7 +38,7 @@ async fn main() {
 }
 
 // This function receives a `Rejection` and tries to return a custom
-// value, othewise simply passes the rejection along.
+// value, otherwise simply passes the rejection along.
 async fn customize_error(err: Rejection) -> Result<impl Reply, Rejection> {
     if let Some(err) = err.find::<Error>() {
         let (code, msg) = match err {
