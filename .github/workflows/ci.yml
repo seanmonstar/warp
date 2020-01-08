@@ -45,6 +45,8 @@ jobs:
             benches: true
           - build: tls
             features: "--features tls"
+          - build: uds
+            features: "--features tokio/uds"
           - build: no-default-features
             features: "--no-default-features"
 
