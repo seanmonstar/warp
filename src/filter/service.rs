@@ -13,6 +13,43 @@ use crate::reply::{Reply, Response};
 use crate::route::{self, Route};
 use crate::{Filter, Request};
 
+/// Convert a `Filter` into a `Service`.
+///
+/// # Example
+///
+/// Running a `warp::Filter` on a regular `hyper::Server`:
+///
+/// ```
+/// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+/// use std::convert::Infallible;
+/// use warp::Filter;
+///
+/// // Our Filter...
+/// let route = warp::any().map(|| "Hello From Warp!");
+///
+/// // Convert it into a `Service`...
+/// let svc = warp::service(route);
+///
+/// // Typical hyper setup...
+/// let make_svc = hyper::service::make_service_fn(move |_| async move {
+///     Ok::<_, Infallible>(svc)
+/// });
+///
+/// hyper::Server::bind(&([127, 0, 0, 1], 3030).into())
+///     .serve(make_svc)
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
+pub fn service<F>(filter: F) -> FilteredService<F>
+where
+    F: Filter,
+    <F::Future as TryFuture>::Ok: Reply,
+    <F::Future as TryFuture>::Error: IsReject,
+{
+    FilteredService { filter }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct FilteredService<F> {
     filter: F,
@@ -24,12 +61,12 @@ where
     <F::Future as TryFuture>::Ok: Reply,
     <F::Future as TryFuture>::Error: IsReject,
 {
-    pub(crate) fn new(filter: F) -> Self {
-        FilteredService { filter }
-    }
-
     #[inline]
-    pub(crate) fn call_with_addr(&self, req: Request, remote_addr: Option<SocketAddr>) -> FilteredFuture<F::Future> {
+    pub(crate) fn call_with_addr(
+        &self,
+        req: Request,
+        remote_addr: Option<SocketAddr>,
+    ) -> FilteredFuture<F::Future> {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
         let route = Route::new(req, remote_addr);

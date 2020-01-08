@@ -93,6 +93,7 @@ pub mod reject;
 pub mod reply;
 mod route;
 mod server;
+mod service;
 pub mod test;
 #[cfg(feature = "tls")]
 mod tls;
@@ -150,6 +151,7 @@ pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
 pub use self::server::{serve, Server};
+pub use self::service::service;
 #[doc(hidden)]
 pub use http;
 #[doc(hidden)]

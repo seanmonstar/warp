@@ -13,7 +13,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::filter::{Filter, FilteredService};
+use crate::filter::Filter;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::transport::Transport;
@@ -51,7 +51,7 @@ pub struct TlsServer<F> {
 // very complicated, so instead this is just a macro.
 macro_rules! into_service {
     ($into:expr) => {{
-        let inner = FilteredService::new($into);
+        let inner = crate::service($into);
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
