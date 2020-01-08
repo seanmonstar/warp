@@ -464,7 +464,7 @@ impl WsBuilder {
     /// ```
     pub async fn handshake<F>(self, f: F) -> Result<WsClient, WsError>
     where
-        F: Filter + Send + Sync + 'static,
+        F: Filter + Clone + Send + Sync + 'static,
         F::Extract: Reply + Send,
         F::Error: IsReject + Send,
     {

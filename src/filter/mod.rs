@@ -28,6 +28,7 @@ pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
+pub(crate) use self::service::FilteredService;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
