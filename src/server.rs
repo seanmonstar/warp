@@ -6,60 +6,57 @@ use std::future::Future;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
-use pin_project::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use crate::filter::{Filter, FilteredService};
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::transport::Transport;
-use crate::Request;
 
-/// Create a `Server` with the provided service.
-pub fn serve<S>(service: S) -> Server<S>
+/// Create a `Server` with the provided `Filter`.
+pub fn serve<F>(filter: F) -> Server<F>
 where
-    S: IntoWarpService + 'static,
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+    F::Error: IsReject,
 {
     Server {
         pipeline: false,
-        service,
+        filter,
     }
 }
 
 /// A Warp Server ready to filter requests.
 #[derive(Debug)]
-pub struct Server<S> {
+pub struct Server<F> {
     pipeline: bool,
-    service: S,
+    filter: F,
 }
 
 /// A Warp Server ready to filter requests over TLS.
 ///
 /// *This type requires the `"tls"` feature.*
 #[cfg(feature = "tls")]
-pub struct TlsServer<S> {
-    server: Server<S>,
+pub struct TlsServer<F> {
+    server: Server<F>,
     tls: TlsConfigBuilder,
-    //tls: ::rustls::ServerConfig,
 }
 
 // Getting all various generic bounds to make this a re-usable method is
 // very complicated, so instead this is just a macro.
 macro_rules! into_service {
     ($into:expr) => {{
-        let inner = Arc::new($into.into_warp_service());
+        let inner = FilteredService::new($into);
         make_service_fn(move |transport| {
             let inner = inner.clone();
             let remote_addr = Transport::remote_addr(transport);
-            future::ok::<_, hyper::Error>(service_fn(move |req| ReplyFuture {
-                inner: inner.call(req, remote_addr),
+            future::ok::<_, Infallible>(service_fn(move |req| {
+                inner.call_with_addr(req, remote_addr)
             }))
         })
     }};
@@ -76,7 +73,7 @@ macro_rules! addr_incoming {
 
 macro_rules! bind_inner {
     ($this:ident, $addr:expr) => {{
-        let service = into_service!($this.service);
+        let service = into_service!($this.filter);
         let (addr, incoming) = addr_incoming!($addr);
         let srv = HyperServer::builder(incoming)
             .http1_pipeline_flush($this.pipeline)
@@ -85,7 +82,7 @@ macro_rules! bind_inner {
     }};
 
     (tls: $this:ident, $addr:expr) => {{
-        let service = into_service!($this.server.service);
+        let service = into_service!($this.server.filter);
         let (addr, incoming) = addr_incoming!($addr);
         let tls = $this.tls.build()?;
         let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming))
@@ -123,11 +120,11 @@ macro_rules! try_bind {
 
 // ===== impl Server =====
 
-impl<S> Server<S>
+impl<F> Server<F>
 where
-    S: IntoWarpService + 'static,
-    <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
+    F: Filter + Clone + Send + Sync + 'static,
+    <F::Future as TryFuture>::Ok: Reply,
+    <F::Future as TryFuture>::Error: IsReject,
 {
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
@@ -311,7 +308,7 @@ where
         I::Ok: Transport + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
-        let service = into_service!(self.service);
+        let service = into_service!(self.filter);
 
         let srv = HyperServer::builder(hyper::server::accept::from_stream(incoming.into_stream()))
             .http1_pipeline_flush(self.pipeline)
@@ -336,7 +333,7 @@ where
     ///
     /// *This function requires the `"tls"` feature.*
     #[cfg(feature = "tls")]
-    pub fn tls(self) -> TlsServer<S> {
+    pub fn tls(self) -> TlsServer<F> {
         TlsServer {
             server: self,
             tls: TlsConfigBuilder::new(),
@@ -347,11 +344,11 @@ where
 // // ===== impl TlsServer =====
 
 #[cfg(feature = "tls")]
-impl<S> TlsServer<S>
+impl<F> TlsServer<F>
 where
-    S: IntoWarpService + 'static,
-    <<S::Service as WarpService>::Reply as TryFuture>::Ok: Reply + Send,
-    <<S::Service as WarpService>::Reply as TryFuture>::Error: IsReject + Send,
+    F: Filter + Clone + Send + Sync + 'static,
+    <F::Future as TryFuture>::Ok: Reply,
+    <F::Future as TryFuture>::Error: IsReject,
 {
     // TLS config methods
 
@@ -375,9 +372,9 @@ where
         self.with_tls(|tls| tls.cert(cert.as_ref()))
     }
 
-    fn with_tls<F>(self, func: F) -> Self
+    fn with_tls<Func>(self, func: Func) -> Self
     where
-        F: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
+        Func: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
     {
         let TlsServer { server, tls } = self;
         let tls = func(tls);
@@ -449,56 +446,13 @@ where
 }
 
 #[cfg(feature = "tls")]
-impl<S> ::std::fmt::Debug for TlsServer<S>
+impl<F> ::std::fmt::Debug for TlsServer<F>
 where
-    S: ::std::fmt::Debug,
+    F: ::std::fmt::Debug,
 {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         f.debug_struct("TlsServer")
             .field("server", &self.server)
             .finish()
-    }
-}
-
-// // ===== impl WarpService =====
-
-pub trait IntoWarpService {
-    type Service: WarpService + Send + Sync + 'static;
-    fn into_warp_service(self) -> Self::Service;
-}
-
-pub trait WarpService {
-    type Reply: TryFuture + Send;
-    fn call(&self, req: Request, remote_addr: Option<SocketAddr>) -> Self::Reply;
-}
-
-// Optimizes better than using Future::then, since it doesn't
-// have to return an IntoFuture.
-#[pin_project]
-#[derive(Debug)]
-struct ReplyFuture<F> {
-    #[pin]
-    inner: F,
-}
-
-impl<F> Future for ReplyFuture<F>
-where
-    F: TryFuture,
-    F::Ok: Reply,
-    F::Error: IsReject,
-{
-    type Output = Result<crate::reply::Response, Infallible>;
-
-    #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let pin = self.project();
-        match pin.inner.try_poll(cx) {
-            Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok.into_response())),
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(err)) => {
-                log::debug!("rejected: {:?}", err);
-                Poll::Ready(Ok(err.into_response()))
-            }
-        }
     }
 }

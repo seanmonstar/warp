@@ -115,7 +115,7 @@ async fn limit_message_size() {
     assert!(client.recv().await.is_err());
 }
 
-fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> {
+fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Copy {
     warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
