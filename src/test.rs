@@ -91,16 +91,16 @@ use std::task::{self, Poll};
 
 use bytes::Bytes;
 #[cfg(feature = "websocket")]
-use futures::channel::{mpsc, oneshot};
+use futures::StreamExt;
 use futures::{future, FutureExt, TryFutureExt};
-#[cfg(feature = "websocket")]
-use futures::{SinkExt, StreamExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
 };
 use serde::Serialize;
 use serde_json;
+#[cfg(feature = "websocket")]
+use tokio::sync::{mpsc, oneshot};
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -469,8 +469,8 @@ impl WsBuilder {
         F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
-        let (wr_tx, wr_rx) = mpsc::unbounded();
-        let (rd_tx, rd_rx) = mpsc::unbounded();
+        let (wr_tx, wr_rx) = mpsc::unbounded_channel();
+        let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
             use tungstenite::protocol;
@@ -523,9 +523,10 @@ impl WsBuilder {
                     Err(_) => future::ready(false),
                     Ok(m) => future::ready(!m.is_close()),
                 })
-                .map(Ok)
-                .forward(rd_tx.sink_map_err(|e| panic!("ws receive error: {}", e)))
-                .map(|_| ());
+                .for_each(move |item| {
+                    rd_tx.send(item).expect("ws receive error");
+                    future::ready(())
+                });
 
             future::join(write, read).await;
         });
@@ -550,7 +551,7 @@ impl WsClient {
 
     /// Send a websocket message to the server.
     pub async fn send(&mut self, msg: crate::ws::Message) {
-        self.tx.send(msg).await.unwrap();
+        self.tx.send(msg).unwrap();
     }
 
     /// Receive a websocket message from the server.
