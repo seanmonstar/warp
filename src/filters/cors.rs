@@ -44,8 +44,8 @@ use self::internal::{CorsFilter, IntoOrigin, Seconds};
 ///     .allow_any_origin();
 /// ```
 /// You can find more usage examples [here](https://github.com/seanmonstar/warp/blob/7fa54eaecd0fe12687137372791ff22fc7995766/tests/cors.rs).
-pub fn cors() -> Cors {
-    Cors {
+pub fn cors() -> Builder {
+    Builder {
         credentials: false,
         allowed_headers: HashSet::new(),
         exposed_headers: HashSet::new(),
@@ -58,6 +58,12 @@ pub fn cors() -> Cors {
 /// A wrapping filter constructed via `warp::cors()`.
 #[derive(Clone, Debug)]
 pub struct Cors {
+    config: Arc<Configured>,
+}
+
+/// A constructed via `warp::cors()`.
+#[derive(Clone, Debug)]
+pub struct Builder {
     credentials: bool,
     allowed_headers: HashSet<HeaderName>,
     exposed_headers: HashSet<HeaderName>,
@@ -66,7 +72,7 @@ pub struct Cors {
     origins: Option<HashSet<HeaderValue>>,
 }
 
-impl Cors {
+impl Builder {
     /// Sets whether to add the `Access-Control-Allow-Credentials` header.
     pub fn allow_credentials(mut self, allow: bool) -> Self {
         self.credentials = allow;
@@ -240,6 +246,46 @@ impl Cors {
         self.max_age = Some(seconds.seconds());
         self
     }
+
+    /// Builds the `Cors` wrapper from the configured settings.
+    ///
+    /// This step isn't *required*, as the `Builder` itself can be passed
+    /// to `Filter::with`. This just allows constructing once, thus not needing
+    /// to pay the cost of "building" every time.
+    pub fn build(self) -> Cors {
+        let expose_headers_header = if self.exposed_headers.is_empty() {
+            None
+        } else {
+            Some(self.exposed_headers.iter().cloned().collect())
+        };
+        let allowed_headers_header = self.allowed_headers.iter().cloned().collect();
+        let methods_header = self.methods.iter().cloned().collect();
+
+        let config = Arc::new(Configured {
+            cors: self,
+            allowed_headers_header,
+            expose_headers_header,
+            methods_header,
+        });
+
+        Cors { config }
+    }
+}
+
+impl<F> WrapSealed<F> for Builder
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+    F::Error: CombineRejection<Rejection>,
+    <F::Error as CombineRejection<Rejection>>::One: CombineRejection<Rejection>,
+{
+    type Wrapped = CorsFilter<F>;
+
+    fn wrap(&self, inner: F) -> Self::Wrapped {
+        let Cors { config } = self.clone().build();
+
+        CorsFilter { config, inner }
+    }
 }
 
 impl<F> WrapSealed<F> for Cors
@@ -252,17 +298,7 @@ where
     type Wrapped = CorsFilter<F>;
 
     fn wrap(&self, inner: F) -> Self::Wrapped {
-        let expose_headers_header = if self.exposed_headers.is_empty() {
-            None
-        } else {
-            Some(self.exposed_headers.iter().cloned().collect())
-        };
-        let config = Arc::new(Configured {
-            cors: self.clone(),
-            allowed_headers_header: self.allowed_headers.iter().cloned().collect(),
-            expose_headers_header,
-            methods_header: self.methods.iter().cloned().collect(),
-        });
+        let config = self.config.clone();
 
         CorsFilter { config, inner }
     }
@@ -296,7 +332,7 @@ impl StdError for CorsForbidden {}
 
 #[derive(Clone, Debug)]
 struct Configured {
-    cors: Cors,
+    cors: Builder,
     allowed_headers_header: AccessControlAllowHeaders,
     expose_headers_header: Option<AccessControlExposeHeaders>,
     methods_header: AccessControlAllowMethods,
