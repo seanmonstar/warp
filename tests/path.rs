@@ -10,8 +10,8 @@ async fn path() {
     let _ = pretty_env_logger::try_init();
 
     let foo = warp::path("foo");
-    let bar = warp::path("bar");
-    let foo_bar = foo.and(bar);
+    let bar = warp::path(String::from("bar"));
+    let foo_bar = foo.and(bar.clone());
 
     // /foo
     let foo_req = || warp::test::request().path("/foo");

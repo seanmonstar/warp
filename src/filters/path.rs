@@ -132,9 +132,10 @@ use std::str::FromStr;
 use futures::future;
 use http::uri::PathAndQuery;
 
-use crate::filter::{filter_fn, one, Filter, One, Tuple};
+use self::internal::Opaque;
+use crate::filter::{filter_fn, one, Filter, FilterBase, Internal, One, Tuple};
 use crate::reject::{self, Rejection};
-use crate::route::Route;
+use crate::route::{self, Route};
 
 /// Create an exact match path segment `Filter`.
 ///
@@ -163,14 +164,20 @@ use crate::route::Route;
 /// let hello = warp::path("hello")
 ///     .map(|| "Hello, World!");
 /// ```
-pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    assert!(!p.is_empty(), "exact path segments should not be empty");
+pub fn path<P>(p: P) -> Exact<Opaque<P>>
+where
+    P: AsRef<str>,
+{
+    let s = p.as_ref();
+    assert!(!s.is_empty(), "exact path segments should not be empty");
     assert!(
-        !p.contains('/'),
+        !s.contains('/'),
         "exact path segments should not contain a slash: {:?}",
-        p
+        s
     );
 
+    Exact(Opaque(p))
+    /*
     segment(move |seg| {
         log::trace!("{:?}?: {:?}", p, seg);
         if seg == p {
@@ -179,6 +186,39 @@ pub fn path(p: &'static str) -> impl Filter<Extract = (), Error = Rejection> + C
             Err(reject::not_found())
         }
     })
+    */
+}
+
+/// A `Filter` matching an exact path segment.
+///
+/// Constructed from `path()` or `path!()`.
+#[allow(missing_debug_implementations)]
+#[derive(Clone, Copy)]
+pub struct Exact<P>(P);
+
+impl<P> FilterBase for Exact<P>
+where
+    P: AsRef<str>,
+{
+    type Extract = ();
+    type Error = Rejection;
+    type Future = future::Ready<Result<Self::Extract, Self::Error>>;
+
+    #[inline]
+    fn filter(&self, _: Internal) -> Self::Future {
+        route::with(|route| {
+            let p = self.0.as_ref();
+            future::ready(with_segment(route, |seg| {
+                log::trace!("{:?}?: {:?}", p, seg);
+
+                if seg == p {
+                    Ok(())
+                } else {
+                    Err(reject::not_found())
+                }
+            }))
+        })
+    }
 }
 
 /// Matches the end of a route.
@@ -225,7 +265,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 /// ```
 pub fn param<T: FromStr + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
-    segment(|seg| {
+    filter_segment(|seg| {
         log::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
@@ -392,25 +432,33 @@ impl fmt::Debug for FullPath {
     }
 }
 
-fn segment<F, U>(func: F) -> impl Filter<Extract = U, Error = Rejection> + Copy
+fn filter_segment<F, U>(func: F) -> impl Filter<Extract = U, Error = Rejection> + Copy
 where
     F: Fn(&str) -> Result<U, Rejection> + Copy,
     U: Tuple + Send + 'static,
 {
-    filter_fn(move |route| {
-        let (u, idx) = {
-            let seg = route
-                .path()
-                .splitn(2, '/')
-                .next()
-                .expect("split always has at least 1");
-            (func(seg), seg.len())
-        };
-        if u.is_ok() {
-            route.set_unmatched_path(idx);
-        }
-        future::ready(u)
-    })
+    filter_fn(move |route| future::ready(with_segment(route, func)))
+}
+
+fn with_segment<F, U>(route: &mut Route, func: F) -> Result<U, Rejection>
+where
+    F: Fn(&str) -> Result<U, Rejection>,
+{
+    let seg = segment(route);
+    let ret = func(seg);
+    if ret.is_ok() {
+        let idx = seg.len();
+        route.set_unmatched_path(idx);
+    }
+    ret
+}
+
+fn segment(route: &Route) -> &str {
+    route
+        .path()
+        .splitn(2, '/')
+        .next()
+        .expect("split always has at least 1")
 }
 
 fn path_and_query(route: &Route) -> PathAndQuery {
@@ -517,9 +565,19 @@ macro_rules! __internal_path {
     (@segment $param:ty) => (
         $crate::path::param::<$param>()
     );
-    (@segment $s:expr) => (
-        $crate::path($s)
-    );
+    // Constructs a unique ZST so the &'static str pointer doesn't need to
+    // be carried around.
+    (@segment $s:literal) => ({
+        #[derive(Clone, Copy)]
+        struct __StaticPath;
+        impl ::std::convert::AsRef<str> for __StaticPath {
+            fn as_ref(&self) -> &str {
+                static S: &str = $s;
+                S
+            }
+        }
+        $crate::path(__StaticPath)
+    });
 }
 
 // path! compile fail tests
@@ -544,3 +602,48 @@ macro_rules! __internal_path {
 /// warp::path!(..);
 /// ```
 fn _path_macro_compile_fail() {}
+
+mod internal {
+    // Used to prevent users from naming this type.
+    //
+    // For instance, `Exact<Opaque<String>>` means a user cannot depend
+    // on it being `Exact<String>`.
+    #[allow(missing_debug_implementations)]
+    #[derive(Clone, Copy)]
+    pub struct Opaque<T>(pub(super) T);
+
+    impl<T: AsRef<str>> AsRef<str> for Opaque<T> {
+        #[inline]
+        fn as_ref(&self) -> &str {
+            self.0.as_ref()
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_path_exact_size() {
+        use std::mem::{size_of, size_of_val};
+
+        assert_eq!(
+            size_of_val(&path("hello")),
+            size_of::<&str>(),
+            "exact(&str) is size of &str"
+        );
+
+        assert_eq!(
+            size_of_val(&path(String::from("world"))),
+            size_of::<String>(),
+            "exact(String) is size of String"
+        );
+
+        assert_eq!(
+            size_of_val(&path!("zst")),
+            size_of::<()>(),
+            "path!(&str) is ZST"
+        );
+    }
+}
