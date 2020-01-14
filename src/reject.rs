@@ -145,6 +145,8 @@ fn __reject_custom_compilefail() {}
 // would be double-boxing it, and the downcasting wouldn't work as expected.
 pub trait Reject: fmt::Debug + Sized + Send + Sync + 'static {}
 
+impl<T: std::fmt::Debug + std::fmt::Display + Send + Sync + 'static> Reject for T {}
+
 trait Cause: fmt::Debug + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
 }
