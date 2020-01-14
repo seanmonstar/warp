@@ -440,13 +440,13 @@ impl Message {
     }
 
     /// Return the bytes of this message, if the message can contain data.
-    pub fn as_bytes(&self) -> Option<&[u8]> {
+    pub fn as_bytes(&self) -> &[u8] {
         match self.inner {
-            protocol::Message::Text(ref s) => Some(s.as_bytes()),
-            protocol::Message::Binary(ref v) => Some(v),
-            protocol::Message::Ping(ref v) => Some(v),
-            protocol::Message::Pong(ref v) => Some(v),
-            protocol::Message::Close(_) => None,
+            protocol::Message::Text(ref s) => s.as_bytes(),
+            protocol::Message::Binary(ref v) => v,
+            protocol::Message::Ping(ref v) => v,
+            protocol::Message::Pong(ref v) => v,
+            protocol::Message::Close(_) => &[],
         }
     }
 
