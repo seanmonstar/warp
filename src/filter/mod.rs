@@ -254,7 +254,7 @@ pub trait Filter: FilterBase {
     /// This is useful for "customizing" rejections into new response types.
     /// See also the [rejections example][ex].
     ///
-    /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/errors.rs
+    /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/rejections.rs
     fn recover<F>(self, fun: F) -> Recover<Self, F>
     where
         Self: Filter<Error = Rejection> + Sized,
