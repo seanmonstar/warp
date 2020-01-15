@@ -248,8 +248,9 @@ impl RequestBuilder {
     /// ```
     pub fn body(mut self, body: impl AsRef<[u8]>) -> Self {
         let body = body.as_ref().to_vec();
+        let len = body.len();
         *self.req.body_mut() = body.into();
-        self
+        self.header("content-length", len.to_string())
     }
 
     /// Set the bytes of this request body by serializing a value into JSON.
@@ -262,8 +263,10 @@ impl RequestBuilder {
     /// ```
     pub fn json(mut self, val: &impl Serialize) -> Self {
         let vec = serde_json::to_vec(val).expect("json() must serialize to JSON");
+        let len = vec.len();
         *self.req.body_mut() = vec.into();
-        self
+        self.header("content-length", len.to_string())
+            .header("content-type", "application/json")
     }
 
     /// Tries to apply the `Filter` on this request.
