@@ -10,6 +10,8 @@ use crate::generic::Either;
 use crate::reject::CombineRejection;
 use crate::route;
 
+type Combined<E1, E2> = <E1 as CombineRejection<E2>>::Combined;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Or<T, U> {
     pub(super) first: T,
@@ -23,7 +25,8 @@ where
     U::Error: CombineRejection<T::Error>,
 {
     type Extract = (Either<T::Extract, U::Extract>,);
-    type Error = <U::Error as CombineRejection<T::Error>>::Combined;
+    //type Error = <U::Error as CombineRejection<T::Error>>::Combined;
+    type Error = Combined<U::Error, T::Error>;
     type Future = EitherFuture<T, U>;
 
     fn filter(&self, _: Internal) -> Self::Future {
@@ -65,10 +68,7 @@ where
     U: Filter,
     U::Error: CombineRejection<T::Error>,
 {
-    type Output = Result<
-        (Either<T::Extract, U::Extract>,),
-        <U::Error as CombineRejection<T::Error>>::Combined,
-    >;
+    type Output = Result<(Either<T::Extract, U::Extract>,), Combined<U::Error, T::Error>>;
 
     #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

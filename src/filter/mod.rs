@@ -239,7 +239,8 @@ pub trait Filter: FilterBase {
     where
         Self: Filter<Error = Rejection> + Sized,
         F: Func<Rejection>,
-        F::Output: Future<Output = Result<Self::Extract, Self::Error>> + Send,
+        F::Output: TryFuture<Ok = Self::Extract> + Send,
+        <F::Output as TryFuture>::Error: IsReject,
     {
         OrElse {
             filter: self,
@@ -251,14 +252,15 @@ pub trait Filter: FilterBase {
     /// returning a *new* type, instead of the *same* type.
     ///
     /// This is useful for "customizing" rejections into new response types.
-    /// See also the [errors example][ex].
+    /// See also the [rejections example][ex].
     ///
     /// [ex]: https://github.com/seanmonstar/warp/blob/master/examples/errors.rs
     fn recover<F>(self, fun: F) -> Recover<Self, F>
     where
         Self: Filter<Error = Rejection> + Sized,
         F: Func<Rejection>,
-        F::Output: TryFuture<Error = Self::Error> + Send,
+        F::Output: TryFuture + Send,
+        <F::Output as TryFuture>::Error: IsReject,
     {
         Recover {
             filter: self,

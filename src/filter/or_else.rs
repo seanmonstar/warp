@@ -6,6 +6,7 @@ use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
 
 use super::{Filter, FilterBase, Func, Internal};
+use crate::reject::IsReject;
 use crate::route;
 
 #[derive(Clone, Copy, Debug)]
@@ -18,7 +19,8 @@ impl<T, F> FilterBase for OrElse<T, F>
 where
     T: Filter,
     F: Func<T::Error> + Clone + Send,
-    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract> + Send,
+    <F::Output as TryFuture>::Error: IsReject,
 {
     type Extract = <F::Output as TryFuture>::Ok;
     type Error = <F::Output as TryFuture>::Error;
@@ -39,7 +41,7 @@ pub struct OrElseFuture<T: Filter, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract> + Send,
 {
     #[pin]
     state: State<T, F>,
@@ -51,7 +53,7 @@ enum State<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract> + Send,
 {
     First(#[pin] T::Future, F),
     Second(#[pin] F::Output),
@@ -71,7 +73,7 @@ impl<T, F> Future for OrElseFuture<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Ok = T::Extract, Error = T::Error> + Send,
+    F::Output: TryFuture<Ok = T::Extract> + Send,
 {
     type Output = Result<<F::Output as TryFuture>::Ok, <F::Output as TryFuture>::Error>;
 
