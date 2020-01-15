@@ -7,6 +7,7 @@ use pin_project::{pin_project, project};
 
 use super::{Filter, FilterBase, Func, Internal};
 use crate::generic::Either;
+use crate::reject::IsReject;
 use crate::route;
 
 #[derive(Clone, Copy, Debug)]
@@ -19,7 +20,8 @@ impl<T, F> FilterBase for Recover<T, F>
 where
     T: Filter,
     F: Func<T::Error> + Clone + Send,
-    F::Output: TryFuture<Error = T::Error> + Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: IsReject,
 {
     type Extract = (Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,);
     type Error = <F::Output as TryFuture>::Error;
@@ -40,7 +42,8 @@ pub struct RecoverFuture<T: Filter, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Error = T::Error> + Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: IsReject,
 {
     #[pin]
     state: State<T, F>,
@@ -52,7 +55,8 @@ enum State<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Error = T::Error> + Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: IsReject,
 {
     First(#[pin] T::Future, F),
     Second(#[pin] F::Output),
@@ -72,7 +76,8 @@ impl<T, F> Future for RecoverFuture<T, F>
 where
     T: Filter,
     F: Func<T::Error>,
-    F::Output: TryFuture<Error = T::Error> + Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: IsReject,
 {
     type Output = Result<
         (Either<T::Extract, (<F::Output as TryFuture>::Ok,)>,),

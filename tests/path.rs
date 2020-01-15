@@ -196,7 +196,7 @@ async fn or_else() {
     let foo = warp::path("foo");
     let bar = warp::path("bar");
 
-    let p = foo.and(bar.or_else(|_| future::ok(())));
+    let p = foo.and(bar.or_else(|_| future::ok::<_, std::convert::Infallible>(())));
 
     // /foo/bar
     let req = warp::test::request().path("/foo/nope");

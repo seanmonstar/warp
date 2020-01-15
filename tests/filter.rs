@@ -1,4 +1,5 @@
 #![deny(warnings)]
+use std::convert::Infallible;
 use warp::Filter;
 
 #[tokio::test]
@@ -76,6 +77,60 @@ async fn map() {
     let req = warp::test::request();
     let resp = req.reply(&ok).await;
     assert_eq!(resp.status(), 200);
+}
+
+#[tokio::test]
+async fn or() {
+    let _ = pretty_env_logger::try_init();
+
+    // Or can be combined with an infallible filter
+    let a = warp::path::param::<u32>();
+    let b = warp::any().map(|| 41i32);
+    let f = a.or(b);
+
+    let _: Result<_, Infallible> = warp::test::request().filter(&f).await;
+}
+
+#[tokio::test]
+async fn or_else() {
+    let _ = pretty_env_logger::try_init();
+
+    let a = warp::path::param::<u32>();
+    let f = a.or_else(|_| async { Ok::<_, warp::Rejection>((44u32,)) });
+
+    assert_eq!(
+        warp::test::request().path("/33").filter(&f).await.unwrap(),
+        33,
+    );
+    assert_eq!(warp::test::request().filter(&f).await.unwrap(), 44,);
+
+    // OrElse can be combined with an infallible filter
+    let a = warp::path::param::<u32>();
+    let f = a.or_else(|_| async { Ok::<_, Infallible>((44u32,)) });
+
+    let _: Result<_, Infallible> = warp::test::request().filter(&f).await;
+}
+
+#[tokio::test]
+async fn recover() {
+    let _ = pretty_env_logger::try_init();
+
+    let a = warp::path::param::<String>();
+    let f = a.recover(|err| async move { Err::<String, _>(err) });
+
+    // not rejected
+    let resp = warp::test::request().path("/hi").reply(&f).await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.body(), "hi");
+
+    // rejected, recovered, re-rejected
+    let resp = warp::test::request().reply(&f).await;
+    assert_eq!(resp.status(), 404);
+
+    // Recover can be infallible
+    let f = a.recover(|_| async move { Ok::<_, Infallible>("shh") });
+
+    let _: Result<_, Infallible> = warp::test::request().filter(&f).await;
 }
 
 #[tokio::test]
