@@ -1,9 +1,24 @@
 #![deny(warnings)]
 
+use std::convert::Infallible;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::time::delay_for;
 use warp::Filter;
+
+#[tokio::main]
+async fn main() {
+    // Match `/:Seconds`...
+    let routes = warp::path::param()
+        // and_then create a `Future` that will simply wait N seconds...
+        .and_then(sleepy);
+
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+}
+
+async fn sleepy(Seconds(seconds): Seconds) -> Result<impl warp::Reply, Infallible> {
+    tokio::time::delay_for(Duration::from_secs(seconds)).await;
+    Ok(format!("I waited {} seconds!", seconds))
+}
 
 /// A newtype to enforce our maximum allowed seconds.
 struct Seconds(u64);
@@ -19,19 +34,4 @@ impl FromStr for Seconds {
             }
         })
     }
-}
-
-#[tokio::main]
-async fn main() {
-    // Match `/:Seconds`...
-    let routes = warp::path::param()
-        // and_then create a `Future` that will simply wait N seconds...
-        .and_then(|Seconds(seconds): Seconds| {
-            async move {
-                delay_for(Duration::from_secs(seconds)).await;
-                Ok::<String, warp::Rejection>(format!("I waited {} seconds!", seconds))
-            }
-        });
-
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
