@@ -181,9 +181,6 @@ enum Reason {
 }
 
 enum Rejections {
-    //TODO(v0.2): For 0.1, this needs to hold a Box<StdError>, in order to support
-    //cause() returning a `&Box<StdError>`. With 0.2, this should no longer need
-    //to be boxed.
     Known(Known),
     Custom(Box<dyn Cause>),
     Combined(Box<Rejections>, Box<Rejections>),
@@ -367,7 +364,16 @@ impl fmt::Debug for Reason {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Reason::NotFound => f.write_str("NotFound"),
-            Reason::Other(ref other) => fmt::Debug::fmt(other, f),
+            Reason::Other(ref other) => match **other {
+                Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
+                Rejections::Custom(ref e) => fmt::Debug::fmt(e, f),
+                Rejections::Combined(ref a, ref b) => {
+                    let mut list = f.debug_list();
+                    a.debug_list(&mut list);
+                    b.debug_list(&mut list);
+                    list.finish()
+                }
+            }
         }
     }
 }
@@ -437,6 +443,17 @@ impl Rejections {
             Rejections::Combined(ref a, ref b) => a.find().or_else(|| b.find()),
         }
     }
+
+    fn debug_list(&self, f: &mut fmt::DebugList<'_, '_>) {
+        match *self {
+            Rejections::Known(ref e) => { f.entry(e); },
+            Rejections::Custom(ref e) => { f.entry(e); },
+            Rejections::Combined(ref a, ref b) => {
+                a.debug_list(f);
+                b.debug_list(f);
+            }
+        }
+    }
 }
 
 fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
@@ -452,18 +469,6 @@ fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
         (StatusCode::METHOD_NOT_ALLOWED, _) => b,
         (sa, sb) if sa < sb => b,
         _ => a,
-    }
-}
-
-impl fmt::Debug for Rejections {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
-            Rejections::Custom(ref e) => f.debug_tuple("Custom").field(e).finish(),
-            Rejections::Combined(ref a, ref b) => {
-                f.debug_tuple("Combined").field(a).field(b).finish()
-            }
-        }
     }
 }
 
@@ -780,5 +785,31 @@ mod tests {
             ::std::mem::size_of::<Rejection>(),
             ::std::mem::size_of::<usize>(),
         );
+    }
+
+    #[derive(Debug)]
+    struct X(u32);
+    impl Reject for X {}
+
+    fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection
+    where
+        F: Fn(u32) -> R,
+        R: Reject,
+    {
+        let mut rej = not_found();
+
+        for i in 0..n {
+            rej = rej.combine(custom(new_reject(i)));
+        }
+
+        rej
+    }
+
+    #[test]
+    fn test_debug() {
+        let rej = combine_n(3, X);
+
+        let s = format!("{:?}", rej);
+        assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
     }
 }
