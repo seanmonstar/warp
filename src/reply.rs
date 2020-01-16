@@ -45,7 +45,6 @@ use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-use crate::reject::IsReject;
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
 use self::sealed::{BoxedReply, Internal};
@@ -127,7 +126,7 @@ impl Reply for Json {
                     .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
                 res
             }
-            Err(()) => crate::reject::known(ReplyJsonError).into_response(),
+            Err(()) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
     }
 }
@@ -419,33 +418,25 @@ where
             Ok(t) => t.into_response(),
             Err(e) => {
                 log::error!("reply error: {:?}", e);
-                crate::reject::known(ReplyHttpError(e)).into_response()
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct ReplyHttpError(::http::Error);
-
-impl ::std::fmt::Display for ReplyHttpError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "http::Response::builder error: {}", self.0)
-    }
+fn text_plain<T: Into<Body>>(body: T) -> Response {
+    let mut response = ::http::Response::new(body.into());
+    response.headers_mut().insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("text/plain; charset=utf-8"),
+    );
+    response
 }
-
-impl StdError for ReplyHttpError {}
 
 impl Reply for String {
     #[inline]
     fn into_response(self) -> Response {
-        ::http::Response::builder()
-            .header(
-                CONTENT_TYPE,
-                HeaderValue::from_static("text/plain; charset=utf-8"),
-            )
-            .body(Body::from(self))
-            .unwrap()
+        text_plain(self)
     }
 }
 
@@ -465,13 +456,7 @@ impl Reply for Vec<u8> {
 impl Reply for &'static str {
     #[inline]
     fn into_response(self) -> Response {
-        ::http::Response::builder()
-            .header(
-                CONTENT_TYPE,
-                HeaderValue::from_static("text/plain; charset=utf-8"),
-            )
-            .body(Body::from(self))
-            .unwrap()
+        text_plain(self)
     }
 }
 
