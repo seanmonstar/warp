@@ -1,5 +1,6 @@
 //! Websockets Filters
 
+use std::borrow::Cow;
 use std::fmt;
 use std::future::Future;
 use std::io::{self, Read, Write};
@@ -408,6 +409,23 @@ impl Message {
     pub fn ping<V: Into<Vec<u8>>>(v: V) -> Message {
         Message {
             inner: protocol::Message::Ping(v.into()),
+        }
+    }
+
+    /// Construct the default Close `Message`.
+    pub fn close() -> Message {
+        Message {
+            inner: protocol::Message::Close(None),
+        }
+    }
+
+    /// Construct a Close `Message` with a code and reason.
+    pub fn close_with(code: impl Into<u16>, reason: impl Into<Cow<'static, str>>) -> Message {
+        Message {
+            inner: protocol::Message::Close(Some(protocol::frame::CloseFrame {
+                code: protocol::frame::coding::CloseCode::from(code.into()),
+                reason: reason.into(),
+            })),
         }
     }
 
