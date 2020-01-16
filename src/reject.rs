@@ -255,8 +255,6 @@ enum_known! {
     #[cfg(feature = "websocket")]
     MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
     MissingExtension(crate::ext::MissingExtension),
-    ReplyHttpError(crate::reply::ReplyHttpError),
-    ReplyJsonError(crate::reply::ReplyJsonError),
     BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
 }
 
@@ -397,10 +395,9 @@ impl Rejections {
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
-                Known::MissingExtension(_)
-                | Known::ReplyHttpError(_)
-                | Known::ReplyJsonError(_)
-                | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                Known::MissingExtension(_) | Known::BodyConsumedMultipleTimes(_) => {
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
