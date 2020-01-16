@@ -30,7 +30,7 @@ async fn exact_rejections() {
         .await;
 
     assert_eq!(res.status(), 400);
-    assert_eq!(res.body(), "Invalid request header 'host'");
+    assert_eq!(res.body(), "Invalid request header \"host\"");
 
     let res = warp::test::request()
         .header("not-even-a-host", "localhost")
@@ -38,7 +38,7 @@ async fn exact_rejections() {
         .await;
 
     assert_eq!(res.status(), 400);
-    assert_eq!(res.body(), "Missing request header 'host'");
+    assert_eq!(res.body(), "Missing request header \"host\"");
 }
 
 #[tokio::test]

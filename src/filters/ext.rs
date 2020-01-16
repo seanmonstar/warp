@@ -1,7 +1,6 @@
 //! Request Extensions
 
 use futures::future;
-use std::error::Error as StdError;
 
 use crate::filter::{filter_fn_one, Filter};
 use crate::reject::{self, Rejection};
@@ -21,16 +20,7 @@ pub fn get<T: Clone + Send + Sync + 'static>(
     })
 }
 
-/// An error used to reject if `get` cannot find the extension.
-#[derive(Debug)]
-pub struct MissingExtension {
-    _p: (),
+unit_error! {
+    /// An error used to reject if `get` cannot find the extension.
+    pub MissingExtension: "Missing request extension"
 }
-
-impl ::std::fmt::Display for MissingExtension {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.write_str("Missing request extension")
-    }
-}
-
-impl StdError for MissingExtension {}

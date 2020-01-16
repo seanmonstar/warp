@@ -58,43 +58,43 @@ pub fn not_found() -> Rejection {
 // 400 Bad Request
 #[inline]
 pub(crate) fn invalid_query() -> Rejection {
-    known(InvalidQuery(()))
+    known(InvalidQuery { _p: () })
 }
 
 // 400 Bad Request
 #[inline]
 pub(crate) fn missing_header(name: &'static str) -> Rejection {
-    known(MissingHeader(name))
+    known(MissingHeader { name })
 }
 
 // 400 Bad Request
 #[inline]
 pub(crate) fn invalid_header(name: &'static str) -> Rejection {
-    known(InvalidHeader(name))
+    known(InvalidHeader { name })
 }
 
 // 400 Bad Request
 #[inline]
 pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
-    known(MissingCookie(name))
+    known(MissingCookie { name })
 }
 
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
-    known(MethodNotAllowed(()))
+    known(MethodNotAllowed { _p: () })
 }
 
 // 411 Length Required
 #[inline]
 pub(crate) fn length_required() -> Rejection {
-    known(LengthRequired(()))
+    known(LengthRequired { _p: () })
 }
 
 // 413 Payload Too Large
 #[inline]
 pub(crate) fn payload_too_large() -> Rejection {
-    known(PayloadTooLarge(()))
+    known(PayloadTooLarge { _p: () })
 }
 
 // 415 Unsupported Media Type
@@ -103,7 +103,7 @@ pub(crate) fn payload_too_large() -> Rejection {
 // what can be deserialized.
 #[inline]
 pub(crate) fn unsupported_media_type() -> Rejection {
-    known(UnsupportedMediaType(()))
+    known(UnsupportedMediaType { _p: () })
 }
 
 /// Rejects a request with a custom cause.
@@ -373,7 +373,7 @@ impl fmt::Debug for Reason {
                     b.debug_list(&mut list);
                     list.finish()
                 }
-            }
+            },
         }
     }
 }
@@ -446,8 +446,12 @@ impl Rejections {
 
     fn debug_list(&self, f: &mut fmt::DebugList<'_, '_>) {
         match *self {
-            Rejections::Known(ref e) => { f.entry(e); },
-            Rejections::Custom(ref e) => { f.entry(e); },
+            Rejections::Known(ref e) => {
+                f.entry(e);
+            }
+            Rejections::Custom(ref e) => {
+                f.entry(e);
+            }
             Rejections::Combined(ref a, ref b) => {
                 a.debug_list(f);
                 b.debug_list(f);
@@ -472,73 +476,40 @@ fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
     }
 }
 
-/// Invalid query
-#[derive(Debug)]
-pub struct InvalidQuery(());
-
-impl ::std::fmt::Display for InvalidQuery {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.write_str("Invalid query string")
-    }
+unit_error! {
+    /// Invalid query
+    pub InvalidQuery: "Invalid query string"
 }
 
-impl StdError for InvalidQuery {}
-
-/// HTTP method not allowed
-#[derive(Debug)]
-pub struct MethodNotAllowed(());
-
-impl fmt::Display for MethodNotAllowed {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("HTTP method not allowed")
-    }
+unit_error! {
+    /// HTTP method not allowed
+    pub MethodNotAllowed: "HTTP method not allowed"
 }
 
-impl StdError for MethodNotAllowed {}
-
-/// A content-length header is required
-#[derive(Debug)]
-pub struct LengthRequired(());
-
-impl fmt::Display for LengthRequired {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("A content-length header is required")
-    }
+unit_error! {
+    /// A content-length header is required
+    pub LengthRequired: "A content-length header is required"
 }
 
-impl StdError for LengthRequired {}
-
-/// The request payload is too large
-#[derive(Debug)]
-pub struct PayloadTooLarge(());
-
-impl fmt::Display for PayloadTooLarge {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("The request payload is too large")
-    }
+unit_error! {
+    /// The request payload is too large
+    pub PayloadTooLarge: "The request payload is too large"
 }
 
-impl StdError for PayloadTooLarge {}
-
-/// The request's content-type is not supported
-#[derive(Debug)]
-pub struct UnsupportedMediaType(());
-
-impl fmt::Display for UnsupportedMediaType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("The request's content-type is not supported")
-    }
+unit_error! {
+    /// The request's content-type is not supported
+    pub UnsupportedMediaType: "The request's content-type is not supported"
 }
-
-impl StdError for UnsupportedMediaType {}
 
 /// Missing request header
 #[derive(Debug)]
-pub struct MissingHeader(&'static str);
+pub struct MissingHeader {
+    name: &'static str,
+}
 
 impl ::std::fmt::Display for MissingHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Missing request header '{}'", self.0)
+        write!(f, "Missing request header {:?}", self.name)
     }
 }
 
@@ -546,11 +517,13 @@ impl StdError for MissingHeader {}
 
 /// Invalid request header
 #[derive(Debug)]
-pub struct InvalidHeader(&'static str);
+pub struct InvalidHeader {
+    name: &'static str,
+}
 
 impl ::std::fmt::Display for InvalidHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Invalid request header '{}'", self.0)
+        write!(f, "Invalid request header {:?}", self.name)
     }
 }
 
@@ -558,11 +531,13 @@ impl StdError for InvalidHeader {}
 
 /// Missing cookie
 #[derive(Debug)]
-pub struct MissingCookie(&'static str);
+pub struct MissingCookie {
+    name: &'static str,
+}
 
 impl ::std::fmt::Display for MissingCookie {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Missing request cookie '{}'", self.0)
+        write!(f, "Missing request cookie {:?}", self.name)
     }
 }
 

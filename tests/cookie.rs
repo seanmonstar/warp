@@ -46,5 +46,5 @@ async fn missing() {
         .await;
 
     assert_eq!(res.status(), 400);
-    assert_eq!(res.body(), "Missing request cookie 'foo'");
+    assert_eq!(res.body(), "Missing request cookie \"foo\"");
 }
