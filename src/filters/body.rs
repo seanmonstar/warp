@@ -27,7 +27,7 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
     filter_fn_one(|route| {
         future::ready(route.take_body().ok_or_else(|| {
             log::error!("request body already taken in previous filter");
-            reject::known(BodyConsumedMultipleTimes(()))
+            reject::known(BodyConsumedMultipleTimes { _p: () })
         }))
     })
 }
@@ -303,13 +303,6 @@ impl ::std::fmt::Display for BodyReadError {
 
 impl StdError for BodyReadError {}
 
-#[derive(Debug)]
-pub(crate) struct BodyConsumedMultipleTimes(());
-
-impl ::std::fmt::Display for BodyConsumedMultipleTimes {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        f.write_str("Request body consumed multiple times")
-    }
+unit_error! {
+    pub(crate) BodyConsumedMultipleTimes: "Request body consumed multiple times"
 }
-
-impl StdError for BodyConsumedMultipleTimes {}

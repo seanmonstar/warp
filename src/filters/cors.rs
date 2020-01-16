@@ -305,7 +305,6 @@ where
 }
 
 /// An error used to reject requests that are forbidden by a `cors` filter.
-#[derive(Debug)]
 pub struct CorsForbidden {
     kind: Forbidden,
 }
@@ -315,6 +314,12 @@ enum Forbidden {
     OriginNotAllowed,
     MethodNotAllowed,
     HeaderNotAllowed,
+}
+
+impl ::std::fmt::Debug for CorsForbidden {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        f.debug_tuple("CorsForbidden").field(&self.kind).finish()
+    }
 }
 
 impl ::std::fmt::Display for CorsForbidden {

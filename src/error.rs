@@ -5,24 +5,26 @@ use std::fmt;
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Errors that can happen inside warp.
-pub struct Error(BoxError);
+pub struct Error {
+    inner: BoxError,
+}
 
 impl Error {
     pub(crate) fn new<E: Into<BoxError>>(err: E) -> Error {
-        Error(err.into())
+        Error { inner: err.into() }
     }
 }
 
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Skip showing worthless `Error { .. }` wrapper.
-        fmt::Debug::fmt(&self.0, f)
+        fmt::Debug::fmt(&self.inner, f)
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.0, f)
+        fmt::Display::fmt(&self.inner, f)
     }
 }
 
@@ -40,4 +42,28 @@ fn error_size_of() {
         ::std::mem::size_of::<Error>(),
         ::std::mem::size_of::<usize>() * 2
     );
+}
+
+macro_rules! unit_error {
+    (
+        $(#[$docs:meta])*
+        $pub:vis $typ:ident: $display:literal
+    ) => (
+        $(#[$docs])*
+        $pub struct $typ { _p: (), }
+
+        impl ::std::fmt::Debug for $typ {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                f.debug_struct(stringify!($typ)).finish()
+            }
+        }
+
+        impl ::std::fmt::Display for $typ {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                f.write_str($display)
+            }
+        }
+
+        impl ::std::error::Error for $typ {}
+    )
 }
