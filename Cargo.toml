@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.2.0-alpha.0" # don't forget to update html_root_url
+version = "0.2.0" # don't forget to update html_root_url
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
@@ -12,8 +12,6 @@ keywords = ["warp", "server", "http", "hyper"]
 autotests = true
 autoexamples = true
 edition = "2018"
-
-publish = false # while in pre-0.2.x alpha dev
 
 [package.metadata.docs.rs]
 features = ["tls"]
