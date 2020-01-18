@@ -27,15 +27,19 @@ async fn main() {
         .and(warp::path("user"))
         .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::proto())
-        .map(|user: user_proto::UserRequest| format!("Hello {}!", user.username));
+        .map(|_user: user_proto::UserRequest| {
+            let resp = user_proto::UserResponse { id: 42 };
+            warp::reply::protobuf(&resp)
+        });
 
     warp::serve(hello_user).run(([127, 0, 0, 1], 3030)).await
 
-    /*  Test this with cURL
+    /*  Test this with cURL, note: must have protoc installed
         $ cd <directory where warp is cloned>
         $ echo "username:'Jillian'" | \
             protoc --encode user.UserRequest "./examples/proto/user.proto" | \
-            curl -X POST --data-binary @- http://localhost:3030/user
+            curl -sS -X POST --data-binary @- http://localhost:3030/user | \
+            protoc --decode user.UserResponse "./examples/proto/user.proto"
     */
 }
 

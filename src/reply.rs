@@ -38,10 +38,17 @@ use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fmt;
 
+#[cfg(feature = "proto")]
+use bytes::BytesMut;
+
 use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::StatusCode;
 use hyper::Body;
+
+#[cfg(feature = "proto")]
+use prost::Message;
+
 use serde::Serialize;
 use serde_json;
 
@@ -141,6 +148,55 @@ impl fmt::Display for ReplyJsonError {
 }
 
 impl StdError for ReplyJsonError {}
+
+/// Placeholder doc
+#[cfg(feature = "proto")]
+pub fn protobuf<T>(val: &T) -> Protobuf
+where
+    T: Message,
+{
+    // BytesMut will grow as necessary, 8KB seems like a reasonable default
+    let mut buf = BytesMut::with_capacity(1024 * 8);
+    Protobuf {
+        inner: val.encode(&mut buf).map(|_| buf.to_vec()).map_err(|err| {
+            log::error!("reply::protobuf error: {}", err);
+        }),
+    }
+}
+
+/// A Protobuf formatted reply.
+#[allow(missing_debug_implementations)]
+pub struct Protobuf {
+    inner: Result<Vec<u8>, ()>,
+}
+
+impl Reply for Protobuf {
+    #[inline]
+    fn into_response(self) -> Response {
+        match self.inner {
+            Ok(body) => {
+                let mut res = Response::new(body.into());
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/x-protobuf"),
+                );
+                res
+            }
+            Err(()) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ReplyProtobufError;
+
+impl fmt::Display for ReplyProtobufError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("warp::reply::json() failed")
+    }
+}
+
+impl StdError for ReplyProtobufError {}
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
 ///
