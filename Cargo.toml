@@ -26,6 +26,8 @@ log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
 multipart = { version = "0.16", default-features = false, features = ["server"], optional = true }
+prost = { version = "0.6.1", optional = true }
+prost-types = { version = "0.6.1", optional = true }
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
@@ -43,11 +45,13 @@ pretty_env_logger = "0.3"
 serde_derive = "1.0"
 handlebars = "1.0.0"
 tokio = { version = "0.2", features = ["macros"] }
+prost-build = "0.6.1"
 
 [features]
 default = ["multipart", "websocket"]
-websocket = ["tungstenite"]
+proto = ["prost"]
 tls = ["rustls"]
+websocket = ["tungstenite"]
 
 [profile.release]
 codegen-units = 1
@@ -76,3 +80,7 @@ required-features = ["websocket"]
 [[example]]
 name = "websockets_chat"
 required-features = ["websocket"]
+
+[[example]]
+name = "proto"
+required-features = ["proto"]
