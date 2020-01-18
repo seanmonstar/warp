@@ -351,7 +351,7 @@ impl RequestBuilder {
         assert!(!route::is_set(), "nested test filter calls");
 
         let route = Route::new(self.req, self.remote_addr);
-        let mut fut =
+        let mut fut = Box::pin(
             route::set(&route, move || f.filter(crate::filter::Internal)).then(|result| {
                 let res = match result {
                     Ok(rep) => rep.into_response(),
@@ -363,14 +363,10 @@ impl RequestBuilder {
                 let (parts, body) = res.into_parts();
                 hyper::body::to_bytes(body)
                     .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
-            });
+            }),
+        );
 
-        let fut = future::poll_fn(move |cx| {
-            route::set(&route, || {
-                let fut = unsafe { std::pin::Pin::new_unchecked(&mut fut) };
-                fut.poll(cx)
-            })
-        });
+        let fut = future::poll_fn(move |cx| route::set(&route, || fut.as_mut().poll(cx)));
 
         fut.await.expect("reply shouldn't fail")
     }
@@ -385,13 +381,10 @@ impl RequestBuilder {
         assert!(!route::is_set(), "nested test filter calls");
 
         let route = Route::new(self.req, self.remote_addr);
-        let mut fut = route::set(&route, move || f.filter(crate::filter::Internal));
-        future::poll_fn(move |cx| {
-            route::set(&route, || {
-                let fut = unsafe { std::pin::Pin::new_unchecked(&mut fut) };
-                fut.poll(cx)
-            })
-        })
+        let mut fut = Box::pin(route::set(&route, move || {
+            f.filter(crate::filter::Internal)
+        }));
+        future::poll_fn(move |cx| route::set(&route, || fut.as_mut().poll(cx)))
     }
 }
 
