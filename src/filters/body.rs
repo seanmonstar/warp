@@ -19,7 +19,7 @@ use serde_json;
 use serde_urlencoded;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase, WrapSealed};
-use crate::reject::{self, IsReject, Rejection};
+use crate::reject::{self, Rejection};
 use crate::reply::Reply;
 
 /// Create a wrapping filter to manipulate a request body before it is parsed
@@ -63,10 +63,10 @@ where
     FNOut: Future<Output = Option<Body>> + Send + 'static,
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
-    F::Error: IsReject,
+    F::Error: Into<Rejection>,
     F2: Filter + Clone + Send + Sync + 'static,
     F2::Extract: Send,
-    F2::Error: IsReject + 'static,
+    F2::Error: Into<Rejection> + 'static,
 {
     type Wrapped = internal::WithBody<FN, F, F2>;
 
@@ -86,7 +86,7 @@ mod internal {
 
     use super::MapRequestBody;
     use crate::filter::{Filter, FilterBase, Internal};
-    use crate::reject::IsReject;
+    use crate::reject::Rejection;
     use crate::reply::{Reply, Response};
     use crate::route;
 
@@ -113,26 +113,25 @@ mod internal {
         FNOut: Future<Output = Option<Body>> + Send + 'static,
         F: Filter + Clone + Send + Sync + 'static,
         F::Extract: Reply,
-        F::Error: IsReject,
+        F::Error: Into<Rejection>,
         F2: Filter + Clone + Send + Sync + 'static,
         F2::Extract: Send,
-        F2::Error: IsReject + 'static,
+        F2::Error: Into<Rejection> + 'static,
     {
         type Extract = F::Extract;
-        type Error = Box<dyn IsReject>;
-        type Future = Pin<Box<dyn Future<Output = Result<F::Extract, Box<dyn IsReject>>> + Send>>;
+        type Error = Rejection;
+        type Future = Pin<Box<dyn Future<Output = Result<F::Extract, Rejection>> + Send>>;
 
         fn filter(&self, _: Internal) -> Self::Future {
             let body_wrapper = self.body.clone();
             let filter = self.filter.clone();
             Box::pin(async move {
-                if let Some(body) = route::with(|route| {
-                    route.take_body()
-                }) {
-                    let extract = match body_wrapper.filter.filter(Internal).await {
-                        Ok(o) => o,
-                        Err(e) => return Err(Box::new(e) as Box<dyn IsReject>),
-                    };
+                if let Some(body) = route::with(|route| route.take_body()) {
+                    let extract = body_wrapper
+                        .filter
+                        .filter(Internal)
+                        .await
+                        .map_err(Into::into)?;
 
                     if let Some(body) = (body_wrapper.func)(body, extract).await {
                         route::with(move |route| {
@@ -141,10 +140,7 @@ mod internal {
                     }
                 }
 
-                let reply = match filter.filter(Internal).await {
-                    Ok(o) => o,
-                    Err(e) => return Err(Box::new(e) as Box<dyn IsReject>),
-                };
+                let reply = filter.filter(Internal).await.map_err(Into::into)?;
                 Ok(reply)
             })
         }
