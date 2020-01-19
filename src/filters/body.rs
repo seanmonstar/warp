@@ -4,6 +4,7 @@
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -40,29 +41,34 @@ use crate::reply::Reply;
 /// let route = warp::any()
 ///     .map(warp::reply)
 ///     .with(body);
-pub fn map_request_body<F, FNOut>(func: F) -> MapRequestBody<F>
+pub fn map_request_body<FN, FNOut, F>(filter: F, func: FN) -> MapRequestBody<FN, F>
 where
-    F: Fn(Body) -> FNOut + Send + Clone,
-    FNOut: std::future::Future<Output = Option<Body>> + Send + 'static,
+    FN: Fn(Body, F::Extract) -> FNOut + Send + Clone,
+    FNOut: Future<Output = Option<Body>> + Send + 'static,
+    F: Filter + Send + Clone,
 {
-    MapRequestBody { func }
+    MapRequestBody { func, filter }
 }
 
 /// Decorates a [`Filter`](::Filter) to manipulate bodies
 #[derive(Clone, Copy, Debug)]
-pub struct MapRequestBody<F> {
-    func: F,
+pub struct MapRequestBody<FN, F> {
+    func: FN,
+    filter: F,
 }
 
-impl<FN, FNOut, F> WrapSealed<F> for MapRequestBody<FN>
+impl<FN, FNOut, F, F2> WrapSealed<F> for MapRequestBody<FN, F2>
 where
-    FN: Fn(Body) -> FNOut + Send + Clone,
-    FNOut: std::future::Future<Output = Option<Body>> + Send + 'static,
-    F: Filter + Clone + Send,
+    FN: Fn(Body, F2::Extract) -> FNOut + Clone + Send + Sync + 'static,
+    FNOut: Future<Output = Option<Body>> + Send + 'static,
+    F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
     F::Error: IsReject,
+    F2: Filter + Clone + Send + Sync + 'static,
+    F2::Extract: Send,
+    F2::Error: IsReject + 'static,
 {
-    type Wrapped = internal::WithBody<FN, F>;
+    type Wrapped = internal::WithBody<FN, F, F2>;
 
     fn wrap(&self, filter: F) -> Self::Wrapped {
         internal::WithBody {
@@ -75,11 +81,8 @@ where
 mod internal {
     use std::future::Future;
     use std::pin::Pin;
-    use std::task::{Context, Poll};
 
-    use futures::{ready, TryFuture};
     use hyper::Body;
-    use pin_project::pin_project;
 
     use super::MapRequestBody;
     use crate::filter::{Filter, FilterBase, Internal};
@@ -99,85 +102,51 @@ mod internal {
 
     #[allow(missing_debug_implementations)]
     #[derive(Clone, Copy)]
-    pub struct WithBody<FN, F> {
+    pub struct WithBody<FN, F, F2> {
         pub(super) filter: F,
-        pub(super) body: MapRequestBody<FN>,
+        pub(super) body: MapRequestBody<FN, F2>,
     }
 
-    impl<FN, FNOut, F> FilterBase for WithBody<FN, F>
+    impl<FN, FNOut, F, F2> FilterBase for WithBody<FN, F, F2>
     where
-        FN: Fn(Body) -> FNOut + Clone + Send,
+        FN: Fn(Body, F2::Extract) -> FNOut + Clone + Send + Sync + 'static,
         FNOut: Future<Output = Option<Body>> + Send + 'static,
-        F: Filter + Clone + Send,
+        F: Filter + Clone + Send + Sync + 'static,
         F::Extract: Reply,
         F::Error: IsReject,
+        F2: Filter + Clone + Send + Sync + 'static,
+        F2::Extract: Send,
+        F2::Error: IsReject + 'static,
     {
-        type Extract = (Bodied,);
-        type Error = F::Error;
-        type Future = WithBodyFuture<Pin<Box<dyn Future<Output = Option<Body>> + Send>>, F::Future>;
+        type Extract = F::Extract;
+        type Error = Box<dyn IsReject>;
+        type Future = Pin<Box<dyn Future<Output = Result<F::Extract, Box<dyn IsReject>>> + Send>>;
 
         fn filter(&self, _: Internal) -> Self::Future {
-            route::with(|route| {
-                if let Some(body) = route.take_body() {
-                    WithBodyFuture {
-                        body: Box::pin((self.body.func)(body))
-                            as Pin<Box<dyn Future<Output = Option<Body>> + Send>>,
-                        future: self.filter.filter(Internal),
-                    }
-                } else {
-                    WithBodyFuture {
-                        body: Box::pin(futures::future::ready(None))
-                            as Pin<Box<dyn Future<Output = Option<Body>> + Send>>,
-                        future: self.filter.filter(Internal),
+            let body_wrapper = self.body.clone();
+            let filter = self.filter.clone();
+            Box::pin(async move {
+                if let Some(body) = route::with(|route| {
+                    route.take_body()
+                }) {
+                    let extract = match body_wrapper.filter.filter(Internal).await {
+                        Ok(o) => o,
+                        Err(e) => return Err(Box::new(e) as Box<dyn IsReject>),
+                    };
+
+                    if let Some(body) = (body_wrapper.func)(body, extract).await {
+                        route::with(move |route| {
+                            route.set_body(body);
+                        });
                     }
                 }
+
+                let reply = match filter.filter(Internal).await {
+                    Ok(o) => o,
+                    Err(e) => return Err(Box::new(e) as Box<dyn IsReject>),
+                };
+                Ok(reply)
             })
-        }
-    }
-
-    #[allow(missing_debug_implementations)]
-    #[pin_project]
-    pub struct WithBodyFuture<F1, F2> {
-        #[pin]
-        body: F1,
-        #[pin]
-        future: F2,
-    }
-
-    impl<F1, F2> Future for WithBodyFuture<F1, F2>
-    where
-        F1: Future<Output = Option<Body>> + Send,
-        F2: TryFuture,
-        F2::Ok: Reply,
-        F2::Error: IsReject,
-    {
-        type Output = Result<(Bodied,), F2::Error>;
-
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            let pin = self.as_mut().project();
-
-            match ready!(pin.body.poll(cx)) {
-                Some(body) => {
-                    route::with(|route| {
-                        route.set_body(body);
-                    });
-                }
-                None => (),
-            }
-
-            let (result, _status) = match ready!(pin.future.try_poll(cx)) {
-                Ok(reply) => {
-                    let resp = reply.into_response();
-                    let status = resp.status();
-                    (Poll::Ready(Ok((Bodied(resp),))), status)
-                }
-                Err(reject) => {
-                    let status = reject.status();
-                    (Poll::Ready(Err(reject)), status)
-                }
-            };
-
-            result
         }
     }
 }

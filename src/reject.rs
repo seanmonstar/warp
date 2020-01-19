@@ -553,6 +553,16 @@ mod sealed {
         fn into_response(&self) -> crate::reply::Response;
     }
 
+    impl IsReject for Box<dyn IsReject + 'static> {
+        fn status(&self) -> StatusCode {
+            self.as_ref().status()
+        }
+
+        fn into_response(&self) -> crate::reply::Response {
+            self.as_ref().into_response()
+        }
+    }
+
     fn _assert_object_safe() {
         fn _assert(_: &dyn IsReject) {}
     }
