@@ -14,7 +14,7 @@ use http::header::CONTENT_TYPE;
 use hyper::Body;
 use mime;
 
-#[cfg(feature = "proto")]
+#[cfg(feature = "protobuf")]
 use prost::Message;
 
 use serde::de::DeserializeOwned;
@@ -283,12 +283,12 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 ///                 format!("Hello {}!\nUserID: {}", user.name, user.id)
 ///             });
 /// ```
-#[cfg(feature = "proto")]
-pub fn proto<T: Message + Send + Default>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy
-{
+#[cfg(feature = "protobuf")]
+pub fn protobuf<T: Message + Send + Default>(
+) -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     async fn from_reader<T: Message + Send + Default>(buf: impl Buf) -> Result<T, Rejection> {
         T::decode(buf).map_err(|err| {
-            log::debug!("request proto body error: {}", err);
+            log::debug!("request protobuf body error: {}", err);
             reject::known(BodyDeserializeError { cause: err.into() })
         })
     }

@@ -49,7 +49,7 @@ prost-build = "0.6.1"
 
 [features]
 default = ["multipart", "websocket"]
-proto = ["prost"]
+protobuf = ["prost"]
 tls = ["rustls"]
 websocket = ["tungstenite"]
 
@@ -82,5 +82,5 @@ name = "websockets_chat"
 required-features = ["websocket"]
 
 [[example]]
-name = "proto"
-required-features = ["proto"]
+name = "protobuf"
+required-features = ["protobuf"]
