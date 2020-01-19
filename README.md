@@ -15,7 +15,7 @@ Thanks to its `Filter` system, warp provides these out of the box:
 * Path routing and parameter extraction
 * Header requirements and extraction
 * Query string deserialization
-* JSON and Form bodies
+* JSON, Form, and Protobuf (via [PROST!](https://github.com/danburkert/prost)) bodies
 * Multipart form data
 * Static Files and Directories
 * Websockets
