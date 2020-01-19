@@ -17,8 +17,170 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
-use crate::reject::{self, Rejection};
+use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase, WrapSealed};
+use crate::reject::{self, IsReject, Rejection};
+use crate::reply::Reply;
+
+/// Create a wrapping filter to manipulate a request body before it is parsed
+///
+/// This provides access to the underlying hyper::Body
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let body = warp::body::map_request_body(move |body| {
+///     async move {
+///         // process the body
+///         Some(body)
+///     }
+/// });
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .with(body);
+pub fn map_request_body<F, FNOut>(func: F) -> MapRequestBody<F>
+where
+    F: Fn(Body) -> FNOut + Send + Clone,
+    FNOut: std::future::Future<Output = Option<Body>> + Send + 'static,
+{
+    MapRequestBody { func }
+}
+
+/// Decorates a [`Filter`](::Filter) to manipulate bodies
+#[derive(Clone, Copy, Debug)]
+pub struct MapRequestBody<F> {
+    func: F,
+}
+
+impl<FN, FNOut, F> WrapSealed<F> for MapRequestBody<FN>
+where
+    FN: Fn(Body) -> FNOut + Send + Clone,
+    FNOut: std::future::Future<Output = Option<Body>> + Send + 'static,
+    F: Filter + Clone + Send,
+    F::Extract: Reply,
+    F::Error: IsReject,
+{
+    type Wrapped = internal::WithBody<FN, F>;
+
+    fn wrap(&self, filter: F) -> Self::Wrapped {
+        internal::WithBody {
+            filter,
+            body: self.clone(),
+        }
+    }
+}
+
+mod internal {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    use futures::{ready, TryFuture};
+    use hyper::Body;
+    use pin_project::pin_project;
+
+    use super::MapRequestBody;
+    use crate::filter::{Filter, FilterBase, Internal};
+    use crate::reject::IsReject;
+    use crate::reply::{Reply, Response};
+    use crate::route;
+
+    #[allow(missing_debug_implementations)]
+    pub struct Bodied(pub(super) Response);
+
+    impl Reply for Bodied {
+        #[inline]
+        fn into_response(self) -> Response {
+            self.0
+        }
+    }
+
+    #[allow(missing_debug_implementations)]
+    #[derive(Clone, Copy)]
+    pub struct WithBody<FN, F> {
+        pub(super) filter: F,
+        pub(super) body: MapRequestBody<FN>,
+    }
+
+    impl<FN, FNOut, F> FilterBase for WithBody<FN, F>
+    where
+        FN: Fn(Body) -> FNOut + Clone + Send,
+        FNOut: Future<Output = Option<Body>> + Send + 'static,
+        F: Filter + Clone + Send,
+        F::Extract: Reply,
+        F::Error: IsReject,
+    {
+        type Extract = (Bodied,);
+        type Error = F::Error;
+        type Future = WithBodyFuture<Pin<Box<dyn Future<Output = Option<Body>> + Send>>, F::Future>;
+
+        fn filter(&self, _: Internal) -> Self::Future {
+            route::with(|route| {
+                if let Some(body) = route.take_body() {
+                    WithBodyFuture {
+                        body: Box::pin((self.body.func)(body))
+                            as Pin<Box<dyn Future<Output = Option<Body>> + Send>>,
+                        future: self.filter.filter(Internal),
+                    }
+                } else {
+                    WithBodyFuture {
+                        body: Box::pin(futures::future::ready(None))
+                            as Pin<Box<dyn Future<Output = Option<Body>> + Send>>,
+                        future: self.filter.filter(Internal),
+                    }
+                }
+            })
+        }
+    }
+
+    #[allow(missing_debug_implementations)]
+    #[pin_project]
+    pub struct WithBodyFuture<F1, F2> {
+        #[pin]
+        body: F1,
+        #[pin]
+        future: F2,
+    }
+
+    impl<F1, F2> Future for WithBodyFuture<F1, F2>
+    where
+        F1: Future<Output = Option<Body>> + Send,
+        F2: TryFuture,
+        F2::Ok: Reply,
+        F2::Error: IsReject,
+    {
+        type Output = Result<(Bodied,), F2::Error>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+            let pin = self.as_mut().project();
+
+            match ready!(pin.body.poll(cx)) {
+                Some(body) => {
+                    route::with(|route| {
+                        route.set_body(body);
+                    });
+                }
+                None => (),
+            }
+
+            let (result, _status) = match ready!(pin.future.try_poll(cx)) {
+                Ok(reply) => {
+                    let resp = reply.into_response();
+                    let status = resp.status();
+                    (Poll::Ready(Ok((Bodied(resp),))), status)
+                }
+                Err(reject) => {
+                    let status = reject.status();
+                    (Poll::Ready(Err(reject)), status)
+                }
+            };
+
+            result
+        }
+    }
+}
 
 // Extracts the `Body` Stream from the route.
 //

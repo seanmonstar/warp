@@ -139,4 +139,9 @@ impl Route {
             BodyState::Taken => None,
         }
     }
+
+    pub(crate) fn set_body(&mut self, body: Body) {
+        *self.req.body_mut() = body;
+        self.body = BodyState::Ready;
+    }
 }
