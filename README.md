@@ -31,16 +31,27 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 
 ## Example
 
+Add warp and Tokio to your dependencies:
+
+```toml
+tokio = { version = "0.2", features = ["macros"] }
+warp = "0.2"
+```
+
+And then get started in your `main.rs`:
+
 ```rust
-use warp::{self, path, Filter};
+use warp::Filter;
 
 #[tokio::main]
 async fn main() {
     // GET /hello/warp => 200 OK with body "Hello, warp!"
-    let hello = path!("hello" / String)
+    let hello = warp::path!("hello" / String)
         .map(|name| format!("Hello, {}!", name));
 
-    warp::serve(hello).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(hello)
+        .run(([127, 0, 0, 1], 3030))
+        .await;
 }
 ```
 
