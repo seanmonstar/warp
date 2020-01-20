@@ -420,6 +420,8 @@ fn file_stream(
         .flatten()
 }
 
+const DEFAULT_READ_BUF_SIZE: usize = 8_192;
+
 fn optimal_buf_size(metadata: &Metadata) -> usize {
     let block_size = get_block_size(metadata);
 
@@ -433,12 +435,14 @@ fn get_block_size(metadata: &Metadata) -> usize {
     use std::os::unix::fs::MetadataExt;
     //TODO: blksize() returns u64, should handle bad cast...
     //(really, a block size bigger than 4gb?)
-    metadata.blksize() as usize
+
+    // Use device blocksize unless it's really small.
+    cmp::max(metadata.blksize() as usize, DEFAULT_READ_BUF_SIZE)
 }
 
 #[cfg(not(unix))]
 fn get_block_size(_metadata: &Metadata) -> usize {
-    8_192
+    DEFAULT_READ_BUF_SIZE
 }
 
 #[cfg(test)]
