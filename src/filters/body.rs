@@ -20,6 +20,8 @@ use serde_urlencoded;
 use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
 use crate::reject::{self, Rejection};
 
+type BoxError = Box<dyn StdError + Send + Sync>;
+
 // Extracts the `Body` Stream from the route.
 //
 // Does not consume any of it.
@@ -148,43 +150,6 @@ pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Co
     })
 }
 
-// Require the `content-type` header to be this type (or, if there's no `content-type`
-// header at all, optimistically hope it's the right type).
-fn is_content_type(
-    type_: mime::Name<'static>,
-    subtype: mime::Name<'static>,
-) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    filter_fn(move |route| {
-        if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            log::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
-            let ct = value
-                .to_str()
-                .ok()
-                .and_then(|s| s.parse::<mime::Mime>().ok());
-            if let Some(ct) = ct {
-                if ct.type_() == type_ && ct.subtype() == subtype {
-                    future::ok(())
-                } else {
-                    log::debug!(
-                        "content-type {:?} doesn't match {}/{}",
-                        value,
-                        type_,
-                        subtype
-                    );
-                    future::err(reject::unsupported_media_type())
-                }
-            } else {
-                log::debug!("content-type {:?} couldn't be parsed", value);
-                future::err(reject::unsupported_media_type())
-            }
-        } else {
-            // Optimistically assume its correct!
-            log::trace!("no content-type header, assuming {}/{}", type_, subtype);
-            future::ok(())
-        }
-    })
-}
-
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
 /// JSON-decoded body.
 ///
@@ -206,16 +171,14 @@ fn is_content_type(
 ///     });
 /// ```
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
-    async fn from_reader<T: DeserializeOwned + Send>(buf: impl Buf) -> Result<T, Rejection> {
-        serde_json::from_reader(buf.reader()).map_err(|err| {
-            log::debug!("request json body error: {}", err);
-            reject::known(BodyDeserializeError { cause: err.into() })
-        })
-    }
-
-    is_content_type(mime::APPLICATION, mime::JSON)
-        .and(aggregate())
-        .and_then(from_reader)
+    is_content_type::<Json>().and(aggregate()).and_then(|buf| {
+        async move {
+            Json::decode(buf).map_err(|err| {
+                log::debug!("request json body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err })
+            })
+        }
+    })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
@@ -243,17 +206,87 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 ///     });
 /// ```
 pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
-    async fn from_reader<T: DeserializeOwned + Send>(buf: impl Buf) -> Result<T, Rejection> {
-        serde_urlencoded::from_reader(buf.reader()).map_err(|err| {
-            log::debug!("request form body error: {}", err);
-            reject::known(BodyDeserializeError { cause: err.into() })
-        })
-    }
-
-    is_content_type(mime::APPLICATION, mime::WWW_FORM_URLENCODED)
-        .and(aggregate())
-        .and_then(from_reader)
+    is_content_type::<Form>().and(aggregate()).and_then(|buf| {
+        async move {
+            Form::decode(buf).map_err(|err| {
+                log::debug!("request form body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err })
+            })
+        }
+    })
 }
+
+// ===== Decoders =====
+
+trait Decode {
+    const MIME: (mime::Name<'static>, mime::Name<'static>);
+    const WITH_NO_CONTENT_TYPE: bool;
+
+    fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError>;
+}
+
+struct Json;
+
+impl Decode for Json {
+    const MIME: (mime::Name<'static>, mime::Name<'static>) = (mime::APPLICATION, mime::JSON);
+    const WITH_NO_CONTENT_TYPE: bool = true;
+
+    fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
+        serde_json::from_reader(buf.reader()).map_err(Into::into)
+    }
+}
+
+struct Form;
+
+impl Decode for Form {
+    const MIME: (mime::Name<'static>, mime::Name<'static>) =
+        (mime::APPLICATION, mime::WWW_FORM_URLENCODED);
+    const WITH_NO_CONTENT_TYPE: bool = true;
+
+    fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
+        serde_urlencoded::from_reader(buf.reader()).map_err(Into::into)
+    }
+}
+
+// Require the `content-type` header to be this type (or, if there's no `content-type`
+// header at all, optimistically hope it's the right type).
+fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    filter_fn(move |route| {
+        let (type_, subtype) = D::MIME;
+        if let Some(value) = route.headers().get(CONTENT_TYPE) {
+            log::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            let ct = value
+                .to_str()
+                .ok()
+                .and_then(|s| s.parse::<mime::Mime>().ok());
+            if let Some(ct) = ct {
+                if ct.type_() == type_ && ct.subtype() == subtype {
+                    future::ok(())
+                } else {
+                    log::debug!(
+                        "content-type {:?} doesn't match {}/{}",
+                        value,
+                        type_,
+                        subtype
+                    );
+                    future::err(reject::unsupported_media_type())
+                }
+            } else {
+                log::debug!("content-type {:?} couldn't be parsed", value);
+                future::err(reject::unsupported_media_type())
+            }
+        } else if D::WITH_NO_CONTENT_TYPE {
+            // Optimistically assume its correct!
+            log::trace!("no content-type header, assuming {}/{}", type_, subtype);
+            future::ok(())
+        } else {
+            log::debug!("no content-type found");
+            future::err(reject::unsupported_media_type())
+        }
+    })
+}
+
+// ===== BodyStream =====
 
 struct BodyStream {
     body: Body,
@@ -281,7 +314,7 @@ impl Stream for BodyStream {
 /// An error used in rejections when deserializing a request body fails.
 #[derive(Debug)]
 pub struct BodyDeserializeError {
-    cause: Box<dyn StdError + Send + Sync>,
+    cause: BoxError,
 }
 
 impl fmt::Display for BodyDeserializeError {
