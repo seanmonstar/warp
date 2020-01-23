@@ -77,7 +77,7 @@ where
     Log { func }
 }
 
-/// Decorates a [`Filter`](::Filter) to log requests and responses.
+/// Decorates a [`Filter`](crate::Filter) to log requests and responses.
 #[derive(Clone, Copy, Debug)]
 pub struct Log<F> {
     func: F,

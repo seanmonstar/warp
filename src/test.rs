@@ -126,7 +126,7 @@ pub fn ws() -> WsBuilder {
 
 /// A request builder for testing filters.
 ///
-/// See [module documentation](::test) for an overview.
+/// See [module documentation](crate::test) for an overview.
 #[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
@@ -136,7 +136,7 @@ pub struct RequestBuilder {
 
 /// A Websocket builder for testing filters.
 ///
-/// See [module documentation](::test) for an overview.
+/// See [module documentation](crate::test) for an overview.
 #[cfg(feature = "websocket")]
 #[must_use = "WsBuilder does nothing on its own"]
 #[derive(Debug)]

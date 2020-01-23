@@ -168,9 +168,9 @@ pub(crate) fn known<T: Into<Known>>(err: T) -> Rejection {
     Rejection::known(err.into())
 }
 
-/// Rejection of a request by a [`Filter`](::Filter).
+/// Rejection of a request by a [`Filter`](crate::Filter).
 ///
-/// See the [`reject`](index.html) documentation for more.
+/// See the [`reject`](module@crate::reject) documentation for more.
 pub struct Rejection {
     reason: Reason,
 }

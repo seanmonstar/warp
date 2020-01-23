@@ -28,7 +28,7 @@ use self::sealed::{WithDefaultHeader_, WithHeader_, WithHeaders_};
 use crate::filter::{Filter, Map, WrapSealed};
 use crate::reply::Reply;
 
-/// Wrap a [`Filter`](::Filter) that adds a header to the reply.
+/// Wrap a [`Filter`](crate::Filter) that adds a header to the reply.
 ///
 /// # Note
 ///
@@ -57,7 +57,7 @@ where
     WithHeader { name, value }
 }
 
-/// Wrap a [`Filter`](::Filter) that adds multiple headers to the reply.
+/// Wrap a [`Filter`](crate::Filter) that adds multiple headers to the reply.
 ///
 /// # Note
 ///
@@ -88,7 +88,7 @@ pub fn headers(headers: HeaderMap) -> WithHeaders {
 
 // pub fn headers?
 
-/// Wrap a [`Filter`](::Filter) that adds a header to the reply, if they
+/// Wrap a [`Filter`](crate::Filter) that adds a header to the reply, if they
 /// aren't already set.
 ///
 /// # Note
