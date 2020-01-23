@@ -19,6 +19,7 @@ pub mod path;
 pub mod query;
 pub mod reply;
 pub mod sse;
+pub mod tracing;
 #[cfg(feature = "websocket")]
 pub mod ws;
 
