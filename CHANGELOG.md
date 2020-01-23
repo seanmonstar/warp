@@ -1,3 +1,10 @@
+### v0.2.1 (January 23, 2020)
+
+- **Features**:
+  - Add `close` and `close_with` constructors to `warp::ws::Message`.
+- **Fixes**:
+  - Fix `warp::fs` filters using a very small read buffer.
+
 ## v0.2.0 (January 16, 2020)
 
 - **Features**:
