@@ -14,19 +14,19 @@ async fn uses_tracing() {
     tracing_log::LogTracer::init().unwrap();
 
     // Start a span with some metadata (fields)
-    let span = tracing::debug_span!("app", domain = "www.example.org");
+    let span = tracing::info_span!("app", domain = "www.example.org");
     let _guard = span.enter();
 
-    log::error!("logged using log macro");
+    log::info!("logged using log macro");
 
     let ok = warp::any()
         .map(|| {
-            tracing::error!("pre failure: this is printed");
+            tracing::info!("printed for every request");
         })
         .untuple_one()
         .and(warp::path("aa"))
         .map(|| {
-            tracing::error!("post failure: this is not printed");
+            tracing::info!("only printed when path '/aa' matches");
         })
         .untuple_one()
         .map(warp::reply)
@@ -39,6 +39,10 @@ async fn uses_tracing() {
     // Send a request for /
     let req = warp::test::request();
     let resp = req.reply(&ok);
-
     assert_eq!(resp.await.status(), 404);
+
+    // Send a request for /aa
+    let req = warp::test::request().path("/aa");
+    let resp = req.reply(&ok);
+    assert_eq!(resp.await.status(), 200);
 }

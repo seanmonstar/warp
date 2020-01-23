@@ -155,15 +155,24 @@ impl<T: fmt::Display> fmt::Display for OptFmt<T> {
 }
 
 mod internal {
-    use futures::{future::Inspect, FutureExt};
-
-    use std::future::Future;
+    use futures::{future::Inspect, future::MapOk, FutureExt, TryFutureExt};
 
     use super::{Info, Trace};
     use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::Reply;
+    use crate::reply::Response;
     use crate::route;
+
+    #[allow(missing_debug_implementations)]
+    pub struct Traced(pub(super) Response);
+
+    impl Reply for Traced {
+        #[inline]
+        fn into_response(self) -> Response {
+            self.0
+        }
+    }
 
     #[allow(missing_debug_implementations)]
     #[derive(Clone, Copy)]
@@ -175,6 +184,28 @@ mod internal {
     use tracing::Span;
     use tracing_futures::{Instrument, Instrumented};
 
+    fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
+        match reply {
+            Ok((Traced(resp),)) => {
+                tracing::info!(target: "warp::filters::tracing", status = %resp.status().as_u16(), "finished processing with success");
+            }
+            Err(e) if e.status().is_server_error() => {
+                tracing::error!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "unable to process request (internal error)");
+            }
+            Err(e) if e.status().is_client_error() => {
+                tracing::warn!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "unable to serve request (client error)");
+            }
+            Err(e) => {
+                // Either informational or redirect
+                tracing::info!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "finished processing with status");
+            }
+        }
+    }
+
+    fn convert_reply<R: Reply>(reply: R) -> (Traced,) {
+        (Traced(reply.into_response()),)
+    }
+
     impl<FN, F> FilterBase for WithTrace<FN, F>
     where
         FN: Fn(Info) -> Span + Clone + Send,
@@ -182,27 +213,25 @@ mod internal {
         F::Extract: Reply,
         F::Error: IsReject,
     {
-        type Extract = F::Extract;
+        type Extract = (Traced,);
         type Error = F::Error;
-        type Future = Inspect<Instrumented<F::Future>, fn(&<F::Future as Future>::Output)>;
+        type Future = Instrumented<
+            Inspect<
+                MapOk<F::Future, fn(F::Extract) -> Self::Extract>,
+                fn(&Result<Self::Extract, F::Error>),
+            >,
+        >;
 
         fn filter(&self, _: Internal) -> Self::Future {
             let span = route::with(|route| (self.trace.func)(Info { route }));
             let _guard = span.enter();
 
-            fn finished_logger<R: Reply, E: IsReject>(reply: &Result<R, E>) {
-                if let Err(e) = reply {
-                    tracing::warn!(target: "warp::filters::tracing", msg = ?e, "error during processing");
-                } else {
-                    tracing::info!(target: "warp::filters::tracing", "successfully finished processing");
-                }
-            }
-
             tracing::info!(target: "warp::filters::tracing", "processing request");
             self.filter
                 .filter(Internal)
+                .map_ok(convert_reply as fn(F::Extract) -> Self::Extract)
+                .inspect(finished_logger as fn(&Result<Self::Extract, F::Error>))
                 .in_current_span()
-                .inspect(finished_logger)
         }
     }
 }
