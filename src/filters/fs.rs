@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
@@ -390,9 +390,8 @@ fn file_stream(
                 if len == 0 {
                     return Poll::Ready(None);
                 }
-                if buf.remaining_mut() < buf_size {
-                    buf.reserve(buf_size);
-                }
+                reserve_at_least(&mut buf, buf_size);
+
                 let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
                     Ok(n) => n as u64,
                     Err(err) => {
@@ -418,6 +417,12 @@ fn file_stream(
             }))
         })
         .flatten()
+}
+
+fn reserve_at_least(buf: &mut BytesMut, cap: usize) {
+    if buf.capacity() - buf.len() < cap {
+        buf.reserve(cap);
+    }
 }
 
 const DEFAULT_READ_BUF_SIZE: usize = 8_192;
@@ -448,6 +453,7 @@ fn get_block_size(_metadata: &Metadata) -> usize {
 #[cfg(test)]
 mod tests {
     use super::sanitize_path;
+    use bytes::BytesMut;
 
     #[test]
     fn test_sanitize_path() {
@@ -466,5 +472,18 @@ mod tests {
         sanitize_path(base, "/../foo.html").expect_err("dot dot");
 
         sanitize_path(base, "/C:\\/foo.html").expect_err("C:\\");
+    }
+
+    #[test]
+    fn test_reserve_at_least() {
+        let mut buf = BytesMut::new();
+        let cap = 8_192;
+
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), 0);
+
+        super::reserve_at_least(&mut buf, cap);
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), cap);
     }
 }
