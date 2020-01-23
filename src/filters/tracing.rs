@@ -54,7 +54,7 @@ pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
 ///         "request",
 ///         method = %info.method(),
 ///         path = %info.path(),
-///     );
+///     )
 /// });
 /// let route = warp::any()
 ///     .map(warp::reply)
