@@ -9,7 +9,7 @@ use crate::filter::{Filter, FilterBase, Internal};
 /// A filter that matches any route.
 ///
 /// This can be a useful building block to build new filters from,
-/// since [`Filter`](::Filter) is otherwise a sealed trait.
+/// since [`Filter`](crate::Filter) is otherwise a sealed trait.
 ///
 /// # Example
 ///
