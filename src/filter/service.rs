@@ -15,6 +15,11 @@ use crate::{Filter, Request};
 
 /// Convert a `Filter` into a `Service`.
 ///
+/// Filters are normally what APIs are built on in warp. However, it can be
+/// useful to convert a `Filter` into a [`Service`][Service], such as if
+/// further customizing a `hyper::Service`, or if wanting to make use of
+/// the greater [Tower][tower] set of middleware.
+///
 /// # Example
 ///
 /// Running a `warp::Filter` on a regular `hyper::Server`:
@@ -41,6 +46,9 @@ use crate::{Filter, Request};
 /// # Ok(())
 /// # }
 /// ```
+///
+/// [Service]: https://docs.rs/hyper/0.13.*/hyper/service/trait.Service.html
+/// [tower]: https://docs.rs/tower
 pub fn service<F>(filter: F) -> FilteredService<F>
 where
     F: Filter,
