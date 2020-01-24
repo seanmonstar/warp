@@ -27,9 +27,7 @@ pub fn get<T: Clone + Send + Sync + 'static>(
 /// If the extension doesn't exist, it yields `None`.
 pub fn optional<T: Clone + Send + Sync + 'static>(
 ) -> impl Filter<Extract = (Option<T>,), Error = Infallible> + Copy {
-    filter_fn_one(|route| {
-        future::ok(route.extensions().get::<T>().cloned())
-    })
+    filter_fn_one(|route| future::ok(route.extensions().get::<T>().cloned()))
 }
 
 unit_error! {

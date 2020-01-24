@@ -284,34 +284,18 @@ impl Stream for WebSocket {
     type Item = Result<Message, crate::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        loop {
-            let msg = match (*self).with_context(Some(cx), |s| s.read_message()) {
-                Ok(item) => item,
-                Err(::tungstenite::Error::Io(ref err))
-                    if err.kind() == io::ErrorKind::WouldBlock =>
-                {
-                    return Poll::Pending;
-                }
-                Err(::tungstenite::Error::ConnectionClosed) => {
-                    log::trace!("websocket closed");
-                    return Poll::Ready(None);
-                }
-                Err(e) => {
-                    log::debug!("websocket poll error: {}", e);
-                    return Poll::Ready(Some(Err(crate::Error::new(e))));
-                }
-            };
-
-            match msg {
-                msg @ protocol::Message::Text(..)
-                | msg @ protocol::Message::Binary(..)
-                | msg @ protocol::Message::Close(..)
-                | msg @ protocol::Message::Ping(..) => {
-                    return Poll::Ready(Some(Ok(Message { inner: msg })));
-                }
-                protocol::Message::Pong(payload) => {
-                    log::trace!("websocket client pong: {:?}", payload);
-                }
+        match (*self).with_context(Some(cx), |s| s.read_message()) {
+            Ok(item) => Poll::Ready(Some(Ok(Message { inner: item }))),
+            Err(::tungstenite::Error::Io(ref err)) if err.kind() == io::ErrorKind::WouldBlock => {
+                Poll::Pending
+            }
+            Err(::tungstenite::Error::ConnectionClosed) => {
+                log::trace!("websocket closed");
+                Poll::Ready(None)
+            }
+            Err(e) => {
+                log::debug!("websocket poll error: {}", e);
+                Poll::Ready(Some(Err(crate::Error::new(e))))
             }
         }
     }
@@ -327,16 +311,6 @@ impl Sink<Message> for WebSocket {
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
-        if let protocol::Message::Ping(..) = item.inner {
-            // warp doesn't yet expose a way to construct a `Ping` message,
-            // so the only way this could is if the user is forwarding the
-            // received `Ping`s straight back.
-            //
-            // tungstenite already auto-reponds to `Ping`s with a `Pong`,
-            // so this just prevents accidentally sending extra pings.
-            return Ok(());
-        }
-
         match self.with_context(None, |s| s.write_message(item.inner)) {
             Ok(()) => Ok(()),
             // Err(::tungstenite::Error::SendQueueFull(inner)) => {
@@ -447,6 +421,11 @@ impl Message {
     /// Returns true if this message is a Ping message.
     pub fn is_ping(&self) -> bool {
         self.inner.is_ping()
+    }
+
+    /// Returns true if this message is a Pong message.
+    pub fn is_pong(&self) -> bool {
+        self.inner.is_pong()
     }
 
     /// Try to get a reference to the string text, if this is a Text message.
