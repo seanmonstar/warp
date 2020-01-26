@@ -53,7 +53,7 @@
 //! - A path parameter of a `String`
 //! - The `user-agent` header parsed as a `String`
 //!
-//! These specific filters will [`reject`](./reject) requests that don't match
+//! These specific filters will [`reject`][reject] requests that don't match
 //! their requirements.
 //!
 //! This ends up matching requests like:
@@ -83,6 +83,7 @@
 //! a [`test`](test) module to help send mocked requests through your service.
 //!
 //! [Filter]: trait.Filter.html
+//! [reject]: reject/index.html
 
 #[macro_use]
 mod error;
