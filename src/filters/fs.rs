@@ -244,13 +244,17 @@ fn file_reply(
                     log::debug!("file not found: {:?}", path.as_ref().display());
                     reject::not_found()
                 }
+                io::ErrorKind::PermissionDenied => {
+                    log::warn!("file permission denied: {:?}", path.as_ref().display());
+                    reject::known(FilePermissionError { _p: () })
+                }
                 _ => {
                     log::error!(
                         "file open error (path={:?}): {} ",
                         path.as_ref().display(),
                         err
                     );
-                    reject::not_found()
+                    reject::known(FileOpenError { _p: () })
                 }
             };
             Either::Right(future::err(rej))
@@ -448,6 +452,16 @@ fn get_block_size(metadata: &Metadata) -> usize {
 #[cfg(not(unix))]
 fn get_block_size(_metadata: &Metadata) -> usize {
     DEFAULT_READ_BUF_SIZE
+}
+
+// ===== Rejections =====
+
+unit_error! {
+    pub(crate) FileOpenError: "file open error"
+}
+
+unit_error! {
+    pub(crate) FilePermissionError: "file perimission error"
 }
 
 #[cfg(test)]
