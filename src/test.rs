@@ -64,7 +64,7 @@
 //! #[test]
 //! fn test_math() {
 //! #    let math = || warp::any().map(warp::reply);
-//!     let filter = sum();
+//!     let filter = math();
 //!
 //!     let res = warp::test::request()
 //!         .path("/1/2")
