@@ -1,19 +1,19 @@
 use std::fs::File;
-use std::io::{self, BufReader, Cursor, Read, Write};
+use std::future::Future;
+use std::io::{self, BufReader, Cursor, Read};
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::ptr::null_mut;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use futures::ready;
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
-use rustls::{self, ServerConfig, ServerSession, Session, Stream, TLSError};
-use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::transport::Transport;
+use tokio_rustls::rustls::{NoClientAuth, ServerConfig, TLSError};
 
 /// Represents errors that can occur building the TlsConfig
 #[derive(Debug)]
@@ -99,7 +99,7 @@ impl TlsConfigBuilder {
 
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
-        let cert = rustls::internal::pemfile::certs(&mut cert_rdr)
+        let cert = tokio_rustls::rustls::internal::pemfile::certs(&mut cert_rdr)
             .map_err(|()| TlsConfigError::CertParseError)?;
 
         let key = {
@@ -113,14 +113,18 @@ impl TlsConfigBuilder {
                 return Err(TlsConfigError::EmptyKey);
             }
 
-            let mut pkcs8 = rustls::internal::pemfile::pkcs8_private_keys(&mut key_vec.as_slice())
-                .map_err(|()| TlsConfigError::Pkcs8ParseError)?;
+            let mut pkcs8 = tokio_rustls::rustls::internal::pemfile::pkcs8_private_keys(
+                &mut key_vec.as_slice(),
+            )
+            .map_err(|()| TlsConfigError::Pkcs8ParseError)?;
 
             if !pkcs8.is_empty() {
                 pkcs8.remove(0)
             } else {
-                let mut rsa = rustls::internal::pemfile::rsa_private_keys(&mut key_vec.as_slice())
-                    .map_err(|()| TlsConfigError::RsaParseError)?;
+                let mut rsa = tokio_rustls::rustls::internal::pemfile::rsa_private_keys(
+                    &mut key_vec.as_slice(),
+                )
+                .map_err(|()| TlsConfigError::RsaParseError)?;
 
                 if !rsa.is_empty() {
                     rsa.remove(0)
@@ -130,7 +134,7 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::new(rustls::NoClientAuth::new());
+        let mut config = ServerConfig::new(NoClientAuth::new());
         config
             .set_single_cert(cert, key)
             .map_err(|err| TlsConfigError::InvalidKey(err))?;
@@ -166,166 +170,89 @@ impl Read for LazyFile {
     }
 }
 
-/// a wrapper arround T to allow for rustls Stream read/write translations to async read and write
-#[derive(Debug)]
-struct AllowStd<T> {
-    inner: T,
-    context: *mut (),
-}
-
-// *mut () context is neither Send nor Sync
-unsafe impl<T: Send> Send for AllowStd<T> {}
-unsafe impl<T: Sync> Sync for AllowStd<T> {}
-
-struct Guard<'a, T>(&'a mut TlsStream<T>)
-where
-    AllowStd<T>: Read + Write;
-
-impl<T> Drop for Guard<'_, T>
-where
-    AllowStd<T>: Read + Write,
-{
-    fn drop(&mut self) {
-        (self.0).io.context = null_mut();
-    }
-}
-
-impl<T> AllowStd<T>
-where
-    T: Unpin,
-{
-    fn with_context<F, R>(&mut self, f: F) -> R
-    where
-        F: FnOnce(&mut Context<'_>, Pin<&mut T>) -> R,
-    {
-        unsafe {
-            assert!(!self.context.is_null());
-            let waker = &mut *(self.context as *mut _);
-            f(waker, Pin::new(&mut self.inner))
+impl Transport for TlsStream {
+    fn remote_addr(&self) -> Option<SocketAddr> {
+        match self.state {
+            State::Handshaking(_) => None,
+            State::Streaming(ref stream) => Some(stream.get_ref().0.remote_addr()),
         }
     }
 }
 
-impl<T> Read for AllowStd<T>
-where
-    T: AsyncRead + Unpin,
-{
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self.with_context(|ctx, stream| stream.poll_read(ctx, buf)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
+enum State {
+    Handshaking(tokio_rustls::Accept<AddrStream>),
+    Streaming(tokio_rustls::server::TlsStream<AddrStream>),
 }
 
-impl<T> Write for AllowStd<T>
-where
-    T: AsyncWrite + Unpin,
-{
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self.with_context(|ctx, stream| stream.poll_write(ctx, buf)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self.with_context(|ctx, stream| stream.poll_flush(ctx)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
+// tokio_rustls::server::TlsStream doesn't expose constructor methods,
+// so we have to TlsAcceptor::accept and handshake to have access to it
+// TlsStream implements AsyncRead/AsyncWrite handshaking tokio_rustls::Accept first
+pub(crate) struct TlsStream {
+    state: State,
 }
 
-fn cvt<T>(r: io::Result<T>) -> Poll<io::Result<T>> {
-    match r {
-        Ok(v) => Poll::Ready(Ok(v)),
-        Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
-        Err(e) => Poll::Ready(Err(e)),
-    }
-}
-
-/// A TlsStream that lazily does ths TLS handshake.
-#[derive(Debug)]
-pub(crate) struct TlsStream<T> {
-    io: AllowStd<T>,
-    is_shutdown: bool,
-    session: ServerSession,
-}
-
-impl<T> TlsStream<T> {
-    pub(crate) fn new(io: T, session: ServerSession) -> Self {
+impl TlsStream {
+    fn new(stream: AddrStream, config: Arc<ServerConfig>) -> TlsStream {
+        let accept = tokio_rustls::TlsAcceptor::from(config).accept(stream);
         TlsStream {
-            io: AllowStd {
-                inner: io,
-                context: null_mut(),
-            },
-            is_shutdown: false,
-            session,
+            state: State::Handshaking(accept),
         }
-    }
-
-    fn with_context<F, R>(&mut self, ctx: &mut Context<'_>, f: F) -> R
-    where
-        F: FnOnce(&mut AllowStd<T>, &mut ServerSession) -> R,
-        AllowStd<T>: Read + Write,
-    {
-        self.io.context = ctx as *mut _ as *mut ();
-        let g = Guard(self);
-        f(&mut (g.0).io, &mut (g.0).session)
     }
 }
 
-impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TlsStream<T> {
+impl AsyncRead for TlsStream {
     fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
+        self: Pin<&mut Self>,
+        cx: &mut Context,
         buf: &mut [u8],
     ) -> Poll<io::Result<usize>> {
-        self.with_context(cx, |io, session| cvt(Stream::new(session, io).read(buf)))
+        let pin = self.get_mut();
+        match pin.state {
+            State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
+                Ok(mut stream) => {
+                    let result = Pin::new(&mut stream).poll_read(cx, buf);
+                    pin.state = State::Streaming(stream);
+                    result
+                }
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            State::Streaming(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
+        }
     }
 }
 
-impl<T: AsyncRead + AsyncWrite + Unpin> AsyncWrite for TlsStream<T> {
+impl AsyncWrite for TlsStream {
     fn poll_write(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.with_context(cx, |io, session| cvt(Stream::new(session, io).write(buf)))
+        let pin = self.get_mut();
+        match pin.state {
+            State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
+                Ok(mut stream) => {
+                    let result = Pin::new(&mut stream).poll_write(cx, buf);
+                    pin.state = State::Streaming(stream);
+                    result
+                }
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            State::Streaming(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
+        }
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.with_context(cx, |io, session| {
-            if let Err(e) = ready!(cvt(Stream::new(session, io).flush())) {
-                return Poll::Ready(Err(e));
-            }
-            cvt(io.flush())
-        })
+        match self.state {
+            State::Handshaking(_) => Poll::Ready(Ok(())),
+            State::Streaming(ref mut stream) => Pin::new(stream).poll_flush(cx),
+        }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut pin = self.get_mut();
-        if pin.session.is_handshaking() {
-            return Poll::Ready(Ok(()));
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        match self.state {
+            State::Handshaking(_) => Poll::Ready(Ok(())),
+            State::Streaming(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
         }
-
-        if !pin.is_shutdown {
-            pin.session.send_close_notify();
-            pin.is_shutdown = true;
-        }
-
-        if let Err(e) = ready!(Pin::new(&mut pin).poll_flush(cx)) {
-            return Poll::Ready(Err(e));
-        }
-
-        Pin::new(&mut pin.io.inner).poll_shutdown(cx)
-    }
-}
-
-impl<T: Transport + Unpin> Transport for TlsStream<T> {
-    fn remote_addr(&self) -> Option<SocketAddr> {
-        self.io.inner.remote_addr()
     }
 }
 
@@ -344,7 +271,7 @@ impl TlsAcceptor {
 }
 
 impl Accept for TlsAcceptor {
-    type Conn = TlsStream<AddrStream>;
+    type Conn = TlsStream;
     type Error = io::Error;
 
     fn poll_accept(
@@ -353,11 +280,7 @@ impl Accept for TlsAcceptor {
     ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
         let pin = self.get_mut();
         match ready!(Pin::new(&mut pin.incoming).poll_accept(cx)) {
-            Some(Ok(sock)) => {
-                let session = ServerSession::new(&pin.config.clone());
-                // let tls = Arc::new($this.config);
-                return Poll::Ready(Some(Ok(TlsStream::new(sock, session))));
-            }
+            Some(Ok(sock)) => Poll::Ready(Some(Ok(TlsStream::new(sock, pin.config.clone())))),
             Some(Err(e)) => Poll::Ready(Some(Err(e))),
             None => Poll::Ready(None),
         }
