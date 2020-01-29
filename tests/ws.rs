@@ -4,6 +4,7 @@ extern crate pretty_env_logger;
 extern crate warp;
 
 use warp::{Filter, Future, Stream};
+use warp::ws::Message;
 
 #[test]
 fn upgrade() {
