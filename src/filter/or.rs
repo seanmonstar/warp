@@ -110,3 +110,28 @@ where
         }
     }
 }
+
+/// Convenient way to combine multiple filters with [`or`][Filter::or].
+/// `or!(a, b, c)` is equivalent to `a.or(b).or(c)`
+///
+/// ```
+/// use std::net::SocketAddr;
+/// use warp::or;
+///
+/// // Match either `/:u32` or `/:socketaddr`
+/// or!(
+///     warp::path::param::<u32>(),
+///     warp::path::param::<SocketAddr>(),
+///     warp::path::param::<String>(),
+/// );
+/// ```
+#[macro_export]
+macro_rules! or {
+    ($first: expr $(, $expr: expr)+ $(,)?) => { {
+        let filter = $first;
+        $(
+            let filter = $crate::Filter::or(filter, $expr);
+        )+
+        filter
+    } }
+}
