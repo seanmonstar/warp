@@ -509,7 +509,7 @@ impl WsBuilder {
                 upgraded,
                 protocol::Role::Client,
                 Default::default(),
-            );
+            ).await;
 
             let (tx, rx) = ws.split();
             let write = wr_rx.map(Ok).forward(tx).map(|_| ());

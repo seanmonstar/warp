@@ -35,6 +35,7 @@ tower-service = "0.3"
 rustls = { version = "0.16", optional = true }
 # tls is enabled by default, we don't want that yet
 tungstenite = { default-features = false, version = "0.9", optional = true }
+tokio-tungstenite = { git = "https://github.com/snapview/tokio-tungstenite", branch = "master" }
 urlencoding = "1.0.0"
 pin-project = "0.4.5"
 

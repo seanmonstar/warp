@@ -3,20 +3,19 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::future::Future;
-use std::io::{self, Read, Write};
+use std::io::{self};
 use std::pin::Pin;
-use std::ptr::null_mut;
 use std::task::{Context, Poll};
 
 use super::{body, header};
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
+use futures::{future, FutureExt, Stream, Sink};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tungstenite::protocol::{self, WebSocketConfig};
+use tokio_tungstenite::WebSocketStream;
 
 /// Creates a Websocket Filter.
 ///
@@ -130,24 +129,20 @@ where
             .ws
             .body
             .on_upgrade()
-            .and_then(move |upgraded| {
+            .then(move |upgraded| {
                 log::trace!("websocket upgrade complete");
-
-                let io = protocol::WebSocket::from_raw_socket(
-                    AllowStd {
-                        inner: upgraded,
-                        context: (true, null_mut()),
-                    },
-                    protocol::Role::Server,
-                    config,
-                );
-
-                on_upgrade(WebSocket { inner: io }).map(Ok)
+                let socket = WebSocketStream::from_raw_socket(upgraded.unwrap(), protocol::Role::Server, config);
+                socket
             })
-            .map(|result| {
+            .then(move |socket| {
+                on_upgrade(WebSocket { inner: socket })
+            })
+            .map(|_result| {
+                /*
                 if let Err(err) = result {
                     log::debug!("ws upgrade error: {}", err);
                 }
+                */
             });
         ::tokio::task::spawn(fut);
 
@@ -164,72 +159,13 @@ where
     }
 }
 
+
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
 pub struct WebSocket {
-    inner: protocol::WebSocket<AllowStd>,
+    inner: WebSocketStream<hyper::upgrade::Upgraded>,
 }
 
-/// wrapper around hyper Upgraded to allow Read/write from tungstenite's WebSocket
-#[derive(Debug)]
-pub(crate) struct AllowStd {
-    inner: ::hyper::upgrade::Upgraded,
-    context: (bool, *mut ()),
-}
-
-struct Guard<'a>(&'a mut WebSocket);
-
-impl Drop for Guard<'_> {
-    fn drop(&mut self) {
-        (self.0).inner.get_mut().context = (true, null_mut());
-    }
-}
-
-// *mut () context is neither Send nor Sync
-unsafe impl Send for AllowStd {}
-unsafe impl Sync for AllowStd {}
-
-impl AllowStd {
-    fn with_context<F, R>(&mut self, f: F) -> Poll<io::Result<R>>
-    where
-        F: FnOnce(&mut Context<'_>, Pin<&mut ::hyper::upgrade::Upgraded>) -> Poll<io::Result<R>>,
-    {
-        unsafe {
-            if !self.context.0 {
-                //was called by start_send without context
-                return Poll::Pending;
-            }
-            assert!(!self.context.1.is_null());
-            let waker = &mut *(self.context.1 as *mut _);
-            f(waker, Pin::new(&mut self.inner))
-        }
-    }
-}
-
-impl Read for AllowStd {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self.with_context(|ctx, stream| stream.poll_read(ctx, buf)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
-}
-
-impl Write for AllowStd {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self.with_context(|ctx, stream| stream.poll_write(ctx, buf)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        match self.with_context(|ctx, stream| stream.poll_flush(ctx)) {
-            Poll::Ready(r) => r,
-            Poll::Pending => Err(io::Error::from(io::ErrorKind::WouldBlock)),
-        }
-    }
-}
-
+/*
 fn cvt<T>(r: tungstenite::error::Result<T>, err_message: &str) -> Poll<Result<T, crate::Error>> {
     match r {
         Ok(v) => Poll::Ready(Ok(v)),
@@ -242,36 +178,28 @@ fn cvt<T>(r: tungstenite::error::Result<T>, err_message: &str) -> Poll<Result<T,
         }
     }
 }
+*/
 
 impl WebSocket {
-    pub(crate) fn from_raw_socket(
-        inner: hyper::upgrade::Upgraded,
+    pub(crate) async fn from_raw_socket(
+        upgraded: hyper::upgrade::Upgraded,
         role: protocol::Role,
-        config: Option<protocol::WebSocketConfig>,
+        config: Option<protocol::WebSocketConfig>
     ) -> Self {
-        let ws = protocol::WebSocket::from_raw_socket(
-            AllowStd {
-                inner,
-                context: (false, null_mut()),
-            },
+        WebSocketStream::from_raw_socket(
+            upgraded,
             role,
-            config,
-        );
-
-        WebSocket { inner: ws }
+            config
+        ).map(|inner| {
+            WebSocket { inner }
+        }).await
     }
 
     fn with_context<F, R>(&mut self, ctx: Option<&mut Context<'_>>, f: F) -> R
     where
-        F: FnOnce(&mut protocol::WebSocket<AllowStd>) -> R,
+        F: FnOnce(Pin<&mut WebSocketStream<hyper::upgrade::Upgraded>>, Option<&mut Context<'_>>) -> R,
     {
-        self.inner.get_mut().context = match ctx {
-            Some(ctx) => (true, ctx as *mut _ as *mut ()),
-            None => (false, null_mut()),
-        };
-
-        let g = Guard(self);
-        f(&mut (g.0).inner)
+        f(Pin::new(&mut self.inner), ctx)
     }
 
     /// Gracefully close this websocket.
@@ -285,20 +213,27 @@ impl Stream for WebSocket {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         loop {
-            let msg = match (*self).with_context(Some(cx), |s| s.read_message()) {
-                Ok(item) => item,
-                Err(::tungstenite::Error::Io(ref err))
+            let msg = match (*self).with_context(Some(cx), |s, cx| s.poll_next(cx.unwrap())) {
+                Poll::Ready(Some(Ok(item))) => item,
+                Poll::Ready(Some(Err(::tungstenite::Error::Io(ref err))))
                     if err.kind() == io::ErrorKind::WouldBlock =>
                 {
                     return Poll::Pending;
                 }
-                Err(::tungstenite::Error::ConnectionClosed) => {
+                Poll::Ready(Some(Err(::tungstenite::Error::ConnectionClosed))) => {
                     log::trace!("websocket closed");
                     return Poll::Ready(None);
                 }
-                Err(e) => {
+                Poll::Ready(Some(Err(e))) => {
                     log::debug!("websocket poll error: {}", e);
                     return Poll::Ready(Some(Err(crate::Error::new(e))));
+                }
+                Poll::Ready(None) => {
+                    log::trace!("websocket closed");
+                    return Poll::Ready(None);
+                },
+                Poll::Pending => {
+                    return Poll::Pending;
                 }
             };
 
@@ -321,8 +256,13 @@ impl Sink<Message> for WebSocket {
     type Error = crate::Error;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        (*self).with_context(Some(cx), |s| {
-            cvt(s.write_pending(), "websocket poll_ready error")
+        (*self).with_context(Some(cx), |s, cx| {
+            match s.poll_ready(cx.unwrap()) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
+                Poll::Pending => Poll::Pending
+            }
+            // cvt(s.write_pending(), "websocket poll_ready error")
         })
     }
 
@@ -337,7 +277,7 @@ impl Sink<Message> for WebSocket {
             return Ok(());
         }
 
-        match self.with_context(None, |s| s.write_message(item.inner)) {
+        match self.with_context(None, |s, _| s.start_send(item.inner)) {
             Ok(()) => Ok(()),
             // Err(::tungstenite::Error::SendQueueFull(inner)) => {
             //     log::debug!("websocket send queue full");
@@ -356,19 +296,24 @@ impl Sink<Message> for WebSocket {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
-        self.with_context(Some(cx), |s| {
-            cvt(s.write_pending(), "websocket poll_flush error")
+        self.with_context(Some(cx), |s, cx| {
+            //cvt(s.write_pending(), "websocket poll_flush error")
+            match s.poll_flush(cx.unwrap()) {
+                Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+                Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
+                Poll::Pending => Poll::Pending
+            }
         })
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
-        match self.with_context(Some(cx), |s| s.close(None)) {
-            Ok(()) => Poll::Ready(Ok(())),
-            Err(::tungstenite::Error::ConnectionClosed) => Poll::Ready(Ok(())),
-            Err(err) => {
+        match self.with_context(Some(cx), |s, cx| s.poll_close(cx.unwrap())) {
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
+            Poll::Ready(Err(err)) => {
                 log::debug!("websocket close error: {}", err);
                 Poll::Ready(Err(crate::Error::new(err)))
-            }
+            },
+            Poll::Pending => Poll::Pending
         }
     }
 }
@@ -378,6 +323,7 @@ impl fmt::Debug for WebSocket {
         f.debug_struct("WebSocket").finish()
     }
 }
+
 
 /// A WebSocket message.
 ///
