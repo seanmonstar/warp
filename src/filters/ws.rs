@@ -11,7 +11,7 @@ use super::{body, header};
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, FutureExt, Stream, Sink};
+use futures::{future, FutureExt, Stream, Sink, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use tungstenite::protocol::{self, WebSocketConfig};
@@ -129,20 +129,21 @@ where
             .ws
             .body
             .on_upgrade()
-            .then(move |upgraded| {
+            .and_then(move |upgraded| {
                 log::trace!("websocket upgrade complete");
-                let socket = WebSocketStream::from_raw_socket(upgraded.unwrap(), protocol::Role::Server, config);
-                socket
+                WebSocket::from_raw_socket(
+                    upgraded,
+                    protocol::Role::Server,
+                    config
+                ).map(Ok)
             })
-            .then(move |socket| {
-                on_upgrade(WebSocket { inner: socket })
+            .and_then(move |socket| {
+                on_upgrade(socket).map(Ok)
             })
-            .map(|_result| {
-                /*
+            .map(|result| {
                 if let Err(err) = result {
                     log::debug!("ws upgrade error: {}", err);
                 }
-                */
             });
         ::tokio::task::spawn(fut);
 
