@@ -106,6 +106,12 @@ async fn json_invalid() {
     assert_eq!(&res.body()[..prefix.len()], prefix);
 }
 
+#[test]
+fn json_size_of() {
+    let json = warp::body::json::<Vec<i32>>();
+    assert_eq!(std::mem::size_of_val(&json), 0);
+}
+
 #[tokio::test]
 async fn form() {
     let _ = pretty_env_logger::try_init();

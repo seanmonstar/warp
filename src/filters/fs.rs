@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
@@ -244,13 +244,17 @@ fn file_reply(
                     log::debug!("file not found: {:?}", path.as_ref().display());
                     reject::not_found()
                 }
+                io::ErrorKind::PermissionDenied => {
+                    log::warn!("file permission denied: {:?}", path.as_ref().display());
+                    reject::known(FilePermissionError { _p: () })
+                }
                 _ => {
                     log::error!(
                         "file open error (path={:?}): {} ",
                         path.as_ref().display(),
                         err
                     );
-                    reject::not_found()
+                    reject::known(FileOpenError { _p: () })
                 }
             };
             Either::Right(future::err(rej))
@@ -390,9 +394,8 @@ fn file_stream(
                 if len == 0 {
                     return Poll::Ready(None);
                 }
-                if buf.remaining_mut() < buf_size {
-                    buf.reserve(buf_size);
-                }
+                reserve_at_least(&mut buf, buf_size);
+
                 let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
                     Ok(n) => n as u64,
                     Err(err) => {
@@ -420,6 +423,14 @@ fn file_stream(
         .flatten()
 }
 
+fn reserve_at_least(buf: &mut BytesMut, cap: usize) {
+    if buf.capacity() - buf.len() < cap {
+        buf.reserve(cap);
+    }
+}
+
+const DEFAULT_READ_BUF_SIZE: usize = 8_192;
+
 fn optimal_buf_size(metadata: &Metadata) -> usize {
     let block_size = get_block_size(metadata);
 
@@ -433,17 +444,30 @@ fn get_block_size(metadata: &Metadata) -> usize {
     use std::os::unix::fs::MetadataExt;
     //TODO: blksize() returns u64, should handle bad cast...
     //(really, a block size bigger than 4gb?)
-    metadata.blksize() as usize
+
+    // Use device blocksize unless it's really small.
+    cmp::max(metadata.blksize() as usize, DEFAULT_READ_BUF_SIZE)
 }
 
 #[cfg(not(unix))]
 fn get_block_size(_metadata: &Metadata) -> usize {
-    8_192
+    DEFAULT_READ_BUF_SIZE
+}
+
+// ===== Rejections =====
+
+unit_error! {
+    pub(crate) FileOpenError: "file open error"
+}
+
+unit_error! {
+    pub(crate) FilePermissionError: "file perimission error"
 }
 
 #[cfg(test)]
 mod tests {
     use super::sanitize_path;
+    use bytes::BytesMut;
 
     #[test]
     fn test_sanitize_path() {
@@ -462,5 +486,18 @@ mod tests {
         sanitize_path(base, "/../foo.html").expect_err("dot dot");
 
         sanitize_path(base, "/C:\\/foo.html").expect_err("C:\\");
+    }
+
+    #[test]
+    fn test_reserve_at_least() {
+        let mut buf = BytesMut::new();
+        let cap = 8_192;
+
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), 0);
+
+        super::reserve_at_least(&mut buf, cap);
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), cap);
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.2.0" # don't forget to update html_root_url
+version = "0.2.1" # don't forget to update html_root_url
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
@@ -42,7 +42,7 @@ pin-project = "0.4.5"
 [dev-dependencies]
 pretty_env_logger = "0.3"
 serde_derive = "1.0"
-handlebars = "1.0.0"
+handlebars = "3.0.0"
 tokio = { version = "0.2", features = ["macros"] }
 
 [features]

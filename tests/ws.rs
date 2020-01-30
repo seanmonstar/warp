@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
+use warp::ws::Message;
 use warp::Filter;
 
 #[tokio::test]
@@ -80,6 +81,59 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn send_ping() {
+    let _ = pretty_env_logger::try_init();
+
+    let filter = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|mut websocket| {
+            async move {
+                websocket.send(Message::ping("srv")).await.unwrap();
+                // assume the client will pong back
+                let msg = websocket.next().await.expect("item").expect("ok");
+                assert!(msg.is_pong());
+                assert_eq!(msg.as_bytes(), &b"srv"[..]);
+            }
+        })
+    });
+
+    let mut client = warp::test::ws().handshake(filter).await.expect("handshake");
+
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_ping());
+    assert_eq!(msg.as_bytes(), &b"srv"[..]);
+
+    client.recv_closed().await.expect("closed");
+}
+
+#[tokio::test]
+async fn echo_pings() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    client.send(Message::ping("clt")).await;
+
+    // tungstenite sends the PONG first
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // and then `ws_echo` sends us back the same PING
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_ping());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // and then our client would have sent *its* PONG
+    // and `ws_echo` would send *that* back too
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+}
+
+#[tokio::test]
 async fn closed() {
     let _ = pretty_env_logger::try_init();
 
@@ -120,7 +174,9 @@ fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection>
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
-            rx.forward(tx).map(|_| ())
+            rx.inspect(|i| log::debug!("ws recv: {:?}", i))
+                .forward(tx)
+                .map(|_| ())
         })
     })
 }

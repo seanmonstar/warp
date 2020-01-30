@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/warp/0.2.0")]
+#![doc(html_root_url = "https://docs.rs/warp/0.2.1")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![cfg_attr(test, deny(warnings))]
@@ -53,7 +53,7 @@
 //! - A path parameter of a `String`
 //! - The `user-agent` header parsed as a `String`
 //!
-//! These specific filters will [`reject`](./reject) requests that don't match
+//! These specific filters will [`reject`][reject] requests that don't match
 //! their requirements.
 //!
 //! This ends up matching requests like:
@@ -83,6 +83,7 @@
 //! a [`test`](test) module to help send mocked requests through your service.
 //!
 //! [Filter]: trait.Filter.html
+//! [reject]: reject/index.html
 
 #[macro_use]
 mod error;
@@ -151,6 +152,8 @@ pub use self::redirect::redirect;
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
+#[cfg(feature = "tls")]
+pub use self::server::TlsServer;
 pub use self::server::{serve, Server};
 pub use self::service::service;
 #[doc(hidden)]
