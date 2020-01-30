@@ -11,11 +11,11 @@ use super::{body, header};
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, FutureExt, Stream, Sink, TryFutureExt};
+use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
-use tungstenite::protocol::{self, WebSocketConfig};
 use tokio_tungstenite::WebSocketStream;
+use tungstenite::protocol::{self, WebSocketConfig};
 
 /// Creates a Websocket Filter.
 ///
@@ -131,15 +131,9 @@ where
             .on_upgrade()
             .and_then(move |upgraded| {
                 log::trace!("websocket upgrade complete");
-                WebSocket::from_raw_socket(
-                    upgraded,
-                    protocol::Role::Server,
-                    config
-                ).map(Ok)
+                WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
             })
-            .and_then(move |socket| {
-                on_upgrade(socket).map(Ok)
-            })
+            .and_then(move |socket| on_upgrade(socket).map(Ok))
             .map(|result| {
                 if let Err(err) = result {
                     log::debug!("ws upgrade error: {}", err);
@@ -159,7 +153,6 @@ where
         res
     }
 }
-
 
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
 pub struct WebSocket {
@@ -185,20 +178,19 @@ impl WebSocket {
     pub(crate) async fn from_raw_socket(
         upgraded: hyper::upgrade::Upgraded,
         role: protocol::Role,
-        config: Option<protocol::WebSocketConfig>
+        config: Option<protocol::WebSocketConfig>,
     ) -> Self {
-        WebSocketStream::from_raw_socket(
-            upgraded,
-            role,
-            config
-        ).map(|inner| {
-            WebSocket { inner }
-        }).await
+        WebSocketStream::from_raw_socket(upgraded, role, config)
+            .map(|inner| WebSocket { inner })
+            .await
     }
 
     fn with_context<F, R>(&mut self, ctx: Option<&mut Context<'_>>, f: F) -> R
     where
-        F: FnOnce(Pin<&mut WebSocketStream<hyper::upgrade::Upgraded>>, Option<&mut Context<'_>>) -> R,
+        F: FnOnce(
+            Pin<&mut WebSocketStream<hyper::upgrade::Upgraded>>,
+            Option<&mut Context<'_>>,
+        ) -> R,
     {
         f(Pin::new(&mut self.inner), ctx)
     }
@@ -214,12 +206,11 @@ impl Stream for WebSocket {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match (*self).with_context(Some(cx), |s, cx| s.poll_next(cx.unwrap())) {
-            Poll::Ready(Some(Ok(item))) => {
-                Poll::Ready(Some(Ok(Message { inner: item })))
-            }
+            Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(Ok(Message { inner: item }))),
             Poll::Ready(Some(Err(::tungstenite::Error::Io(ref err))))
-                if err.kind() == io::ErrorKind::WouldBlock => {
-                    Poll::Pending
+                if err.kind() == io::ErrorKind::WouldBlock =>
+            {
+                Poll::Pending
             }
             Poll::Ready(Some(Err(::tungstenite::Error::ConnectionClosed))) => {
                 log::trace!("websocket closed");
@@ -232,10 +223,8 @@ impl Stream for WebSocket {
             Poll::Ready(None) => {
                 log::trace!("websocket closed");
                 Poll::Ready(None)
-            },
-            Poll::Pending => {
-                Poll::Pending
             }
+            Poll::Pending => Poll::Pending,
         }
     }
 }
@@ -248,7 +237,7 @@ impl Sink<Message> for WebSocket {
             match s.poll_ready(cx.unwrap()) {
                 Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
                 Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
-                Poll::Pending => Poll::Pending
+                Poll::Pending => Poll::Pending,
             }
             // cvt(s.write_pending(), "websocket poll_ready error")
         })
@@ -279,7 +268,7 @@ impl Sink<Message> for WebSocket {
             match s.poll_flush(cx.unwrap()) {
                 Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
                 Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
-                Poll::Pending => Poll::Pending
+                Poll::Pending => Poll::Pending,
             }
         })
     }
@@ -290,8 +279,8 @@ impl Sink<Message> for WebSocket {
             Poll::Ready(Err(err)) => {
                 log::debug!("websocket close error: {}", err);
                 Poll::Ready(Err(crate::Error::new(err)))
-            },
-            Poll::Pending => Poll::Pending
+            }
+            Poll::Pending => Poll::Pending,
         }
     }
 }
@@ -301,7 +290,6 @@ impl fmt::Debug for WebSocket {
         f.debug_struct("WebSocket").finish()
     }
 }
-
 
 /// A WebSocket message.
 ///
