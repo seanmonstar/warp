@@ -14,6 +14,7 @@ use crate::reply::{Reply, Response};
 use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
+use tokio_tungstenite::tungstenite;
 use tokio_tungstenite::WebSocketStream;
 use tungstenite::protocol::{self, WebSocketConfig};
 
@@ -207,12 +208,12 @@ impl Stream for WebSocket {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match (*self).with_context(Some(cx), |s, cx| s.poll_next(cx.unwrap())) {
             Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(Ok(Message { inner: item }))),
-            Poll::Ready(Some(Err(::tungstenite::Error::Io(ref err))))
+            Poll::Ready(Some(Err(tungstenite::Error::Io(ref err))))
                 if err.kind() == io::ErrorKind::WouldBlock =>
             {
                 Poll::Pending
             }
-            Poll::Ready(Some(Err(::tungstenite::Error::ConnectionClosed))) => {
+            Poll::Ready(Some(Err(tungstenite::Error::ConnectionClosed))) => {
                 log::trace!("websocket closed");
                 Poll::Ready(None)
             }
@@ -250,7 +251,7 @@ impl Sink<Message> for WebSocket {
             //     log::debug!("websocket send queue full");
             //     Err(::tungstenite::Error::SendQueueFull(inner))
             // }
-            Err(::tungstenite::Error::Io(ref err)) if err.kind() == io::ErrorKind::WouldBlock => {
+            Err(tungstenite::Error::Io(ref err)) if err.kind() == io::ErrorKind::WouldBlock => {
                 // the message was accepted and queued
                 // isn't an error.
                 Ok(())

@@ -469,7 +469,7 @@ impl WsBuilder {
         let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
-            use tungstenite::protocol;
+            use tokio_tungstenite::tungstenite::protocol;
 
             let (addr, srv) = crate::serve(f).bind_ephemeral(([127, 0, 0, 1], 0));
 
