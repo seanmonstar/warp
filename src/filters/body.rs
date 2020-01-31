@@ -171,14 +171,14 @@ pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Co
 ///     });
 /// ```
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
-    is_content_type::<Json>().and(aggregate()).and_then(|buf| {
-        async move {
+    is_content_type::<Json>()
+        .and(aggregate())
+        .and_then(|buf| async move {
             Json::decode(buf).map_err(|err| {
                 log::debug!("request json body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err })
             })
-        }
-    })
+        })
 }
 
 /// Returns a `Filter` that matches any request and extracts a
@@ -206,14 +206,14 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 ///     });
 /// ```
 pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
-    is_content_type::<Form>().and(aggregate()).and_then(|buf| {
-        async move {
+    is_content_type::<Form>()
+        .and(aggregate())
+        .and_then(|buf| async move {
             Form::decode(buf).map_err(|err| {
                 log::debug!("request form body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err })
             })
-        }
-    })
+        })
 }
 
 // ===== Decoders =====

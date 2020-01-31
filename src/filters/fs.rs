@@ -89,20 +89,18 @@ fn path_from_tail(
     base: Arc<PathBuf>,
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
     crate::path::tail().and_then(move |tail: crate::path::Tail| {
-        future::ready(sanitize_path(base.as_ref(), tail.as_str())).and_then(|mut buf| {
-            async {
-                let is_dir = tokio::fs::metadata(buf.clone())
-                    .await
-                    .map(|m| m.is_dir())
-                    .unwrap_or(false);
+        future::ready(sanitize_path(base.as_ref(), tail.as_str())).and_then(|mut buf| async {
+            let is_dir = tokio::fs::metadata(buf.clone())
+                .await
+                .map(|m| m.is_dir())
+                .unwrap_or(false);
 
-                if is_dir {
-                    log::debug!("dir: appending index.html to directory path");
-                    buf.push("index.html");
-                }
-                log::trace!("dir: {:?}", buf);
-                Ok(ArcPath(Arc::new(buf)))
+            if is_dir {
+                log::debug!("dir: appending index.html to directory path");
+                buf.push("index.html");
             }
+            log::trace!("dir: {:?}", buf);
+            Ok(ArcPath(Arc::new(buf)))
         })
     })
 }

@@ -15,8 +15,11 @@ use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use tokio_tungstenite::{
+    tungstenite::{
+        self,
+        protocol::{self, WebSocketConfig},
+    },
     WebSocketStream,
-    tungstenite::{self, protocol::{self, WebSocketConfig}}
 };
 
 /// Creates a Websocket Filter.
