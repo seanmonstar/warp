@@ -8,6 +8,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 pub trait Transport: AsyncRead + AsyncWrite {
     fn remote_addr(&self) -> Option<SocketAddr>;
+
+    fn upgrade_to_https(&self) -> bool {
+        false
+    }
 }
 
 impl Transport for AddrStream {

@@ -8,10 +8,12 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
+use http::Response;
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::Server as HyperServer;
+use hyper::{Body, Server as HyperServer};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tower_util::Either;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -53,11 +55,33 @@ macro_rules! into_service {
     ($into:expr) => {{
         let inner = crate::service($into);
         make_service_fn(move |transport| {
-            let inner = inner.clone();
-            let remote_addr = Transport::remote_addr(transport);
-            future::ok::<_, Infallible>(service_fn(move |req| {
-                inner.call_with_addr(req, remote_addr)
-            }))
+            if Transport::upgrade_to_https(transport) {
+                future::ok::<_, Infallible>(Either::B(service_fn(move |req| {
+                    let response = if let Some(host) = req
+                        .headers()
+                        .get("host")
+                        .and_then(|header| header.to_str().ok())
+                    {
+                        Response::builder()
+                            .status(301)
+                            .header("Location", format!("https://{}{}", host, req.uri()))
+                            .body(Body::default())
+                            .unwrap()
+                    } else {
+                        Response::builder()
+                            .status(403)
+                            .body(Body::default())
+                            .unwrap()
+                    };
+                    future::ok::<_, Infallible>(response)
+                })))
+            } else {
+                let inner = inner.clone();
+                let remote_addr = Transport::remote_addr(transport);
+                future::ok::<_, Infallible>(Either::A(service_fn(move |req| {
+                    inner.call_with_addr(req, remote_addr)
+                })))
+            }
         })
     }};
 }
@@ -84,8 +108,8 @@ macro_rules! bind_inner {
     (tls: $this:ident, $addr:expr) => {{
         let service = into_service!($this.server.filter);
         let (addr, incoming) = addr_incoming!($addr);
-        let tls = $this.tls.build()?;
-        let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming))
+        let (tls, upgrade) = $this.tls.build()?;
+        let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming, upgrade))
             .http1_pipeline_flush($this.server.pipeline)
             .serve(service);
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>((addr, srv))
@@ -390,6 +414,11 @@ where
     /// Specify the in-memory contents of the certificate.
     pub fn cert(self, cert: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.cert(cert.as_ref()))
+    }
+
+    /// Specify if incoming HTTP connections should be upgraded to HTTPS.
+    pub fn upgrade(self, upgrade: bool) -> Self {
+        self.with_tls(|tls| tls.upgrade(upgrade))
     }
 
     fn with_tls<Func>(self, func: Func) -> Self

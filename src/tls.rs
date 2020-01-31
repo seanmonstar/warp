@@ -50,6 +50,7 @@ impl std::error::Error for TlsConfigError {}
 pub(crate) struct TlsConfigBuilder {
     cert: Box<dyn Read + Send + Sync>,
     key: Box<dyn Read + Send + Sync>,
+    upgrade: bool,
 }
 
 impl std::fmt::Debug for TlsConfigBuilder {
@@ -64,6 +65,7 @@ impl TlsConfigBuilder {
         TlsConfigBuilder {
             key: Box::new(io::empty()),
             cert: Box::new(io::empty()),
+            upgrade: false,
         }
     }
 
@@ -97,7 +99,13 @@ impl TlsConfigBuilder {
         self
     }
 
-    pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
+    /// sets if http should be upgraded to https
+    pub(crate) fn upgrade(mut self, upgrade: bool) -> Self {
+        self.upgrade = upgrade;
+        self
+    }
+
+    pub(crate) fn build(mut self) -> Result<(ServerConfig, bool), TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
         let cert = tokio_rustls::rustls::internal::pemfile::certs(&mut cert_rdr)
             .map_err(|()| TlsConfigError::CertParseError)?;
@@ -139,7 +147,7 @@ impl TlsConfigBuilder {
             .set_single_cert(cert, key)
             .map_err(|err| TlsConfigError::InvalidKey(err))?;
         config.set_protocols(&["h2".into(), "http/1.1".into()]);
-        Ok(config)
+        Ok((config, self.upgrade))
     }
 }
 
@@ -174,11 +182,20 @@ impl Transport for TlsStream {
     fn remote_addr(&self) -> Option<SocketAddr> {
         Some(self.remote_addr)
     }
+
+    fn upgrade_to_https(&self) -> bool {
+        if let State::Upgrading(..) = self.state {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 enum State {
-    Handshaking(tokio_rustls::Accept<AddrStream>),
+    Handshaking(tokio_rustls::FailableAccept<AddrStream>),
     Streaming(tokio_rustls::server::TlsStream<AddrStream>),
+    Upgrading(AddrStream),
 }
 
 // tokio_rustls::server::TlsStream doesn't expose constructor methods,
@@ -187,14 +204,18 @@ enum State {
 pub(crate) struct TlsStream {
     state: State,
     remote_addr: SocketAddr,
+    can_upgrade: bool,
 }
 
 impl TlsStream {
-    fn new(stream: AddrStream, config: Arc<ServerConfig>) -> TlsStream {
+    fn new(stream: AddrStream, config: Arc<ServerConfig>, can_upgrade: bool) -> TlsStream {
         let remote_addr = stream.remote_addr();
-        let accept = tokio_rustls::TlsAcceptor::from(config).accept(stream);
+        let accept = tokio_rustls::TlsAcceptor::from(config)
+            .accept(stream)
+            .into_failable();
         TlsStream {
             state: State::Handshaking(accept),
+            can_upgrade,
             remote_addr,
         }
     }
@@ -214,9 +235,18 @@ impl AsyncRead for TlsStream {
                     pin.state = State::Streaming(stream);
                     result
                 }
-                Err(err) => Poll::Ready(Err(err)),
+                Err((err, mut stream)) => {
+                    if pin.can_upgrade {
+                        let result = Pin::new(&mut stream).poll_read(cx, buf);
+                        pin.state = State::Upgrading(stream);
+                        result
+                    } else {
+                        Poll::Ready(Err(err))
+                    }
+                }
             },
             State::Streaming(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
+            State::Upgrading(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
         }
     }
 }
@@ -235,9 +265,18 @@ impl AsyncWrite for TlsStream {
                     pin.state = State::Streaming(stream);
                     result
                 }
-                Err(err) => Poll::Ready(Err(err)),
+                Err((err, mut stream)) => {
+                    if pin.can_upgrade {
+                        let result = Pin::new(&mut stream).poll_write(cx, buf);
+                        pin.state = State::Upgrading(stream);
+                        result
+                    } else {
+                        Poll::Ready(Err(err))
+                    }
+                }
             },
             State::Streaming(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
+            State::Upgrading(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
         }
     }
 
@@ -245,6 +284,7 @@ impl AsyncWrite for TlsStream {
         match self.state {
             State::Handshaking(_) => Poll::Ready(Ok(())),
             State::Streaming(ref mut stream) => Pin::new(stream).poll_flush(cx),
+            State::Upgrading(ref mut stream) => Pin::new(stream).poll_flush(cx),
         }
     }
 
@@ -252,6 +292,7 @@ impl AsyncWrite for TlsStream {
         match self.state {
             State::Handshaking(_) => Poll::Ready(Ok(())),
             State::Streaming(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
+            State::Upgrading(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
         }
     }
 }
@@ -259,13 +300,15 @@ impl AsyncWrite for TlsStream {
 pub(crate) struct TlsAcceptor {
     config: Arc<ServerConfig>,
     incoming: AddrIncoming,
+    upgrade: bool,
 }
 
 impl TlsAcceptor {
-    pub(crate) fn new(config: ServerConfig, incoming: AddrIncoming) -> TlsAcceptor {
+    pub(crate) fn new(config: ServerConfig, incoming: AddrIncoming, upgrade: bool) -> TlsAcceptor {
         TlsAcceptor {
             config: Arc::new(config),
             incoming,
+            upgrade,
         }
     }
 }
@@ -280,7 +323,11 @@ impl Accept for TlsAcceptor {
     ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
         let pin = self.get_mut();
         match ready!(Pin::new(&mut pin.incoming).poll_accept(cx)) {
-            Some(Ok(sock)) => Poll::Ready(Some(Ok(TlsStream::new(sock, pin.config.clone())))),
+            Some(Ok(sock)) => Poll::Ready(Some(Ok(TlsStream::new(
+                sock,
+                pin.config.clone(),
+                pin.upgrade,
+            )))),
             Some(Err(e)) => Poll::Ready(Some(Err(e))),
             None => Poll::Ready(None),
         }
