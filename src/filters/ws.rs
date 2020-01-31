@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::future::Future;
-use std::io::{self};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -15,10 +14,7 @@ use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use tokio_tungstenite::{
-    tungstenite::{
-        self,
-        protocol::{self, WebSocketConfig},
-    },
+    tungstenite::protocol::{self, WebSocketConfig},
     WebSocketStream,
 };
 
@@ -187,15 +183,6 @@ impl Stream for WebSocket {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(Ok(Message { inner: item }))),
-            Poll::Ready(Some(Err(tungstenite::Error::Io(ref err))))
-                if err.kind() == io::ErrorKind::WouldBlock =>
-            {
-                Poll::Pending
-            }
-            Poll::Ready(Some(Err(tungstenite::Error::ConnectionClosed))) => {
-                log::trace!("websocket closed");
-                Poll::Ready(None)
-            }
             Poll::Ready(Some(Err(e))) => {
                 log::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
