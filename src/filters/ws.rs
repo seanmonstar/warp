@@ -10,7 +10,7 @@ use super::{body, header};
 use crate::filter::{Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, FutureExt, Sink, Stream, TryFutureExt};
+use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use tokio_tungstenite::{
@@ -181,17 +181,16 @@ impl Stream for WebSocket {
     type Item = Result<Message, crate::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        match Pin::new(&mut self.inner).poll_next(cx) {
-            Poll::Ready(Some(Ok(item))) => Poll::Ready(Some(Ok(Message { inner: item }))),
-            Poll::Ready(Some(Err(e))) => {
+        match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
+            Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
+            Some(Err(e)) => {
                 log::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
             }
-            Poll::Ready(None) => {
+            None => {
                 log::trace!("websocket closed");
                 Poll::Ready(None)
             }
-            Poll::Pending => Poll::Pending,
         }
     }
 }
@@ -200,10 +199,9 @@ impl Sink<Message> for WebSocket {
     type Error = crate::Error;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        match Pin::new(&mut self.inner).poll_ready(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
-            Poll::Pending => Poll::Pending,
+        match ready!(Pin::new(&mut self.inner).poll_ready(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(crate::Error::new(e))),
         }
     }
 
@@ -218,21 +216,19 @@ impl Sink<Message> for WebSocket {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
-        match Pin::new(&mut self.inner).poll_flush(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(e)) => Poll::Ready(Err(crate::Error::new(e))),
-            Poll::Pending => Poll::Pending,
+        match ready!(Pin::new(&mut self.inner).poll_flush(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(e) => Poll::Ready(Err(crate::Error::new(e))),
         }
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
-        match Pin::new(&mut self.inner).poll_close(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(Ok(())),
-            Poll::Ready(Err(err)) => {
+        match ready!(Pin::new(&mut self.inner).poll_close(cx)) {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(err) => {
                 log::debug!("websocket close error: {}", err);
                 Poll::Ready(Err(crate::Error::new(err)))
             }
-            Poll::Pending => Poll::Pending,
         }
     }
 }
