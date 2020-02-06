@@ -34,7 +34,7 @@ tokio = { version = "0.2", features = ["blocking", "fs", "stream", "sync", "time
 tower-service = "0.3"
 rustls = { version = "0.16", optional = true }
 # tls is enabled by default, we don't want that yet
-tungstenite = { default-features = false, version = "0.9", optional = true }
+tokio-tungstenite = { version = "0.10", default-features = false, optional = true }
 urlencoding = "1.0.0"
 pin-project = "0.4.5"
 
@@ -46,7 +46,7 @@ tokio = { version = "0.2", features = ["macros"] }
 
 [features]
 default = ["multipart", "websocket"]
-websocket = ["tungstenite"]
+websocket = ["tokio-tungstenite"]
 tls = ["rustls"]
 
 [profile.release]

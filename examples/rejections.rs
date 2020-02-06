@@ -27,13 +27,11 @@ async fn main() {
 
 /// Extract a denominator from a "div-by" header, or reject with DivideByZero.
 fn div_by() -> impl Filter<Extract = (NonZeroU16,), Error = Rejection> + Copy {
-    warp::header::<u16>("div-by").and_then(|n: u16| {
-        async move {
-            if let Some(denom) = NonZeroU16::new(n) {
-                Ok(denom)
-            } else {
-                Err(reject::custom(DivideByZero))
-            }
+    warp::header::<u16>("div-by").and_then(|n: u16| async move {
+        if let Some(denom) = NonZeroU16::new(n) {
+            Ok(denom)
+        } else {
+            Err(reject::custom(DivideByZero))
         }
     })
 }

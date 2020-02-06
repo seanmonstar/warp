@@ -22,13 +22,13 @@ async fn main() {
         .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
-        .and(warp::body::bytes().and_then(|body: bytes::Bytes| {
-            async move {
+        .and(
+            warp::body::bytes().and_then(|body: bytes::Bytes| async move {
                 std::str::from_utf8(&body)
                     .map(String::from)
                     .map_err(|_e| warp::reject::custom(NotUtf8))
-            }
-        }))
+            }),
+        )
         .and(users.clone())
         .map(|my_id, msg, users| {
             user_message(my_id, msg, &users);
