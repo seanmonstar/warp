@@ -74,6 +74,8 @@ async fn user_connected(ws: WebSocket, users: Users) {
     // Make an extra clone to give to our disconnection handler...
     let users2 = users.clone();
 
+    // Every time the user sends a message, broadcast it to
+    // all other users...
     while let Some(result) = user_ws_rx.next().await {
         let msg = match result {
             Ok(msg) => msg,
@@ -84,6 +86,9 @@ async fn user_connected(ws: WebSocket, users: Users) {
         };
         user_message(my_id, msg, &users).await;
     }
+
+    // user_ws_rx stream will keep processing as long as the user stays
+    // connected. Once they disconnect, then...
     user_disconnected(my_id, &users2).await;
 }
 
