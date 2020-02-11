@@ -1,6 +1,10 @@
 use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
+use std::result;
+
+/// A specialized `Result` type for warp errors.
+pub type Result<T> = result::Result<T, Error>;
 
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
