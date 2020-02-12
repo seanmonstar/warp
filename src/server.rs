@@ -21,7 +21,7 @@ use crate::transport::Transport;
 /// Create a `Server` with the provided `Filter`.
 pub fn serve<F>(filter: F) -> Server<F>
 where
-    F: Filter + Clone + Send + Sync + 'static,
+    F: Filter,
     F::Extract: Reply,
     F::Error: IsReject,
 {
