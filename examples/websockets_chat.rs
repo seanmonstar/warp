@@ -81,7 +81,7 @@ async fn user_connected(ws: WebSocket, users: Users) {
             Ok(msg) => msg,
             Err(e) => {
                 eprintln!("websocket error(uid={}): {}", my_id, e);
-                continue;
+                break;
             }
         };
         user_message(my_id, msg, &users).await;
