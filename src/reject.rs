@@ -256,6 +256,7 @@ enum_known! {
     MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
     MissingExtension(crate::ext::MissingExtension),
     BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
+    BodyReplaceError(crate::body::BodyReplaceError),
 }
 
 impl Rejection {
@@ -395,9 +396,9 @@ impl Rejections {
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
-                Known::MissingExtension(_) | Known::BodyConsumedMultipleTimes(_) => {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
+                Known::MissingExtension(_)
+                | Known::BodyConsumedMultipleTimes(_)
+                | Known::BodyReplaceError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
@@ -551,16 +552,6 @@ mod sealed {
     pub trait IsReject: fmt::Debug + Send + Sync {
         fn status(&self) -> StatusCode;
         fn into_response(&self) -> crate::reply::Response;
-    }
-
-    impl IsReject for Box<dyn IsReject + 'static> {
-        fn status(&self) -> StatusCode {
-            self.as_ref().status()
-        }
-
-        fn into_response(&self) -> crate::reply::Response {
-            self.as_ref().into_response()
-        }
     }
 
     fn _assert_object_safe() {

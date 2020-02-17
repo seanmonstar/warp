@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::{buf::BufExt, Buf, Bytes};
-use futures::{future, ready, Stream, TryFutureExt};
+use futures::{future, ready, stream::StreamExt, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::Body;
@@ -18,9 +18,8 @@ use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
 
-use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase, WrapSealed};
+use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
 use crate::reject::{self, Rejection};
-use crate::reply::Reply;
 
 /// Create a wrapping filter to manipulate a request body before it is parsed
 ///
@@ -31,120 +30,62 @@ use crate::reply::Reply;
 /// ```
 /// use warp::Filter;
 ///
-/// let body = warp::body::map_request_body(move |body| {
+/// let some_filter = warp::body::inspect_request_body(BytesMut::new(), move |mut acc, bytes| {
 ///     async move {
-///         // process the body
-///         Some(body)
+///         // Process bytes...
+///         acc.extend_from_slice(&bytes);
+///         acc
 ///     }
 /// });
 ///
 /// let route = warp::any()
-///     .map(warp::reply)
-///     .with(body);
-pub fn map_request_body<FN, FNOut, F>(filter: F, func: FN) -> MapRequestBody<FN, F>
-where
-    FN: Fn(Body, F::Extract) -> FNOut + Send + Clone,
-    FNOut: Future<Output = Option<Body>> + Send + 'static,
-    F: Filter + Send + Clone,
-{
-    MapRequestBody { func, filter }
-}
-
-/// Decorates a [`Filter`](::Filter) to manipulate bodies
-#[derive(Clone, Copy, Debug)]
-pub struct MapRequestBody<FN, F> {
+///     .and(some_filter)
+///     .map(|bytes_mut| bytes_mut.freeze());
+/// ```
+pub fn inspect_request_body<T, FN, FNOut, F>(
+    acc: T,
     func: FN,
-    filter: F,
-}
-
-impl<FN, FNOut, F, F2> WrapSealed<F> for MapRequestBody<FN, F2>
+) -> impl Filter<Extract = (T,), Error = Rejection> + Clone
 where
-    FN: Fn(Body, F2::Extract) -> FNOut + Clone + Send + Sync + 'static,
-    FNOut: Future<Output = Option<Body>> + Send + 'static,
-    F: Filter + Clone + Send + Sync + 'static,
-    F::Extract: Reply,
-    F::Error: Into<Rejection>,
-    F2: Filter + Clone + Send + Sync + 'static,
-    F2::Extract: Send,
-    F2::Error: Into<Rejection> + 'static,
+    FN: Fn(T, &Bytes) -> FNOut + Send + Sync + Clone,
+    FNOut: Future<Output = T> + Send + 'static,
+    T: Send + Clone,
 {
-    type Wrapped = internal::WithBody<FN, F, F2>;
+    crate::any().and_then(move || {
+        let mut acc = acc.clone();
+        let func = func.clone();
 
-    fn wrap(&self, filter: F) -> Self::Wrapped {
-        internal::WithBody {
-            filter,
-            body: self.clone(),
-        }
-    }
-}
+        async move {
+            let (mut sender, new_body) = Body::channel();
 
-mod internal {
-    use std::future::Future;
-    use std::pin::Pin;
+            if let Some(mut body) = crate::route::with(move |route| {
+                let prev_body = route.take_body();
 
-    use hyper::Body;
-
-    use super::MapRequestBody;
-    use crate::filter::{Filter, FilterBase, Internal};
-    use crate::reject::Rejection;
-    use crate::reply::{Reply, Response};
-    use crate::route;
-
-    #[allow(missing_debug_implementations)]
-    pub struct Bodied(pub(super) Response);
-
-    impl Reply for Bodied {
-        #[inline]
-        fn into_response(self) -> Response {
-            self.0
-        }
-    }
-
-    #[allow(missing_debug_implementations)]
-    #[derive(Clone, Copy)]
-    pub struct WithBody<FN, F, F2> {
-        pub(super) filter: F,
-        pub(super) body: MapRequestBody<FN, F2>,
-    }
-
-    impl<FN, FNOut, F, F2> FilterBase for WithBody<FN, F, F2>
-    where
-        FN: Fn(Body, F2::Extract) -> FNOut + Clone + Send + Sync + 'static,
-        FNOut: Future<Output = Option<Body>> + Send + 'static,
-        F: Filter + Clone + Send + Sync + 'static,
-        F::Extract: Reply,
-        F::Error: Into<Rejection>,
-        F2: Filter + Clone + Send + Sync + 'static,
-        F2::Extract: Send,
-        F2::Error: Into<Rejection> + 'static,
-    {
-        type Extract = F::Extract;
-        type Error = Rejection;
-        type Future = Pin<Box<dyn Future<Output = Result<F::Extract, Rejection>> + Send>>;
-
-        fn filter(&self, _: Internal) -> Self::Future {
-            let body_wrapper = self.body.clone();
-            let filter = self.filter.clone();
-            Box::pin(async move {
-                if let Some(body) = route::with(|route| route.take_body()) {
-                    let extract = body_wrapper
-                        .filter
-                        .filter(Internal)
-                        .await
-                        .map_err(Into::into)?;
-
-                    if let Some(body) = (body_wrapper.func)(body, extract).await {
-                        route::with(move |route| {
-                            route.set_body(body);
-                        });
-                    }
+                if prev_body.is_some() {
+                    route.set_body(new_body);
                 }
 
-                let reply = filter.filter(Internal).await.map_err(Into::into)?;
-                Ok(reply)
-            })
+                prev_body
+            }) {
+                while let Some(res) = body.next().await {
+                    let bytes = match res {
+                        Ok(bytes) => bytes,
+                        Err(err) => return Err(reject::known(BodyReadError(err))),
+                    };
+
+                    acc = (func.clone())(acc, &bytes).await;
+                    sender
+                        .send_data(bytes)
+                        .await
+                        .map_err(|_| reject::known(BodyReplaceError { _p: () }))?;
+                }
+
+                Ok(acc)
+            } else {
+                Ok(acc)
+            }
         }
-    }
+    })
 }
 
 // Extracts the `Body` Stream from the route.
@@ -432,4 +373,8 @@ impl StdError for BodyReadError {}
 
 unit_error! {
     pub(crate) BodyConsumedMultipleTimes: "Request body consumed multiple times"
+}
+
+unit_error! {
+    pub(crate) BodyReplaceError: "Could not rebuild body from stream"
 }
