@@ -42,7 +42,7 @@ use crate::reject::{self, Rejection};
 ///     .and(some_filter)
 ///     .map(|bytes_mut| bytes_mut.freeze());
 /// ```
-pub fn inspect_request_body<T, FN, FNOut, F>(
+pub fn inspect_request_body<T, FN, FNOut>(
     acc: T,
     func: FN,
 ) -> impl Filter<Extract = (T,), Error = Rejection> + Clone
