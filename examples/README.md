@@ -35,3 +35,7 @@ Hooray! `warp` also includes built-in support for WebSockets
 ### TLS
 
 - [`tls.rs`](./tls.rs) - can i haz security?
+
+### Autoreloading
+
+- [`autoreload.rs`](./autoreload.rs) - Change some code and watch the server reload automatically!
