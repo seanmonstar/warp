@@ -506,6 +506,13 @@ pub struct MissingHeader {
     name: &'static str,
 }
 
+impl MissingHeader {
+    /// Retrieve the name of the header that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
 impl ::std::fmt::Display for MissingHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f, "Missing request header {:?}", self.name)
@@ -520,6 +527,13 @@ pub struct InvalidHeader {
     name: &'static str,
 }
 
+impl InvalidHeader {
+    /// Retrieve the name of the header that was invalid
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
 impl ::std::fmt::Display for InvalidHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f, "Invalid request header {:?}", self.name)
@@ -532,6 +546,13 @@ impl StdError for InvalidHeader {}
 #[derive(Debug)]
 pub struct MissingCookie {
     name: &'static str,
+}
+
+impl MissingCookie {
+    /// Retrieve the name of the cookie that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
 }
 
 impl ::std::fmt::Display for MissingCookie {
