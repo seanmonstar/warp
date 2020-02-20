@@ -137,6 +137,7 @@ use std::str::FromStr;
 use http::uri::PathAndQuery;
 
 use filter::{filter_fn, one, Filter, One, Tuple};
+use never::Never;
 use reject::{self, Rejection};
 use route::Route;
 
@@ -295,23 +296,20 @@ where
 ///         format!("The tail after foo is {:?}", tail)
 ///     });
 /// ```
-pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Rejection> + Copy {
+pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Never> + Copy {
     filter_fn(move |route| {
-        if let Some(path) = path_and_query(&route) {
-            let idx = route.matched_path_index();
-            let path = path.clone();
+        let path = path_and_query(&route);
+        let idx = route.matched_path_index();
 
-            // Giving the user the full tail means we assume the full path
-            // has been matched now.
-            let end = path.path().len() - idx;
-            route.set_unmatched_path(end);
+        // Giving the user the full tail means we assume the full path
+        // has been matched now.
+        let end = path.path().len() - idx;
+        route.set_unmatched_path(end);
 
-            return Ok(one(Tail {
-                path,
-                start_index: idx,
-            }));
-        }
-        Err(reject::not_found())
+        Ok(one(Tail {
+            path,
+            start_index: idx,
+        }))
     })
 }
 
@@ -352,18 +350,15 @@ impl fmt::Debug for Tail {
 ///         format!("The path after foo is {:?}", peek)
 ///     });
 /// ```
-pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Rejection> + Copy {
+pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Never> + Copy {
     filter_fn(move |route| {
-        if let Some(path) = path_and_query(&route) {
-            let path = path.clone();
-            let idx = route.matched_path_index();
+        let path = path_and_query(&route);
+        let idx = route.matched_path_index();
 
-            return Ok(one(Peek {
-                path,
-                start_index: idx,
-            }));
-        }
-        Err(reject::not_found())
+        Ok(one(Peek {
+            path,
+            start_index: idx,
+        }))
     })
 }
 
@@ -422,13 +417,8 @@ impl fmt::Debug for Peek {
 ///         format!("This is the {}th visit to this URL!", count)
 ///     });
 /// ```
-pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Rejection> + Copy {
-    filter_fn(move |route|  {
-        if let Some(path) = path_and_query(&route) {
-             return Ok(one(FullPath(path.clone())));
-        }
-        Err(reject::not_found())
-    })
+pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Never> + Copy {
+    filter_fn(move |route| Ok(one(FullPath(path_and_query(&route)))))
 }
 
 /// Represents the full request path, returned by the `full()` filter.
@@ -466,11 +456,12 @@ where
     })
 }
 
-fn path_and_query(route: &Route) -> Option<&PathAndQuery>  {
-    let path = route
+fn path_and_query(route: &Route) -> PathAndQuery {
+    route
         .uri()
-        .path_and_query();
-    path
+        .path_and_query()
+        .expect("server URIs should always have path_and_query")
+        .clone()
 }
 
 /// Convenient way to chain multiple path filters together.
