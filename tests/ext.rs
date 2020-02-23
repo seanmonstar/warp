@@ -6,13 +6,13 @@ struct Ext1(i32);
 
 #[tokio::test]
 async fn set_and_get() {
-    let ext_filterj = warp::any()
+    let ext_filter = warp::any()
         .with(warp::ext::with_mut(|ext| {
             ext.insert(Ext1(55));
         }))
         .and(warp::ext::get::<Ext1>());
 
-    let extracted = warp::test::request().filter(&ext_filterj).await.unwrap();
+    let extracted = warp::test::request().filter(&ext_filter).await.unwrap();
 
     assert_eq!(extracted, Ext1(55));
 }
