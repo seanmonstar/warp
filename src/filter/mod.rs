@@ -2,6 +2,7 @@ mod and;
 mod and_then;
 mod boxed;
 mod map;
+mod map_async;
 mod map_err;
 mod or;
 mod or_else;
@@ -24,6 +25,7 @@ pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
+pub(crate) use self::map_async::MapAsync;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
@@ -192,6 +194,19 @@ pub trait Filter: FilterBase {
         F: Func<Self::Extract> + Clone,
     {
         Map {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// TODO
+    fn map_async<F>(self, fun: F) -> MapAsync<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone,
+        F::Output: Future + Send,
+    {
+        MapAsync {
             filter: self,
             callback: fun,
         }
