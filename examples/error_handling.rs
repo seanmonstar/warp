@@ -11,7 +11,7 @@ use warp::{Filter, Reply};
 async fn main() {
     let math = warp::path!("math" / u16)
         .and(warp::header::<u16>("div-by"))
-        .map(div_by);
+        .map_async(div_by);
 
     let routes = warp::get().and(math);
 
@@ -20,7 +20,7 @@ async fn main() {
 
 // Reply is implemented for Result<impl Reply, impl Reply>.
 // This makes it easy to handle errors since bad requests are just mapped to Result::Err().
-fn div_by(num: u16, denom: u16) -> Result<impl Reply, DivideByZero> {
+async fn div_by(num: u16, denom: u16) -> Result<impl Reply, DivideByZero> {
     let denom = NonZeroU16::new(denom).ok_or(DivideByZero)?;
 
     Ok(warp::reply::json(&Math {
