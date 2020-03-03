@@ -1,3 +1,12 @@
+### v0.2.2 (March 3, 2020)
+
+- **Features**:
+  - Implement `Reply` for all `Box<T>` where `T: Reply`.
+  - Add `name` methods to `MissingHeader`, `InvalidHeader`, and `MissingCookie` rejections.
+  - Add `warp::ext::optional()` filter that optionally retrieves an extension from the request.
+- **Fixes**:
+  - Fix the sending of pings when a user sends a `ws::Message::ping()`.
+
 ### v0.2.1 (January 23, 2020)
 
 - **Features**:
