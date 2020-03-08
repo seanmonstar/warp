@@ -17,16 +17,31 @@ use crate::reply::{Reply, Response};
 
 use self::internal::WithCompression;
 
-// String constants that are valid `content-encoding` header values
-const GZIP: &str = "gzip";
-const DEFLATE: &str = "deflate";
-const BR: &str = "br";
+enum CompressionAlgo {
+    BR,
+    DEFLATE,
+    GZIP,
+}
+
+impl From<CompressionAlgo> for HeaderValue {
+    #[inline]
+    fn from(algo: CompressionAlgo) -> Self {
+        match algo {
+            CompressionAlgo::BR => HeaderValue::from_static("br"),
+            CompressionAlgo::DEFLATE => HeaderValue::from_static("deflate"),
+            CompressionAlgo::GZIP => HeaderValue::from_static("gzip"),
+        }
+    }
+}
 
 /// Compression
 #[derive(Clone, Copy, Debug)]
 pub struct Compression<F> {
     func: F,
 }
+
+// TODO: The implementation of `gzip()`, `deflate()`, and `brotli()` could be replaced with
+// generics or a macro
 
 /// Create a wrapping filter that compresses the Body of a [`Response`](crate::reply::Response)
 /// using gzip, adding `content-encoding: gzip` to the Response's [`HeaderMap`](hyper::HeaderMap)
@@ -47,7 +62,7 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
         props
             .head
             .headers
-            .append(CONTENT_ENCODING, HeaderValue::from_static(GZIP));
+            .append(CONTENT_ENCODING, CompressionAlgo::GZIP.into());
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -72,7 +87,7 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
         props
             .head
             .headers
-            .append(CONTENT_ENCODING, HeaderValue::from_static(DEFLATE));
+            .append(CONTENT_ENCODING, CompressionAlgo::DEFLATE.into());
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -97,7 +112,7 @@ pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
         props
             .head
             .headers
-            .append(CONTENT_ENCODING, HeaderValue::from_static(BR));
+            .append(CONTENT_ENCODING, CompressionAlgo::BR.into());
         Response::from_parts(props.head, body)
     };
     Compression { func }

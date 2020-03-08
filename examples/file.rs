@@ -15,7 +15,7 @@ async fn main() {
 
     // GET / => README.md
     // GET /ex/... => ./examples/..
-    let routes = readme.or(examples).with(warp::compression::brotli());
+    let routes = readme.or(examples);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
