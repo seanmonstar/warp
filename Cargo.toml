@@ -17,7 +17,7 @@ edition = "2018"
 features = ["tls"]
 
 [dependencies]
-async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"] }
+async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
 bytes = "0.5"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
@@ -50,6 +50,7 @@ listenfd = "0.3"
 default = ["multipart", "websocket"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
+compression = ["async-compression"]
 
 [profile.release]
 codegen-units = 1
@@ -66,6 +67,10 @@ required-features = ["multipart"]
 [[test]]
 name = "ws"
 required-features = ["websocket"]
+
+[[example]]
+name = "compression"
+required-features = ["compression"]
 
 [[example]]
 name = "unix_socket"

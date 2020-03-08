@@ -103,6 +103,8 @@ mod transport;
 
 pub use self::error::Error;
 pub use self::filter::Filter;
+#[cfg(feature = "compression")]
+pub use self::filters::compression;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
@@ -118,7 +120,6 @@ pub use self::filters::{
     // any() function
     any::any,
     body,
-    compression,
     cookie,
     // cookie() function
     cookie::cookie,
