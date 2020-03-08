@@ -1,11 +1,11 @@
 //! Compression Filters
 
-use async_compression::stream::GzipEncoder;
+use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
 use bytes::Bytes;
 use futures::Stream;
-use http::header::{HeaderName, HeaderValue};
+use http::header::HeaderValue;
 use http::response::{Parts, Response as HttpResponse};
-use hyper::Body;
+use hyper::{header::CONTENT_ENCODING, Body};
 use pin_project::pin_project;
 
 use std::pin::Pin;
@@ -17,20 +17,87 @@ use crate::reply::{Reply, Response};
 
 use self::internal::WithCompression;
 
+// String constants that are valid `content-encoding` header values
+const GZIP: &str = "gzip";
+const DEFLATE: &str = "deflate";
+const BR: &str = "br";
+
 /// Compression
 #[derive(Clone, Copy, Debug)]
 pub struct Compression<F> {
     func: F,
 }
 
-/// blah blah blah
+/// Create a wrapping filter that compresses the Body of a [`Response`](crate::reply::Response)
+/// using gzip, adding `content-encoding: gzip` to the Response's [`HeaderMap`](hyper::HeaderMap)
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::get()
+///     .and(warp::path::end())
+///     .and(warp::fs::file("./README.md"))
+///     .with(warp::compression::gzip());
+/// ```
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
         let body = Body::wrap_stream(GzipEncoder::new(props.body));
-        props.head.headers.append(
-            HeaderName::from_static("content-encoding"),
-            HeaderValue::from_static("gzip"),
-        );
+        props
+            .head
+            .headers
+            .append(CONTENT_ENCODING, HeaderValue::from_static(GZIP));
+        Response::from_parts(props.head, body)
+    };
+    Compression { func }
+}
+
+/// Create a wrapping filter that compresses the Body of a [`Response`](crate::reply::Response)
+/// using deflate, adding `content-encoding: deflate` to the Response's [`HeaderMap`](hyper::HeaderMap)
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::get()
+///     .and(warp::path::end())
+///     .and(warp::fs::file("./README.md"))
+///     .with(warp::compression::deflate());
+/// ```
+pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
+    let func = move |mut props: CompressionProps| {
+        let body = Body::wrap_stream(DeflateEncoder::new(props.body));
+        props
+            .head
+            .headers
+            .append(CONTENT_ENCODING, HeaderValue::from_static(DEFLATE));
+        Response::from_parts(props.head, body)
+    };
+    Compression { func }
+}
+
+/// Create a wrapping filter that compresses the Body of a [`Response`](crate::reply::Response)
+/// using brotli, adding `content-encoding: br` to the Response's [`HeaderMap`](hyper::HeaderMap)
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::get()
+///     .and(warp::path::end())
+///     .and(warp::fs::file("./README.md"))
+///     .with(warp::compression::brotli());
+/// ```
+pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
+    let func = move |mut props: CompressionProps| {
+        let body = Body::wrap_stream(BrotliEncoder::new(props.body));
+        props
+            .head
+            .headers
+            .append(CONTENT_ENCODING, HeaderValue::from_static(BR));
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -106,7 +173,6 @@ mod internal {
     use futures::{ready, TryFuture};
     use pin_project::pin_project;
 
-    // use bytes::Buf;
     use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
