@@ -11,11 +11,13 @@ async fn main() {
         .and(warp::fs::file("./README.md"));
 
     // dir already requires GET...
-    let examples = warp::path("ex").and(warp::fs::dir("./examples/"));
+    let examples = warp::path("ex")
+        .and(warp::fs::dir("./examples/"))
+        .with(warp::compression::gzip());
 
     // GET / => README.md
     // GET /ex/... => ./examples/..
-    let routes = readme.or(examples);
+    let routes = readme.or(examples).with(warp::log("info"));
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

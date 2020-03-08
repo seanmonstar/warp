@@ -118,6 +118,7 @@ pub use self::filters::{
     // any() function
     any::any,
     body,
+    compression,
     cookie,
     // cookie() function
     cookie::cookie,
