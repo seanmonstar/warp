@@ -121,7 +121,7 @@ pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 /// Compression Props
 #[derive(Debug)]
 pub struct CompressionProps {
-    body: CompressableBody,
+    body: CompressableBody<Body, hyper::Error>,
     head: Parts,
 }
 
@@ -139,12 +139,20 @@ impl From<HttpResponse<Body>> for CompressionProps {
 /// compatible with async_compression's Stream based encoders
 #[pin_project]
 #[derive(Debug)]
-pub struct CompressableBody {
+struct CompressableBody<S, E>
+where
+    E: std::error::Error,
+    S: Stream<Item = Result<Bytes, E>>,
+{
     #[pin]
-    body: Body,
+    body: S,
 }
 
-impl Stream for CompressableBody {
+impl<S, E> Stream for CompressableBody<S, E>
+where
+    E: std::error::Error,
+    S: Stream<Item = Result<Bytes, E>>,
+{
     type Item = std::io::Result<Bytes>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -152,12 +160,12 @@ impl Stream for CompressableBody {
 
         let pin = self.project();
         // TODO: Use `.map_err()` (https://github.com/rust-lang/rust/issues/63514) once it is stabilized
-        Body::poll_next(pin.body, cx)
+        S::poll_next(pin.body, cx)
             .map(|e| e.map(|res| res.map_err(|_| Error::from(ErrorKind::InvalidData))))
     }
 }
 
-impl From<Body> for CompressableBody {
+impl From<Body> for CompressableBody<Body, hyper::Error> {
     fn from(body: Body) -> Self {
         CompressableBody { body }
     }
@@ -191,7 +199,6 @@ mod internal {
     use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
-    use crate::route;
 
     use super::{Compression, CompressionProps};
 
@@ -253,7 +260,7 @@ mod internal {
             let result = ready!(pin.future.try_poll(cx));
             match result {
                 Ok(reply) => {
-                    let resp = route::with(|_r| (self.compress.func)(reply.into_response().into()));
+                    let resp = (self.compress.func)(reply.into_response().into());
                     Poll::Ready(Ok((Compressed(resp),)))
                 }
                 Err(reject) => Poll::Ready(Err(reject)),
