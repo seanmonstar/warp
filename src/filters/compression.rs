@@ -1,21 +1,14 @@
 //! Compression Filters
 
 use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
-use bytes::Bytes;
-use futures::Stream;
 use http::header::HeaderValue;
-use http::response::{Parts, Response as HttpResponse};
 use hyper::{header::CONTENT_ENCODING, Body};
-use pin_project::pin_project;
-
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
 use crate::reply::{Reply, Response};
 
-use self::internal::WithCompression;
+use self::internal::{CompressionProps, WithCompression};
 
 enum CompressionAlgo {
     BR,
@@ -118,59 +111,6 @@ pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     Compression { func }
 }
 
-/// Compression Props
-#[derive(Debug)]
-pub struct CompressionProps {
-    body: CompressableBody<Body, hyper::Error>,
-    head: Parts,
-}
-
-impl From<HttpResponse<Body>> for CompressionProps {
-    fn from(resp: HttpResponse<Body>) -> Self {
-        let (head, body) = resp.into_parts();
-        CompressionProps {
-            body: body.into(),
-            head,
-        }
-    }
-}
-
-/// A wrapper around [`Body`](hyper::Body) that implements [`Stream`](futures::Stream) to be
-/// compatible with async_compression's Stream based encoders
-#[pin_project]
-#[derive(Debug)]
-struct CompressableBody<S, E>
-where
-    E: std::error::Error,
-    S: Stream<Item = Result<Bytes, E>>,
-{
-    #[pin]
-    body: S,
-}
-
-impl<S, E> Stream for CompressableBody<S, E>
-where
-    E: std::error::Error,
-    S: Stream<Item = Result<Bytes, E>>,
-{
-    type Item = std::io::Result<Bytes>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use std::io::{Error, ErrorKind};
-
-        let pin = self.project();
-        // TODO: Use `.map_err()` (https://github.com/rust-lang/rust/issues/63514) once it is stabilized
-        S::poll_next(pin.body, cx)
-            .map(|e| e.map(|res| res.map_err(|_| Error::from(ErrorKind::InvalidData))))
-    }
-}
-
-impl From<Body> for CompressableBody<Body, hyper::Error> {
-    fn from(body: Body) -> Self {
-        CompressableBody { body }
-    }
-}
-
 impl<FN, F> WrapSealed<F> for Compression<FN>
 where
     FN: Fn(CompressionProps) -> Response + Clone + Send,
@@ -193,14 +133,69 @@ mod internal {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use futures::{ready, TryFuture};
+    use bytes::Bytes;
+    use futures::{ready, Stream, TryFuture};
+    use hyper::Body;
     use pin_project::pin_project;
 
     use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
 
-    use super::{Compression, CompressionProps};
+    use super::Compression;
+
+    /// A wrapper around any type that implements [`Stream`](futures::Stream) to be
+    /// compatible with async_compression's Stream based encoders
+    #[pin_project]
+    #[derive(Debug)]
+    pub struct CompressableBody<S, E>
+    where
+        E: std::error::Error,
+        S: Stream<Item = Result<Bytes, E>>,
+    {
+        #[pin]
+        body: S,
+    }
+
+    impl<S, E> Stream for CompressableBody<S, E>
+    where
+        E: std::error::Error,
+        S: Stream<Item = Result<Bytes, E>>,
+    {
+        type Item = std::io::Result<Bytes>;
+
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            use std::io::{Error, ErrorKind};
+
+            let pin = self.project();
+            // TODO: Use `.map_err()` (https://github.com/rust-lang/rust/issues/63514) once it is stabilized
+            S::poll_next(pin.body, cx)
+                .map(|e| e.map(|res| res.map_err(|_| Error::from(ErrorKind::InvalidData))))
+        }
+    }
+
+    impl From<Body> for CompressableBody<Body, hyper::Error> {
+        fn from(body: Body) -> Self {
+            CompressableBody { body }
+        }
+    }
+
+    /// Compression Props
+    #[derive(Debug)]
+    pub struct CompressionProps {
+        pub(super) body: CompressableBody<Body, hyper::Error>,
+        pub(super) head: http::response::Parts,
+    }
+
+    impl From<http::Response<Body>> for CompressionProps {
+        fn from(resp: http::Response<Body>) -> Self {
+            let (head, body) = resp.into_parts();
+            CompressionProps {
+                body: body.into(),
+                head,
+            }
+        }
+    }
 
     #[allow(missing_debug_implementations)]
     pub struct Compressed(pub(super) Response);
