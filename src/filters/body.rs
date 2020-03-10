@@ -16,6 +16,7 @@ use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
 use serde_urlencoded;
+use serde_xml_rs;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
 use crate::reject::{self, Rejection};
@@ -156,7 +157,7 @@ pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Co
 /// # Warning
 ///
 /// This does not have a default size limit, it would be wise to use one to
-/// prevent a overly large request from using too much memory.
+/// prevent an overly large request from using too much memory.
 ///
 /// # Example
 ///
@@ -181,6 +182,37 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         })
 }
 
+/// Returns a `Filter` that matches any request and extracts a `Future` of an
+/// XML-encoded body.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent an overly large request from using too much memory.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+/// use warp::Filter;
+///
+/// let route = warp::body::content_length_limit(1024 * 32)
+///     .and(warp::body::xml())
+///     .map(|simple_map: HashMap<String, String>| {
+///         "Got an XML body!"
+///     });
+/// ```
+pub fn xml<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+    is_content_type::<Xml>()
+        .and(aggregate())
+        .and_then(|buf| async move {
+            Xml::decode(buf).map_err(|err| {
+                log::debug!("request xml body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err })
+            })
+        })
+}
+
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a form encoded body.
 ///
@@ -192,7 +224,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 /// # Warning
 ///
 /// This does not have a default size limit, it would be wise to use one to
-/// prevent a overly large request from using too much memory.
+/// prevent an overly large request from using too much memory.
 ///
 ///
 /// ```
@@ -219,32 +251,51 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 // ===== Decoders =====
 
 trait Decode {
-    const MIME: (mime::Name<'static>, mime::Name<'static>);
     const WITH_NO_CONTENT_TYPE: bool;
 
     fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError>;
+    fn correct_content_type(type_: mime::Name, subtype: mime::Name) -> bool;
 }
 
 struct Json;
 
 impl Decode for Json {
-    const MIME: (mime::Name<'static>, mime::Name<'static>) = (mime::APPLICATION, mime::JSON);
     const WITH_NO_CONTENT_TYPE: bool = true;
 
     fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
         serde_json::from_reader(buf.reader()).map_err(Into::into)
+    }
+
+    fn correct_content_type(type_: mime::Name, subtype: mime::Name) -> bool {
+        type_ == mime::APPLICATION && subtype == mime::JSON
     }
 }
 
 struct Form;
 
 impl Decode for Form {
-    const MIME: (mime::Name<'static>, mime::Name<'static>) =
-        (mime::APPLICATION, mime::WWW_FORM_URLENCODED);
     const WITH_NO_CONTENT_TYPE: bool = true;
 
     fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
         serde_urlencoded::from_reader(buf.reader()).map_err(Into::into)
+    }
+
+    fn correct_content_type(type_: mime::Name, subtype: mime::Name) -> bool {
+        type_ == mime::APPLICATION && subtype == mime::WWW_FORM_URLENCODED
+    }
+}
+
+struct Xml;
+
+impl Decode for Xml {
+    const WITH_NO_CONTENT_TYPE: bool = true;
+
+    fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
+        serde_xml_rs::from_reader(buf.reader()).map_err(Into::into)
+    }
+
+    fn correct_content_type(type_: mime::Name, subtype: mime::Name) -> bool {
+        (type_ == mime::APPLICATION || type_ == mime::TEXT) && subtype == mime::XML
     }
 }
 
@@ -252,24 +303,19 @@ impl Decode for Form {
 // header at all, optimistically hope it's the right type).
 fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
-        let (type_, subtype) = D::MIME;
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            log::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            log::trace!("is_content_type {:?}", value);
             let ct = value
                 .to_str()
                 .ok()
                 .and_then(|s| s.parse::<mime::Mime>().ok());
             if let Some(ct) = ct {
-                if ct.type_() == type_ && ct.subtype() == subtype {
-                    future::ok(())
-                } else {
-                    log::debug!(
-                        "content-type {:?} doesn't match {}/{}",
-                        value,
-                        type_,
-                        subtype
-                    );
-                    future::err(reject::unsupported_media_type())
+                match D::correct_content_type(ct.type_(), ct.subtype()) {
+                    true => future::ok(()),
+                    false => {
+                        log::debug!("content-type {:?} not found in valid types", ct);
+                        future::err(reject::unsupported_media_type())
+                    }
                 }
             } else {
                 log::debug!("content-type {:?} couldn't be parsed", value);
@@ -277,7 +323,7 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
             }
         } else if D::WITH_NO_CONTENT_TYPE {
             // Optimistically assume its correct!
-            log::trace!("no content-type header, assuming {}/{}", type_, subtype);
+            log::trace!("no content-type header, assuming valid");
             future::ok(())
         } else {
             log::debug!("no content-type found");

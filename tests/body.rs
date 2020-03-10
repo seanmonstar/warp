@@ -1,5 +1,8 @@
 #![deny(warnings)]
 
+#[macro_use]
+extern crate serde_derive;
+
 use bytes::Buf;
 use futures::TryStreamExt;
 use warp::Filter;
@@ -110,6 +113,76 @@ async fn json_invalid() {
 fn json_size_of() {
     let json = warp::body::json::<Vec<i32>>();
     assert_eq!(std::mem::size_of_val(&json), 0);
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+struct Item {
+    name: String,
+    source: String,
+}
+
+#[tokio::test]
+async fn xml() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml = warp::body::xml::<Item>();
+
+    let req = warp::test::request().body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let item = req.filter(&xml).await.unwrap();
+    assert_eq!(
+        item,
+        Item {
+            name: "Warp".to_string(),
+            source: "GitHub".to_string()
+        },
+    );
+
+    let req = warp::test::request()
+        .header("content-type", "text/xml")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let item = req.filter(&xml).await.unwrap();
+    assert_eq!(
+        item,
+        Item {
+            name: "Warp".to_string(),
+            source: "GitHub".to_string()
+        },
+        "matches content-type text/xml"
+    );
+
+    let req = warp::test::request()
+        .header("content-type", "application/xml")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let item = req.filter(&xml).await.unwrap();
+    assert_eq!(
+        item,
+        Item {
+            name: "Warp".to_string(),
+            source: "GitHub".to_string()
+        },
+        "matches content-type application/xml"
+    );
+}
+
+#[tokio::test]
+async fn xml_rejects_bad_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml = warp::body::xml::<Item>().map(|_| warp::reply());
+
+    let req = warp::test::request()
+        .header("content-type", "application/json")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let res = req.reply(&xml).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
 }
 
 #[tokio::test]
