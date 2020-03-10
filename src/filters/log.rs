@@ -162,6 +162,11 @@ impl<'a> Info<'a> {
             .get(header::HOST)
             .and_then(|v| v.to_str().ok())
     }
+
+    /// Access the full headers of the request
+    pub fn request_headers(&self) -> &http::HeaderMap {
+        self.route.headers()
+    }
 }
 
 struct OptFmt<T>(Option<T>);
