@@ -111,11 +111,77 @@ async fn json_invalid() {
 
 #[test]
 fn json_size_of() {
-    let json = warp::body::json::<Vec<i32>>();
-    assert_eq!(std::mem::size_of_val(&json), 0);
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>();
+    assert_eq!(std::mem::size_of_val(&json), 1);
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[tokio::test]
+async fn json_enforce_strict_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>().map(|_| warp::reply());
+
+    let req = warp::test::request().body("[1, 2, 3]");
+
+    let res = req.reply(&json).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>();
+
+    let req = warp::test::request()
+        .header("content-type", "application/json")
+        .body("[3, 2, 1]");
+
+    let vec = req.filter(&json).await.unwrap();
+    assert_eq!(vec, &[3, 2, 1], "matches content-type");
+}
+
+#[tokio::test]
+async fn json_enforce_strict_content_type_rejects_bad_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>().map(|_| warp::reply());
+
+    let req = warp::test::request()
+        .header("content-type", "text/xml")
+        .body("[3, 2, 1]");
+
+    let res = req.reply(&json).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+}
+
+#[tokio::test]
+async fn json_enforce_strict_content_type_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>()
+        .map(|vec| warp::reply::json(&vec));
+
+    let res = warp::test::request()
+        .body("lol#wat")
+        .header("content-type", "application/json")
+        .reply(&json)
+        .await;
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
+}
+
+#[test]
+fn json_enforce_strict_content_type_size_of() {
+    let json = warp::body::json_enforce_strict_content_type::<Vec<i32>>();
+    assert_eq!(std::mem::size_of_val(&json), 1);
+}
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 struct Item {
     name: String,
     source: String,
@@ -186,6 +252,99 @@ async fn xml_rejects_bad_content_type() {
 }
 
 #[tokio::test]
+async fn xml_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml = warp::body::xml::<Item>().map(|item| warp::reply::json(&item));
+
+    let res = warp::test::request().body("lol#wat").reply(&xml).await;
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
+}
+
+#[tokio::test]
+async fn xml_enforce_strict_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml = warp::body::xml_enforce_strict_content_type::<Item>().map(|_| warp::reply());
+
+    let req = warp::test::request().body("<item><name>Warp</name><source>GitHub</source></item>");
+    let res = req.reply(&xml).await;
+
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+
+    let xml = warp::body::xml_enforce_strict_content_type::<Item>();
+
+    let req = warp::test::request()
+        .header("content-type", "text/xml")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let item = req.filter(&xml).await.unwrap();
+    assert_eq!(
+        item,
+        Item {
+            name: "Warp".to_string(),
+            source: "GitHub".to_string()
+        },
+        "matches content-type text/xml"
+    );
+
+    let req = warp::test::request()
+        .header("content-type", "application/xml")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let item = req.filter(&xml).await.unwrap();
+    assert_eq!(
+        item,
+        Item {
+            name: "Warp".to_string(),
+            source: "GitHub".to_string()
+        },
+        "matches content-type application/xml"
+    );
+}
+
+#[tokio::test]
+async fn xml_enforce_strict_content_type_rejects_bad_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml = warp::body::xml_enforce_strict_content_type::<Item>().map(|_| warp::reply());
+
+    let req = warp::test::request()
+        .header("content-type", "application/json")
+        .body("<item><name>Warp</name><source>GitHub</source></item>");
+
+    let res = req.reply(&xml).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+}
+
+#[tokio::test]
+async fn xml_enforce_strict_content_type_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let xml =
+        warp::body::xml_enforce_strict_content_type::<Item>().map(|item| warp::reply::json(&item));
+
+    let res = warp::test::request()
+        .body("lol#wat")
+        .header("content-type", "application/xml")
+        .reply(&xml)
+        .await;
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
+}
+
+#[tokio::test]
 async fn form() {
     let _ = pretty_env_logger::try_init();
 
@@ -250,6 +409,96 @@ async fn form_invalid() {
     let form = warp::body::form::<Vec<i32>>().map(|vec| warp::reply::json(&vec));
 
     let res = warp::test::request().body("nope").reply(&form).await;
+    assert_eq!(res.status(), 400);
+    let prefix = b"Request body deserialize error: ";
+    assert_eq!(&res.body()[..prefix.len()], prefix);
+}
+
+#[tokio::test]
+async fn form_enforce_strict_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form_enforce_strict_content_type::<Vec<(String, String)>>()
+        .map(|_| warp::reply());
+
+    let req = warp::test::request().body("foo=bar&baz=quux");
+
+    let res = req.reply(&form).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+
+    let form = warp::body::form_enforce_strict_content_type::<Vec<(String, String)>>();
+
+    let req = warp::test::request()
+        .body("foo=bar&baz=quux")
+        .header("content-type", "application/x-www-form-urlencoded");
+
+    let vec = req.filter(&form).await.unwrap();
+    let expected = vec![
+        ("foo".to_owned(), "bar".to_owned()),
+        ("baz".to_owned(), "quux".to_owned()),
+    ];
+    assert_eq!(vec, expected);
+}
+
+#[tokio::test]
+async fn form_enforce_strict_content_type_rejects_bad_content_type() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form_enforce_strict_content_type::<Vec<(String, String)>>()
+        .map(|_| warp::reply());
+
+    let req = warp::test::request()
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body("foo=bar");
+
+    let res = req.reply(&form).await;
+    assert_eq!(res.status(), 200);
+
+    let req = warp::test::request()
+        .header("content-type", "text/xml")
+        .body("foo=bar");
+    let res = req.reply(&form).await;
+    assert_eq!(
+        res.status(),
+        415,
+        "bad content-type should be 415 Unsupported Media Type"
+    );
+}
+
+#[tokio::test]
+async fn form_enforce_strict_content_type_allows_charset() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form_enforce_strict_content_type::<Vec<(String, String)>>();
+
+    let req = warp::test::request()
+        .header(
+            "content-type",
+            "application/x-www-form-urlencoded; charset=utf-8",
+        )
+        .body("foo=bar");
+
+    let vec = req.filter(&form).await.unwrap();
+    let expected = vec![("foo".to_owned(), "bar".to_owned())];
+    assert_eq!(vec, expected);
+}
+
+#[tokio::test]
+async fn form_enforce_strict_content_type_invalid() {
+    let _ = pretty_env_logger::try_init();
+
+    let form = warp::body::form_enforce_strict_content_type::<Vec<i32>>()
+        .map(|vec| warp::reply::json(&vec));
+
+    let res = warp::test::request()
+        .body("nope")
+        .header("content-type", "application/x-www-form-urlencoded")
+        .reply(&form)
+        .await;
     assert_eq!(res.status(), 400);
     let prefix = b"Request body deserialize error: ";
     assert_eq!(&res.body()[..prefix.len()], prefix);
