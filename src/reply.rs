@@ -44,6 +44,7 @@ use http::StatusCode;
 use hyper::Body;
 use serde::Serialize;
 use serde_json;
+use serde_xml_rs;
 
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
@@ -141,6 +142,75 @@ impl fmt::Display for ReplyJsonError {
 }
 
 impl StdError for ReplyJsonError {}
+
+/// Convert the value into a `Reply` with the value encoded as XML.
+///
+/// The passed value must implement [`Serialize`][ser]. Many
+/// collections do, and custom domain types can have `Serialize` derived.
+///
+/// [ser]: https://serde.rs
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // GET /ids returns a `200 OK` with a XML array of ids:
+/// // `[1, 3, 7, 13]`
+/// let route = warp::path("ids")
+///     .map(|| {
+///         let our_ids = vec![1, 3, 7, 13];
+///         warp::reply::xml(&our_ids)
+///     });
+/// ```
+///
+/// # Note
+///
+/// If a type fails to be serialized into XML, the error is logged at the
+/// `error` level, and the returned `impl Reply` will be an empty
+/// `500 Internal Server Error` response.
+pub fn xml<T>(val: &T) -> Xml
+where
+    T: Serialize,
+{
+    Xml {
+        inner: serde_xml_rs::to_string(val).map_err(|err| {
+            log::error!("reply::json error: {}", err);
+        }),
+    }
+}
+
+/// A JSON formatted reply.
+#[allow(missing_debug_implementations)]
+pub struct Xml {
+    inner: Result<String, ()>,
+}
+
+impl Reply for Xml {
+    #[inline]
+    fn into_response(self) -> Response {
+        match self.inner {
+            Ok(body) => {
+                let mut res = Response::new(body.into());
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("text/xml"));
+                res
+            }
+            Err(()) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ReplyXmlError;
+
+impl fmt::Display for ReplyXmlError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("warp::reply::xml() failed")
+    }
+}
+
+impl StdError for ReplyXmlError {}
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
 ///

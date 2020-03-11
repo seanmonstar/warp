@@ -30,7 +30,7 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.6"
-serde-xml-rs = { git = "https://github.com/RReverser/serde-xml-rs" }
+serde-xml-rs = "0.4.0"
 tokio = { version = "0.2", features = ["blocking", "fs", "stream", "sync", "time"] }
 tower-service = "0.3"
 # tls is enabled by default, we don't want that yet

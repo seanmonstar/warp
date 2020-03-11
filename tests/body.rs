@@ -255,7 +255,7 @@ async fn xml_rejects_bad_content_type() {
 async fn xml_invalid() {
     let _ = pretty_env_logger::try_init();
 
-    let xml = warp::body::xml::<Item>().map(|item| warp::reply::json(&item));
+    let xml = warp::body::xml::<Item>().map(|item| warp::reply::xml(&item));
 
     let res = warp::test::request().body("lol#wat").reply(&xml).await;
     assert_eq!(res.status(), 400);
@@ -267,7 +267,7 @@ async fn xml_invalid() {
 async fn xml_enforce_strict_content_type() {
     let _ = pretty_env_logger::try_init();
 
-    let xml = warp::body::xml_enforce_strict_content_type::<Item>().map(|_| warp::reply());
+    let xml = warp::body::xml_enforce_strict_content_type::<Item>().map(|_val| warp::reply());
 
     let req = warp::test::request().body("<item><name>Warp</name><source>GitHub</source></item>");
     let res = req.reply(&xml).await;
@@ -332,7 +332,7 @@ async fn xml_enforce_strict_content_type_invalid() {
     let _ = pretty_env_logger::try_init();
 
     let xml =
-        warp::body::xml_enforce_strict_content_type::<Item>().map(|item| warp::reply::json(&item));
+        warp::body::xml_enforce_strict_content_type::<Item>().map(|item| warp::reply::xml(&item));
 
     let res = warp::test::request()
         .body("lol#wat")
