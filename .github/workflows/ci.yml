@@ -35,7 +35,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls, no-default-features]
+        build: [stable, beta, nightly, tls, no-default-features, compression]
 
         include:
           - build: beta
@@ -49,6 +49,8 @@ jobs:
             features: "--features tokio/uds"
           - build: no-default-features
             features: "--no-default-features"
+          - build: compression
+            features: "--features compression"
 
 
     steps:

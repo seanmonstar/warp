@@ -103,11 +103,12 @@ mod transport;
 
 pub use self::error::Error;
 pub use self::filter::Filter;
-#[cfg(feature = "compression")]
-pub use self::filters::compression;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
+#[cfg(feature = "compression")]
+#[doc(hidden)]
+pub use self::filters::compression;
 #[cfg(feature = "multipart")]
 #[doc(hidden)]
 pub use self::filters::multipart;

@@ -1,4 +1,6 @@
 //! Compression Filters
+//!
+//! Filters that compress the body of a response.
 
 use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
 use http::header::HeaderValue;
