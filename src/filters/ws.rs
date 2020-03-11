@@ -104,6 +104,14 @@ impl Ws {
             .max_message_size = Some(max);
         self
     }
+
+    /// Set the maximum frame size (defaults to 16 megabytes)
+    pub fn max_frame_size(mut self, max: usize) -> Self {
+        self.config
+            .get_or_insert_with(|| WebSocketConfig::default())
+            .max_frame_size = Some(max);
+        self
+    }
 }
 
 impl fmt::Debug for Ws {
