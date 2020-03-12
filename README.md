@@ -20,6 +20,7 @@ Thanks to its `Filter` system, warp provides these out of the box:
 * Static Files and Directories
 * Websockets
 * Access logging
+* Gzip, Deflate, and Brotli compression
 
 Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 
