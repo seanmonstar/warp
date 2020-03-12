@@ -113,6 +113,31 @@ fn limit_message_size() {
     assert!(client.recv().is_err());
 }
 
+#[test]
+fn limit_frame_size() {
+    let _ = pretty_env_logger::try_init();
+
+    let echo = warp::ws2().map(|ws: warp::ws::Ws2| {
+        ws.max_frame_size(1024).on_upgrade(|websocket| {
+            // Just echo all messages back...
+            let (tx, rx) = websocket.split();
+            rx.take_while(|m| futures::future::ok(!m.is_close()))
+                .forward(tx)
+                .map(|_| ())
+                .map_err(|e| {
+                    assert_eq!(
+                        format!("{}", e).as_str(),
+                        "Space limit exceeded: Message length too big: 1025 > 1024"
+                    );
+                })
+        })
+    });
+    let mut client = warp::test::ws().handshake(echo).expect("handshake");
+
+    client.send(warp::ws::Message::binary(vec![0; 1025]));
+    assert!(client.recv().is_err());
+}
+
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> {
     warp::ws2().map(|ws: warp::ws::Ws2| {
         ws.on_upgrade(|websocket| {
