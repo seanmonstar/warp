@@ -1,3 +1,14 @@
+### v0.1.22 (March 3, 2020)
+
+- **Features**:
+  - Add `Ws2::max_frame_siz_()` option.
+
+### v0.1.21 (February 27. 2020)
+
+- **Features**:
+  - Add websocket ping and pong support.
+  - Add `Ws2::max_message_size()` option.
+
 ### v0.1.20 (September 17, 2019)
 
 - **Features**:
