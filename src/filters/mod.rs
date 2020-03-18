@@ -23,5 +23,7 @@ pub mod reply;
 pub mod sse;
 #[cfg(feature = "websocket")]
 pub mod ws;
+mod host;
 
+pub use host::host;
 pub use crate::filter::BoxedFilter;
