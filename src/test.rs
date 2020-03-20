@@ -227,6 +227,22 @@ impl RequestBuilder {
         self
     }
 
+    /// Set the remote address of this request
+    ///
+    /// Default is no remote address.
+    ///
+    /// # Example
+    /// ```
+    /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    ///
+    /// let req = warp::test::request()
+    ///     .remote_addr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080));
+    /// ```
+    pub fn remote_addr(mut self, addr: SocketAddr) -> Self {
+        self.remote_addr = Some(addr);
+        self
+    }
+
     /// Add a type to the request's `http::Extensions`.
     pub fn extension<T>(mut self, ext: T) -> Self
     where
