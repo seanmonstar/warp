@@ -29,15 +29,18 @@ async fn main() {
     let render = move |name| {
         // A closure that takes a `Serialize`able value,
         // and passes it into the template engine
+        let hb = hb.clone();
         move |value| hb.render(name, &value).unwrap_or_else(|e| e.to_string())
     };
 
     //GET /
     let route = warp::get()
         .and(warp::path::end())
-        .map(|| json!({
-                "user" : "Warp"
-        }))
+        .map(|| {
+            json!({
+                    "user" : "Warp"
+            })
+        })
         .map(render("template.html"));
 
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
