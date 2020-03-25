@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use futures::future;
 use headers::{Header, HeaderMapExt};
+use http::header::HeaderValue;
 use http::HeaderMap;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
@@ -182,6 +183,32 @@ pub fn exact_ignore_case(
                     Err(reject::invalid_header(name))
                 }
             });
+        future::ready(route)
+    })
+}
+
+/// Create a `Filter` that gets a `HeaderValue` for the name.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, http::header::HeaderValue};
+///
+/// let filter = warp::header::value("x-token")
+///     .map(|value: HeaderValue| {
+///         format!("header value bytes: {:?}", value)
+///     });
+/// ```
+pub fn value(
+    name: &'static str,
+) -> impl Filter<Extract = One<HeaderValue>, Error = Rejection> + Copy {
+    filter_fn_one(move |route| {
+        log::trace!("value({:?})", name);
+        let route = route
+            .headers()
+            .get(name)
+            .cloned()
+            .ok_or_else(|| reject::missing_header(name));
         future::ready(route)
     })
 }
