@@ -68,19 +68,17 @@ pub fn auto() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |props: CompressionProps| {
         if let Some(ref header) = props.accept_enc {
             if let Some(encoding) = header.prefered_encoding() {
-                match encoding {
+                return match encoding {
                     "gzip" => (gzip().func)(props),
                     "deflate" => (deflate().func)(props),
                     "br" => (brotli().func)(props),
                     _ => Response::from_parts(props.head, Body::wrap_stream(props.body)),
-                }
-            } else {
-                Response::from_parts(props.head, Body::wrap_stream(props.body))
+                };
             }
-        } else {
-            Response::from_parts(props.head, Body::wrap_stream(props.body))
         }
+        Response::from_parts(props.head, Body::wrap_stream(props.body))
     };
+
     Compression { func }
 }
 
