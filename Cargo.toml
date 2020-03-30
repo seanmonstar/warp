@@ -20,7 +20,7 @@ features = ["tls"]
 async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
 bytes = "0.5"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
-headers = { git = "https://github.com/ParkMyCar/headers.git", rev = "5eeb66f" }
+headers = { git = "https://github.com/ParkMyCar/headers.git", rev = "fd8f22f" }
 http = "0.2"
 hyper = { version = "0.13", features = ["stream"] }
 log = "0.4"

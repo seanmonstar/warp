@@ -59,7 +59,7 @@ pub fn auto() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 fn create_encoding_header(existing: Option<HeaderValue>, coding: ContentCoding) -> HeaderValue {
     if let Some(val) = existing {
         if let Ok(str_val) = val.to_str() {
-            return HeaderValue::try_from(&format!("{}, {}", coding.to_string(), str_val))
+            return HeaderValue::try_from(&format!("{}, {}", str_val, coding.to_string()))
                 .unwrap_or_else(|_| coding.into());
         }
     }
