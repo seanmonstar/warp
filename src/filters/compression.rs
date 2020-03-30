@@ -3,6 +3,7 @@
 //! Filters that compress the body of a response.
 
 use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
+use headers::ContentCoding;
 use http::header::HeaderValue;
 use hyper::{header::CONTENT_ENCODING, Body};
 use std::convert::TryFrom;
@@ -12,34 +13,6 @@ use crate::reject::IsReject;
 use crate::reply::{Reply, Response};
 
 use self::internal::{CompressionProps, WithCompression};
-
-enum CompressionAlgo {
-    BR,
-    DEFLATE,
-    GZIP,
-}
-
-impl From<CompressionAlgo> for HeaderValue {
-    #[inline]
-    fn from(algo: CompressionAlgo) -> Self {
-        match algo {
-            CompressionAlgo::BR => HeaderValue::from_static("br"),
-            CompressionAlgo::DEFLATE => HeaderValue::from_static("deflate"),
-            CompressionAlgo::GZIP => HeaderValue::from_static("gzip"),
-        }
-    }
-}
-
-impl CompressionAlgo {
-    #[inline]
-    fn to_str(&self) -> &'static str {
-        match self {
-            CompressionAlgo::BR => "br",
-            CompressionAlgo::DEFLATE => "deflate",
-            CompressionAlgo::GZIP => "gzip",
-        }
-    }
-}
 
 /// Compression
 #[derive(Clone, Copy, Debug)]
@@ -69,9 +42,9 @@ pub fn auto() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
         if let Some(ref header) = props.accept_enc {
             if let Some(encoding) = header.prefered_encoding() {
                 return match encoding {
-                    "gzip" => (gzip().func)(props),
-                    "deflate" => (deflate().func)(props),
-                    "br" => (brotli().func)(props),
+                    ContentCoding::GZIP => (gzip().func)(props),
+                    ContentCoding::DEFLATE => (deflate().func)(props),
+                    ContentCoding::BROTLI => (brotli().func)(props),
                     _ => Response::from_parts(props.head, Body::wrap_stream(props.body)),
                 };
             }
@@ -82,17 +55,15 @@ pub fn auto() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     Compression { func }
 }
 
-fn append_content_encoding(header: Option<HeaderValue>, algo: CompressionAlgo) -> HeaderValue {
-    if let Some(h_val) = header {
-        if let Ok(s) = h_val.to_str() {
-            let new_str = format!("{}, {}", algo.to_str(), s);
-            HeaderValue::try_from(&new_str).unwrap_or_else(|_| algo.into())
-        } else {
-            algo.into()
+/// Given an optional existing encoding header, appends to the existing or creates a new one
+fn create_encoding_header(existing: Option<HeaderValue>, coding: ContentCoding) -> HeaderValue {
+    if let Some(val) = existing {
+        if let Ok(str_val) = val.to_str() {
+            return HeaderValue::try_from(&format!("{}, {}", coding.to_string(), str_val))
+                .unwrap_or_else(|_| coding.into());
         }
-    } else {
-        algo.into()
     }
+    coding.into()
 }
 
 /// Create a wrapping filter that compresses the Body of a [`Response`](crate::reply::Response)
@@ -111,11 +82,11 @@ fn append_content_encoding(header: Option<HeaderValue>, algo: CompressionAlgo) -
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
         let body = Body::wrap_stream(GzipEncoder::new(props.body));
-        let header = append_content_encoding(props.head.headers.remove(CONTENT_ENCODING), CompressionAlgo::GZIP);
-        props
-            .head
-            .headers
-            .append(CONTENT_ENCODING, header);
+        let header = create_encoding_header(
+            props.head.headers.remove(CONTENT_ENCODING),
+            ContentCoding::GZIP,
+        );
+        props.head.headers.append(CONTENT_ENCODING, header);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -137,11 +108,11 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
         let body = Body::wrap_stream(DeflateEncoder::new(props.body));
-        let header = append_content_encoding(props.head.headers.remove(CONTENT_ENCODING), CompressionAlgo::DEFLATE);
-        props
-            .head
-            .headers
-            .append(CONTENT_ENCODING, header);
+        let header = create_encoding_header(
+            props.head.headers.remove(CONTENT_ENCODING),
+            ContentCoding::DEFLATE,
+        );
+        props.head.headers.append(CONTENT_ENCODING, header);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -163,11 +134,11 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
         let body = Body::wrap_stream(BrotliEncoder::new(props.body));
-        let header = append_content_encoding(props.head.headers.remove(CONTENT_ENCODING), CompressionAlgo::BR);
-        props
-            .head
-            .headers
-            .append(CONTENT_ENCODING, header);
+        let header = create_encoding_header(
+            props.head.headers.remove(CONTENT_ENCODING),
+            ContentCoding::BROTLI,
+        );
+        props.head.headers.append(CONTENT_ENCODING, header);
         Response::from_parts(props.head, body)
     };
     Compression { func }
