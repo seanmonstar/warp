@@ -158,6 +158,14 @@ pub struct WsError {
 }
 
 impl RequestBuilder {
+    /// Creates a new test `RequestBuilder` with the specified remote address.
+    pub fn with_remote_addr(remote_addr: SocketAddr) -> Self {
+        RequestBuilder {
+            remote_addr: Some(remote_addr),
+            req: Request::default(),
+        }
+    }
+
     /// Sets the method of this builder.
     ///
     /// The default if not set is `GET`.
