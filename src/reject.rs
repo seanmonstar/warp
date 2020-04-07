@@ -112,7 +112,7 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 /// or else this will be returned as a `500 Internal Server Error`.
 ///
 /// [`recover`]: ../trait.Filter.html#method.recover
-pub fn custom<T: Reject>(err: T) -> Rejection {
+pub fn custom<T: std::error::Error + Sized + Send + Sync + 'static>(err: T) -> Rejection {
     Rejection::custom(Box::new(err))
 }
 
@@ -135,7 +135,13 @@ fn __reject_custom_compilefail() {}
 /// #[derive(Debug)]
 /// struct RateLimited;
 ///
-/// impl Reject for RateLimited {}
+/// impl std::error::Error for RateLimited {}
+///
+/// impl fmt::Display for X {
+///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+///         write!(f, "X Error")
+///     }
+/// }
 ///
 /// let route = warp::any().and_then(|| async {
 ///     Err::<(), _>(warp::reject::custom(RateLimited))
@@ -143,7 +149,9 @@ fn __reject_custom_compilefail() {}
 /// ```
 // Require `Sized` for now to prevent passing a `Box<dyn Reject>`, since we
 // would be double-boxing it, and the downcasting wouldn't work as expected.
-pub trait Reject: fmt::Debug + Sized + Send + Sync + 'static {}
+pub trait Reject: std::error::Error + Sized + Send + Sync + 'static {}
+
+impl<T> Reject for T where T: std::error::Error + Sized + Send + Sync + 'static {}
 
 trait Cause: fmt::Debug + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
@@ -672,8 +680,20 @@ mod tests {
     #[derive(Debug, PartialEq)]
     struct Right;
 
-    impl Reject for Left {}
-    impl Reject for Right {}
+    impl std::error::Error for Left {}
+    impl std::error::Error for Right {}
+
+    impl fmt::Display for Left {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "Left Error")
+        }
+    }
+
+    impl fmt::Display for Right {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "Right Error")
+        }
+    }
 
     #[test]
     fn rejection_status() {
@@ -784,7 +804,12 @@ mod tests {
 
     #[derive(Debug)]
     struct X(u32);
-    impl Reject for X {}
+    impl std::error::Error for X {}
+    impl fmt::Display for X {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "X Error")
+        }
+    }
 
     fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection
     where

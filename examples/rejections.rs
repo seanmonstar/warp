@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 use std::convert::Infallible;
+use std::fmt;
 use std::num::NonZeroU16;
 
 use serde_derive::Serialize;
@@ -38,8 +39,12 @@ fn div_by() -> impl Filter<Extract = (NonZeroU16,), Error = Rejection> + Copy {
 
 #[derive(Debug)]
 struct DivideByZero;
-
-impl reject::Reject for DivideByZero {}
+impl std::error::Error for DivideByZero {}
+impl fmt::Display for DivideByZero {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "cannot divide by zero")
+    }
+}
 
 // JSON replies
 
