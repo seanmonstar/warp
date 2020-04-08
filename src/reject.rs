@@ -136,14 +136,6 @@ fn __reject_custom_compilefail() {}
 /// #[derive(Debug)]
 /// struct RateLimited;
 ///
-/// impl std::error::Error for RateLimited {}
-///
-/// impl fmt::Display for RateLimited {
-///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-///         write!(f, "RateLimited")
-///     }
-/// }
-///
 /// let route = warp::any().and_then(|| async {
 ///     Err::<(), _>(warp::reject::custom(RateLimited))
 /// });
@@ -284,13 +276,6 @@ impl Rejection {
     ///
     /// #[derive(Debug)]
     /// struct Nope;
-    /// impl std::error::Error for Nope {}
-    ///
-    /// impl fmt::Display for Nope {
-    ///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    ///         write!(f, "Nope")
-    ///     }
-    /// }
     ///
     /// let reject = warp::reject::custom(Nope);
     ///
@@ -714,21 +699,6 @@ mod tests {
     #[derive(Debug, PartialEq)]
     struct Right;
 
-    impl std::error::Error for Left {}
-    impl std::error::Error for Right {}
-
-    impl fmt::Display for Left {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Left Error")
-        }
-    }
-
-    impl fmt::Display for Right {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Right Error")
-        }
-    }
-
     #[test]
     fn rejection_status() {
         assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
@@ -838,12 +808,6 @@ mod tests {
 
     #[derive(Debug)]
     struct X(u32);
-    impl std::error::Error for X {}
-    impl fmt::Display for X {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "X Error")
-        }
-    }
 
     fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection
     where
