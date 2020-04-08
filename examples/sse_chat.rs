@@ -67,13 +67,6 @@ enum Message {
 
 #[derive(Debug)]
 struct NotUtf8;
-impl std::error::Error for NotUtf8 {}
-
-impl fmt::Display for NotUtf8 {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "this is not utf8")
-    }
-}
 
 /// Our state of currently connected users.
 ///

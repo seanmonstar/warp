@@ -28,6 +28,7 @@
 //! ```
 
 use std::any::Any;
+use std::any::TypeId;
 use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
@@ -308,35 +309,6 @@ impl Rejection {
     }
 }
 
-///
-pub trait RejectionDebug {
-    ///
-    fn debug(&self) -> Box<dyn std::fmt::Debug + '_>;
-}
-
-impl RejectionDebug for Rejection {
-    fn debug(&self) -> Box<dyn fmt::Debug + '_> {
-        Box::new(RejectionDebugger(self))
-    }
-}
-
-struct RejectionDebugger<'a>(&'a Rejection);
-
-impl fmt::Debug for RejectionDebugger<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Rejection").field(&self.0.reason).finish()
-    }
-}
-
-// impl From<Infallible> for Rejection {
-//     #[inline]
-//     fn from(infallible: Infallible) -> Rejection {
-//         match infallible {}
-//     }
-// }
-
-use std::any::TypeId;
-
 impl<T> From<T> for Rejection
 where
     T: fmt::Debug + Sized + Send + Sync + 'static,
@@ -385,6 +357,26 @@ impl IsReject for Rejection {
             }
             Reason::Other(ref other) => other.into_response(),
         }
+    }
+}
+
+///
+pub trait RejectionDebug {
+    ///
+    fn debug(&self) -> Box<dyn std::fmt::Debug + '_>;
+}
+
+impl RejectionDebug for Rejection {
+    fn debug(&self) -> Box<dyn fmt::Debug + '_> {
+        Box::new(RejectionDebugger(self))
+    }
+}
+
+struct RejectionDebugger<'a>(&'a Rejection);
+
+impl fmt::Debug for RejectionDebugger<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Rejection").field(&self.0.reason).finish()
     }
 }
 
