@@ -1,4 +1,5 @@
 #![deny(warnings)]
+use warp::reject::Debug;
 use warp::Filter;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -12,6 +13,7 @@ async fn set_and_get() {
         .extension(Ext1(55))
         .filter(&ext)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
 
     assert_eq!(extracted, Ext1(55));

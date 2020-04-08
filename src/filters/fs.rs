@@ -465,6 +465,7 @@ unit_error! {
 #[cfg(test)]
 mod tests {
     use super::sanitize_path;
+    use crate::reject::Debug;
     use bytes::BytesMut;
 
     #[test]
@@ -476,7 +477,9 @@ mod tests {
         }
 
         assert_eq!(
-            sanitize_path(base, "/foo.html").unwrap(),
+            sanitize_path(base, "/foo.html")
+                .map_err(|r| panic!("{:?}", r.debug()))
+                .unwrap(),
             p("/var/www/foo.html")
         );
 

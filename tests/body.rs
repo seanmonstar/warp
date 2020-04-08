@@ -2,7 +2,7 @@
 
 use bytes::Buf;
 use futures::TryStreamExt;
-use warp::Filter;
+use warp::{reject::Debug, Filter};
 
 #[tokio::test]
 async fn matches() {
@@ -65,14 +65,22 @@ async fn json() {
 
     let req = warp::test::request().body("[1, 2, 3]");
 
-    let vec = req.filter(&json).await.unwrap();
+    let vec = req
+        .filter(&json)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(vec, &[1, 2, 3]);
 
     let req = warp::test::request()
         .header("content-type", "application/json")
         .body("[3, 2, 1]");
 
-    let vec = req.filter(&json).await.unwrap();
+    let vec = req
+        .filter(&json)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(vec, &[3, 2, 1], "matches content-type");
 }
 
@@ -120,7 +128,11 @@ async fn form() {
 
     let req = warp::test::request().body("foo=bar&baz=quux");
 
-    let vec = req.filter(&form).await.unwrap();
+    let vec = req
+        .filter(&form)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     let expected = vec![
         ("foo".to_owned(), "bar".to_owned()),
         ("baz".to_owned(), "quux".to_owned()),
@@ -165,7 +177,11 @@ async fn form_allows_charset() {
         )
         .body("foo=bar");
 
-    let vec = req.filter(&form).await.unwrap();
+    let vec = req
+        .filter(&form)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     let expected = vec![("foo".to_owned(), "bar".to_owned())];
     assert_eq!(vec, expected);
 }
@@ -192,6 +208,7 @@ async fn stream() {
         .body("foo=bar")
         .filter(&stream)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .expect("filter() stream");
 
     let bufs: Result<Vec<_>, warp::Error> = body.try_collect().await;

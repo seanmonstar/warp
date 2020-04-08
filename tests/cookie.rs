@@ -1,14 +1,27 @@
 #![deny(warnings)]
+use warp::reject::Debug;
 
 #[tokio::test]
 async fn cookie() {
     let foo = warp::cookie("foo");
 
     let req = warp::test::request().header("cookie", "foo=bar");
-    assert_eq!(req.filter(&foo).await.unwrap(), "bar");
+    assert_eq!(
+        req.filter(&foo)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        "bar"
+    );
 
     let req = warp::test::request().header("cookie", "abc=def; foo=baz");
-    assert_eq!(req.filter(&foo).await.unwrap(), "baz");
+    assert_eq!(
+        req.filter(&foo)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        "baz"
+    );
 
     let req = warp::test::request().header("cookie", "abc=def");
     assert!(!req.matches(&foo).await);

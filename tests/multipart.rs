@@ -1,7 +1,7 @@
 #![deny(warnings)]
 use bytes::BufMut;
 use futures::{TryFutureExt, TryStreamExt};
-use warp::{multipart, Filter};
+use warp::{multipart, reject::Debug, Filter};
 
 #[tokio::test]
 async fn form_fields() {
@@ -48,7 +48,11 @@ async fn form_fields() {
         )
         .body(body);
 
-    let vec = req.filter(&route).await.unwrap();
+    let vec = req
+        .filter(&route)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(&vec[0].0, "foo");
     assert_eq!(&vec[0].1, b"bar");
 }

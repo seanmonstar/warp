@@ -1,6 +1,5 @@
 use futures::{Stream, StreamExt};
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,

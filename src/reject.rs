@@ -324,7 +324,7 @@ where
     }
 }
 
-impl RejectionDebug for Infallible {
+impl Debug for Infallible {
     fn debug(&self) -> Box<dyn fmt::Debug> {
         match *self {}
     }
@@ -361,12 +361,12 @@ impl IsReject for Rejection {
 }
 
 ///
-pub trait RejectionDebug {
+pub trait Debug {
     ///
     fn debug(&self) -> Box<dyn std::fmt::Debug + '_>;
 }
 
-impl RejectionDebug for Rejection {
+impl Debug for Rejection {
     fn debug(&self) -> Box<dyn fmt::Debug + '_> {
         Box::new(RejectionDebugger(self))
     }
@@ -584,13 +584,13 @@ impl ::std::fmt::Display for MissingCookie {
 impl StdError for MissingCookie {}
 
 mod sealed {
-    use super::{Reason, Rejection, RejectionDebug, Rejections};
+    use super::{Debug, Reason, Rejection, Rejections};
     use http::StatusCode;
     use std::convert::Infallible;
 
     // This sealed trait exists to allow Filters to return either `Rejection`
     // or `!`. There are no other types that make sense, and so it is sealed.
-    pub trait IsReject: RejectionDebug + Send + Sync {
+    pub trait IsReject: Debug + Send + Sync {
         fn status(&self) -> StatusCode;
         fn into_response(&self) -> crate::reply::Response;
     }
@@ -819,7 +819,7 @@ mod tests {
     fn test_debug() {
         let rej = combine_n(3, X);
 
-        let s = format!("{:?}", rej);
+        let s = format!("{:?}", rej.debug());
         assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
     }
 }

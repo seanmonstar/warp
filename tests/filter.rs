@@ -1,6 +1,6 @@
 #![deny(warnings)]
 use std::convert::Infallible;
-use warp::Filter;
+use warp::{reject::Debug, Filter};
 
 #[tokio::test]
 async fn flattens_tuples() {
@@ -99,10 +99,22 @@ async fn or_else() {
     let f = a.or_else(|_| async { Ok::<_, warp::Rejection>((44u32,)) });
 
     assert_eq!(
-        warp::test::request().path("/33").filter(&f).await.unwrap(),
+        warp::test::request()
+            .path("/33")
+            .filter(&f)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
         33,
     );
-    assert_eq!(warp::test::request().filter(&f).await.unwrap(), 44,);
+    assert_eq!(
+        warp::test::request()
+            .filter(&f)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        44,
+    );
 
     // OrElse can be combined with an infallible filter
     let a = warp::path::param::<u32>();
@@ -141,7 +153,12 @@ async fn unify() {
     let b = warp::path::param::<u32>();
     let f = a.or(b).unify();
 
-    let ex = warp::test::request().path("/1").filter(&f).await.unwrap();
+    let ex = warp::test::request()
+        .path("/1")
+        .filter(&f)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
 
     assert_eq!(ex, 1);
 }

@@ -2,6 +2,7 @@
 
 use serde_derive::Deserialize;
 use std::collections::HashMap;
+use warp::reject::Debug;
 use warp::Filter;
 
 #[tokio::test]
@@ -10,7 +11,11 @@ async fn query() {
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_map).await.unwrap();
+    let extracted = req
+        .filter(&as_map)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(extracted["foo"], "bar");
     assert_eq!(extracted["baz"], "quux");
 }
@@ -21,7 +26,11 @@ async fn query_struct() {
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_struct).await.unwrap();
+    let extracted = req
+        .filter(&as_struct)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -37,7 +46,11 @@ async fn empty_query_struct() {
 
     let req = warp::test::request().path("/?");
 
-    let extracted = req.filter(&as_struct).await.unwrap();
+    let extracted = req
+        .filter(&as_struct)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -53,7 +66,11 @@ async fn missing_query_struct() {
 
     let req = warp::test::request().path("/");
 
-    let extracted = req.filter(&as_struct).await.unwrap();
+    let extracted = req
+        .filter(&as_struct)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(
         extracted,
         MyArgs {
@@ -75,7 +92,11 @@ async fn required_query_struct() {
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_struct).await.unwrap();
+    let extracted = req
+        .filter(&as_struct)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(
         extracted,
         MyRequiredArgs {
@@ -118,6 +139,10 @@ async fn raw_query() {
 
     let req = warp::test::request().path("/?foo=bar&baz=quux");
 
-    let extracted = req.filter(&as_raw).await.unwrap();
+    let extracted = req
+        .filter(&as_raw)
+        .await
+        .map_err(|r| panic!("{:?}", r.debug()))
+        .unwrap();
     assert_eq!(extracted, "foo=bar&baz=quux".to_owned());
 }

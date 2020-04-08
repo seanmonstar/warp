@@ -8,7 +8,7 @@ use futures::future::TryFuture;
 use hyper::service::Service;
 use pin_project::pin_project;
 
-use crate::reject::{IsReject, RejectionDebug};
+use crate::reject::{Debug, IsReject};
 use crate::reply::{Reply, Response};
 use crate::route::{self, Route};
 use crate::{Filter, Request};

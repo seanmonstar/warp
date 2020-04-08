@@ -1,12 +1,14 @@
 #![deny(warnings)]
 
 use std::convert::Infallible;
-use std::fmt;
 use std::num::NonZeroU16;
 
 use serde_derive::Serialize;
 use warp::http::StatusCode;
-use warp::{reject, Filter, Rejection, Reply};
+use warp::{
+    reject::{self, Debug},
+    Filter, Rejection, Reply,
+};
 
 /// Rejections represent cases where a filter should not continue processing
 /// the request, but a different filter *could* process it.
@@ -75,7 +77,7 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
         message = "METHOD_NOT_ALLOWED";
     } else {
         // We should have expected this... Just log and say its a 500
-        eprintln!("unhandled rejection: {:?}", err);
+        eprintln!("unhandled rejection: {:?}", err.debug());
         code = StatusCode::INTERNAL_SERVER_ERROR;
         message = "UNHANDLED_REJECTION";
     }

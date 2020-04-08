@@ -3,7 +3,7 @@
 extern crate warp;
 
 use futures::future;
-use warp::Filter;
+use warp::{reject::Debug, Filter};
 
 #[tokio::test]
 async fn path() {
@@ -35,12 +35,24 @@ async fn param() {
     let num = warp::path::param::<u32>();
 
     let req = warp::test::request().path("/321");
-    assert_eq!(req.filter(&num).await.unwrap(), 321);
+    assert_eq!(
+        req.filter(&num)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        321
+    );
 
     let s = warp::path::param::<String>();
 
     let req = warp::test::request().path("/warp");
-    assert_eq!(req.filter(&s).await.unwrap(), "warp");
+    assert_eq!(
+        req.filter(&s)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        "warp"
+    );
 
     // u32 doesn't extract a non-int
     let req = warp::test::request().path("/warp");
@@ -49,7 +61,13 @@ async fn param() {
     let combo = num.map(|n| n + 5).and(s);
 
     let req = warp::test::request().path("/42/vroom");
-    assert_eq!(req.filter(&combo).await.unwrap(), (47, "vroom".to_string()));
+    assert_eq!(
+        req.filter(&combo)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        (47, "vroom".to_string())
+    );
 
     // empty segments never match
     let req = warp::test::request();
@@ -142,6 +160,7 @@ async fn tail() {
         .path("/foo/bar")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "bar");
 
@@ -214,11 +233,23 @@ async fn path_macro() {
 
     let req = warp::test::request().path("/foo/bar");
     let p = path!(String / "bar");
-    assert_eq!(req.filter(&p).await.unwrap(), "foo");
+    assert_eq!(
+        req.filter(&p)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        "foo"
+    );
 
     let req = warp::test::request().path("/foo/bar");
     let p = path!("foo" / String);
-    assert_eq!(req.filter(&p).await.unwrap(), "bar");
+    assert_eq!(
+        req.filter(&p)
+            .await
+            .map_err(|r| panic!("{:?}", r.debug()))
+            .unwrap(),
+        "bar"
+    );
 
     // Requires path end
 
@@ -279,6 +310,7 @@ async fn full_path() {
         .path("/foo/bar")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/bar");
 
@@ -288,6 +320,7 @@ async fn full_path() {
         .path("/foo/bar")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/bar");
 
@@ -297,6 +330,7 @@ async fn full_path() {
         .path("/foo/123")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "/foo/123");
 
@@ -339,6 +373,7 @@ async fn peek() {
         .path("/foo/bar")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "bar");
 
@@ -348,6 +383,7 @@ async fn peek() {
         .path("/foo/bar")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "foo/bar");
 
@@ -357,6 +393,7 @@ async fn peek() {
         .path("/foo/123")
         .filter(&and)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .unwrap();
     assert_eq!(ex.as_str(), "");
 

@@ -1,5 +1,5 @@
 #![deny(warnings)]
-use warp::Filter;
+use warp::{reject::Debug, Filter};
 
 #[tokio::test]
 async fn exact() {
@@ -50,6 +50,7 @@ async fn optional() {
     let val = warp::test::request()
         .filter(&con_len)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .expect("missing header matches");
     assert_eq!(val, None);
 
@@ -57,6 +58,7 @@ async fn optional() {
         .header("content-length", "5")
         .filter(&con_len)
         .await
+        .map_err(|r| panic!("{:?}", r.debug()))
         .expect("existing header matches");
 
     assert_eq!(val, Some(5));
