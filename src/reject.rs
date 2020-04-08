@@ -117,21 +117,12 @@ pub fn custom(err: impl Into<Rejection>) -> Rejection {
     err.into()
 }
 
-/// Protect against re-rejecting a rejection.
-///
-/// ```compile_fail
-/// fn with(r: warp::Rejection) {
-///     let _wat = warp::reject::custom(r);
-/// }
-/// ```
-fn __reject_custom_compilefail() {}
-
 /// A marker trait to ensure proper types are used for custom rejections.
 ///
 /// # Example
 ///
 /// ```
-/// use warp::{Filter, reject::Reject};
+/// use warp::Filter;
 /// use std::fmt;
 ///
 /// #[derive(Debug)]

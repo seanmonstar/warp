@@ -291,6 +291,7 @@ impl RequestBuilder {
     /// # Example
     ///
     /// ```no_run
+    /// use warp::reject::Debug;
     /// async {
     ///     let param = warp::path::param::<u32>();
     ///
@@ -298,6 +299,7 @@ impl RequestBuilder {
     ///         .path("/41")
     ///         .filter(&param)
     ///         .await
+    ///         .map_err(|r| panic!("{:?}", r.debug()))
     ///         .unwrap();
     ///
     ///     assert_eq!(ex, 41);

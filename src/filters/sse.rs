@@ -267,6 +267,7 @@ tuple_fmt!((A, B, C, D, E, F, G, H) => (0, 1, 2, 3, 4, 5, 6, 7));
 /// Typically this identifier represented as number or string.
 ///
 /// ```
+/// use warp::reject::Debug;
 /// let app = warp::sse::last_event_id::<u32>();
 ///
 /// // The identifier is present
@@ -276,6 +277,7 @@ tuple_fmt!((A, B, C, D, E, F, G, H) => (0, 1, 2, 3, 4, 5, 6, 7));
 ///            .header("Last-Event-ID", "12")
 ///            .filter(&app)
 ///            .await
+///            .map_err(|r| panic!("{:?}", r.debug()))
 ///            .unwrap(),
 ///         Some(12)
 ///     );
@@ -285,6 +287,7 @@ tuple_fmt!((A, B, C, D, E, F, G, H) => (0, 1, 2, 3, 4, 5, 6, 7));
 ///        warp::test::request()
 ///            .filter(&app)
 ///            .await
+///            .map_err(|r| panic!("{:?}", r.debug()))
 ///            .unwrap(),
 ///         None
 ///     );
