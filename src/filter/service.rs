@@ -8,7 +8,7 @@ use futures::future::TryFuture;
 use hyper::service::Service;
 use pin_project::pin_project;
 
-use crate::reject::IsReject;
+use crate::reject::{IsReject, RejectionDebug};
 use crate::reply::{Reply, Response};
 use crate::route::{self, Route};
 use crate::{Filter, Request};
@@ -129,7 +129,7 @@ where
             Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok.into_response())),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(err)) => {
-                log::debug!("rejected: {:?}", err);
+                log::debug!("rejected: {:?}", err.debug());
                 Poll::Ready(Ok(err.into_response()))
             }
         }

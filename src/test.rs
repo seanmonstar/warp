@@ -104,6 +104,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
+use crate::reject::RejectionDebug;
 use crate::reply::Reply;
 use crate::route::{self, Route};
 use crate::Request;
@@ -372,7 +373,7 @@ impl RequestBuilder {
                 let res = match result {
                     Ok(rep) => rep.into_response(),
                     Err(rej) => {
-                        log::debug!("rejected: {:?}", rej);
+                        log::debug!("rejected: {:?}", rej.debug());
                         rej.into_response()
                     }
                 };

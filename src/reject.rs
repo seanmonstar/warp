@@ -112,8 +112,8 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 /// or else this will be returned as a `500 Internal Server Error`.
 ///
 /// [`recover`]: ../trait.Filter.html#method.recover
-pub fn custom<T: Reject>(err: T) -> Rejection {
-    Rejection::custom(Box::new(err))
+pub fn custom(err: impl Into<Rejection>) -> Rejection {
+    err.into()
 }
 
 /// Protect against re-rejecting a rejection.
@@ -148,11 +148,6 @@ fn __reject_custom_compilefail() {}
 ///     Err::<(), _>(warp::reject::custom(RateLimited))
 /// });
 /// ```
-// Require `Sized` for now to prevent passing a `Box<dyn Reject>`, since we
-// would be double-boxing it, and the downcasting wouldn't work as expected.
-pub trait Reject: std::error::Error + Sized + Send + Sync + 'static {}
-
-impl<T> Reject for T where T: std::error::Error + Sized + Send + Sync + 'static {}
 
 trait Cause: fmt::Debug + Send + Sync + 'static {
     fn as_any(&self) -> &dyn Any;
@@ -180,6 +175,7 @@ pub(crate) fn known<T: Into<Known>>(err: T) -> Rejection {
 /// Rejection of a request by a [`Filter`](crate::Filter).
 ///
 /// See the [`reject`](module@crate::reject) documentation for more.
+#[allow(missing_debug_implementations)]
 pub struct Rejection {
     reason: Reason,
 }
@@ -276,12 +272,6 @@ impl Rejection {
         }
     }
 
-    fn custom(other: Box<dyn Cause>) -> Self {
-        Rejection {
-            reason: Reason::Other(Box::new(Rejections::Custom(other))),
-        }
-    }
-
     /// Searches this `Rejection` for a specific cause.
     ///
     /// A `Rejection` will accumulate causes over a `Filter` chain. This method
@@ -333,10 +323,53 @@ impl Rejection {
     }
 }
 
-impl From<Infallible> for Rejection {
-    #[inline]
-    fn from(infallible: Infallible) -> Rejection {
-        match infallible {}
+///
+pub trait RejectionDebug {
+    ///
+    fn debug(&self) -> Box<dyn std::fmt::Debug + '_>;
+}
+
+impl RejectionDebug for Rejection {
+    fn debug(&self) -> Box<dyn fmt::Debug + '_> {
+        Box::new(RejectionDebugger(self))
+    }
+}
+
+struct RejectionDebugger<'a>(&'a Rejection);
+
+impl fmt::Debug for RejectionDebugger<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Rejection").field(&self.0.reason).finish()
+    }
+}
+
+// impl From<Infallible> for Rejection {
+//     #[inline]
+//     fn from(infallible: Infallible) -> Rejection {
+//         match infallible {}
+//     }
+// }
+
+use std::any::TypeId;
+
+impl<T> From<T> for Rejection
+where
+    T: fmt::Debug + Sized + Send + Sync + 'static,
+{
+    fn from(inner: T) -> Self {
+        if TypeId::of::<T>() == TypeId::of::<Infallible>() {
+            unimplemented!()
+        } else {
+            Rejection {
+                reason: Reason::Other(Box::new(Rejections::Custom(Box::new(inner)))),
+            }
+        }
+    }
+}
+
+impl RejectionDebug for Infallible {
+    fn debug(&self) -> Box<dyn fmt::Debug> {
+        match *self {}
     }
 }
 
@@ -367,12 +400,6 @@ impl IsReject for Rejection {
             }
             Reason::Other(ref other) => other.into_response(),
         }
-    }
-}
-
-impl fmt::Debug for Rejection {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("Rejection").field(&self.reason).finish()
     }
 }
 
@@ -580,14 +607,13 @@ impl ::std::fmt::Display for MissingCookie {
 impl StdError for MissingCookie {}
 
 mod sealed {
-    use super::{Reason, Rejection, Rejections};
+    use super::{Reason, Rejection, RejectionDebug, Rejections};
     use http::StatusCode;
     use std::convert::Infallible;
-    use std::fmt;
 
     // This sealed trait exists to allow Filters to return either `Rejection`
     // or `!`. There are no other types that make sense, and so it is sealed.
-    pub trait IsReject: fmt::Debug + Send + Sync {
+    pub trait IsReject: RejectionDebug + Send + Sync {
         fn status(&self) -> StatusCode;
         fn into_response(&self) -> crate::reply::Response;
     }
@@ -822,7 +848,7 @@ mod tests {
     fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection
     where
         F: Fn(u32) -> R,
-        R: Reject,
+        R: Into<Rejection>,
     {
         let mut rej = not_found();
 

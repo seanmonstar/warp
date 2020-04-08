@@ -31,6 +31,7 @@ use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
+use crate::reject::RejectionDebug;
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
@@ -45,7 +46,7 @@ pub trait FilterBase {
     where
         Self: Sized,
         F: Fn(Self::Error) -> E + Clone,
-        E: ::std::fmt::Debug + Send,
+        E: RejectionDebug + Send,
     {
         MapErr {
             filter: self,
