@@ -112,7 +112,7 @@ pub(crate) fn unsupported_media_type() -> Rejection {
 /// or else this will be returned as a `500 Internal Server Error`.
 ///
 /// [`recover`]: ../trait.Filter.html#method.recover
-pub fn custom<T: std::error::Error + Sized + Send + Sync + 'static>(err: T) -> Rejection {
+pub fn custom<T: Reject>(err: T) -> Rejection {
     Rejection::custom(Box::new(err))
 }
 
@@ -131,15 +131,16 @@ fn __reject_custom_compilefail() {}
 ///
 /// ```
 /// use warp::{Filter, reject::Reject};
+/// use std::fmt;
 ///
 /// #[derive(Debug)]
 /// struct RateLimited;
 ///
 /// impl std::error::Error for RateLimited {}
 ///
-/// impl fmt::Display for X {
+/// impl fmt::Display for RateLimited {
 ///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-///         write!(f, "X Error")
+///         write!(f, "RateLimited")
 ///     }
 /// }
 ///
@@ -289,10 +290,17 @@ impl Rejection {
     /// # Example
     ///
     /// ```
+    /// use std::fmt;
+    ///
     /// #[derive(Debug)]
     /// struct Nope;
+    /// impl std::error::Error for Nope {}
     ///
-    /// impl warp::reject::Reject for Nope {}
+    /// impl fmt::Display for Nope {
+    ///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    ///         write!(f, "Nope")
+    ///     }
+    /// }
     ///
     /// let reject = warp::reject::custom(Nope);
     ///
