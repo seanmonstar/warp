@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::future::Future;
+use std::io::{self};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -323,10 +324,13 @@ impl Message {
     }
 
     /// Try to get a reference to the string text, if this is a Text message.
-    pub fn to_str(&self) -> Result<&str, ()> {
+    pub fn to_str(&self) -> Result<&str, crate::Error> {
         match self.inner {
             protocol::Message::Text(ref s) => Ok(s),
-            _ => Err(()),
+            _ => Err(crate::Error::new(io::Error::new(
+                io::ErrorKind::Other,
+                "function protocol::Message::Text variant assumption not satisfied",
+            ))),
         }
     }
 
