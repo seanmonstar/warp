@@ -83,6 +83,13 @@ pub struct Log<F> {
     func: F,
 }
 
+impl<F> Log<F> {
+    /// Create a new logger.
+    pub fn new(func: F) -> Log<F> {
+        Log { func }
+    }
+}
+
 /// Information about the request/response that can be used to prepare log lines.
 #[allow(missing_debug_implementations)]
 pub struct Info<'a> {
