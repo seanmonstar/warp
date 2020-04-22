@@ -318,34 +318,33 @@ pub fn param<T: FromStr + Send + 'static>(
 /// }
 ///
 /// impl FromStr for MyStruct {
-///     type Err = MyError;
+///     type Err = MyRejection;
 ///
 ///     fn from_str(s: &str) -> Result<Self, Self::Err> {
-///         let id = s.parse::<u32>().map_err(|_| MyError)?;
+///         let id = s.parse::<u32>().map_err(|_| MyRejection)?;
 ///
 ///         Ok(MyStruct { id })
 ///     }
 /// }
 ///
 /// #[derive(Debug)]
-/// struct MyError;
+/// struct MyRejection;
 ///
-/// impl std::fmt::Display for MyError {
+/// impl std::fmt::Display for MyRejection {
 ///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-///         write!(f, "MyError")
+///         write!(f, "My Rejection: something wrong happened.")
 ///     }
 /// }
 ///
-/// impl std::error::Error for MyError {};
-/// impl Reject for MyError {};
+/// impl Reject for MyRejection {};
 ///
-/// let route = warp::path::param_with_err()
+/// let route = warp::path::param_with_reject()
 ///     .map(|id: MyStruct| {
 ///         format!("You asked for /{:?}", id)
 ///     })
 ///    .recover(|err: Rejection| {
 ///        let err = {
-///            if let Some(e) = err.find::<MyError>() {
+///            if let Some(e) = err.find::<MyRejection>() {
 ///                Ok(Response::builder()
 ///                .status(status::StatusCode::from_u16(404).unwrap())
 ///                .body(e.to_string())
@@ -358,20 +357,17 @@ pub fn param<T: FromStr + Send + 'static>(
 ///    });
 ///
 /// ```
-pub fn param_with_err<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+pub fn param_with_reject<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
 where
     T: FromStr + Send + 'static,
     T::Err: reject::Reject,
 {
-    segment(|seg| {
+    filter_segment(|seg| {
         log::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg).map(one).map_err(|err| {
-            #[allow(deprecated)]
-            reject::custom(err)
-        })
+        T::from_str(seg).map(one).map_err(|err| reject::custom(err))
     })
 }
 
