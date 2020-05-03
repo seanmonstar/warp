@@ -25,35 +25,37 @@ where
     type Future = FlattenFuture<T, F>;
     #[inline]
     fn filter(&self, _: Internal) -> Self::Future {
-        FlattenFuture::EvalFirst {
-            first_future: self.filter.filter(Internal),
-            callback: self.callback.clone(),
+        FlattenFuture {
+            state: State::First(self.filter.filter(Internal), self.callback.clone()),
         }
     }
 }
 
+#[pin_project]
+enum State<T, F>
+where 
+    T: Filter,
+    F: Func<T::Extract>,
+    F::Output: Future,
+    <F::Output as Future>::Output: Filter<Error = T::Error>,
+{
+    First(#[pin] T::Future, F),
+    Second(#[pin]F::Output),
+    Third(#[pin] <<F::Output as Future>::Output as FilterBase>::Future),
+    Done
+}
+
 #[allow(missing_debug_implementations)]
 #[pin_project]
-pub enum FlattenFuture<T: Filter, F>
+pub struct FlattenFuture<T: Filter, F>
     where 
         T: Filter,
         F: Func<T::Extract>,
         F::Output: Future,
         <F::Output as Future>::Output: Filter<Error = T::Error>,
 {
-    EvalFirst {
-        #[pin]
-        first_future: T::Future,
-        callback: F,
-    },
-    EvalCallback {
-        #[pin]
-        callback_future: F::Output,
-    },
-    EvalSecond {
-        #[pin]
-        second_future: <<F::Output as Future>::Output as FilterBase>::Future,
-    }
+    #[pin]
+    state: State<T, F>,
 }
 
 impl<T, F> Future for FlattenFuture<T, F>
@@ -71,29 +73,33 @@ where
         loop {
             let pin = self.as_mut().project(); 
             #[project]
-            match pin {
-                FlattenFuture::EvalFirst{first_future, callback} => {
-                    match ready!(first_future.poll(cx)) {
+            match pin.state.project() {
+                State::First(first, callback) => {
+                    match ready!(first.poll(cx)) {
                         Ok(ex) => {
-                            let callback_future = callback.call(ex);
-                            self.set(FlattenFuture::EvalCallback{callback_future});
+                            let second = callback.call(ex);
+                            self.set(FlattenFuture{ state: State::Second(second) });
                         }
                         Err(e) => {
                             return Poll::Ready(Err(e));
                         }
                     }
                 }
-                FlattenFuture::EvalCallback{callback_future} => {
-                    let filter = ready!(callback_future.poll(cx));
-                    let second_future = filter.filter(Internal);
-                    self.set(FlattenFuture::EvalSecond{second_future});    
+                State::Second(second) => {
+                    let filter = ready!(second.poll(cx));
+                    let third = filter.filter(Internal);
+                    self.set(FlattenFuture{ state: State::Third(third) });    
                 }
-                FlattenFuture::EvalSecond { second_future } => {
-                    match ready!(second_future.try_poll(cx)) {
-                        Ok(item) => return Poll::Ready(Ok(item)),
+                State::Third(third) => {
+                    match ready!(third.try_poll(cx)) {
+                        Ok(item) => {
+                            self.set(FlattenFuture{ state: State::Done });
+                            return Poll::Ready(Ok(item));
+                        }
                         Err(e) => return Poll::Ready(Err(e)),
                     }
                 }
+                State::Done => panic!("polled after complete"),
             }
         }
     }
