@@ -22,13 +22,12 @@ async fn main() {
     // useful shortly). Thus, we'll need to convert our `warp::Filter` into
     // a `hyper::service::MakeService` for use with a `hyper::server::Server`.
     let svc = warp::service(routes);
-    // clone svc is needed to avoid the error move out of svc. It happens when there is
-    // closure inside of the filter
-    // let make_svc = hyper::service::make_service_fn(|_: _| {
-    //   let svc = svc.clone();
-    //   async move { Ok::<_, Infallible>(svc) }
-    // });
-    let make_svc = hyper::service::make_service_fn(|_: _| async move { Ok::<_, Infallible>(svc) });
+
+    let make_svc = hyper::service::make_service_fn(|_: _| {
+        // the clone is there because not all warp filters impl Copy
+        let svc = svc.clone();
+        async move { Ok::<_, Infallible>(svc) }
+    });
 
     let mut listenfd = ListenFd::from_env();
     // if listenfd doesn't take a TcpListener (i.e. we're not running via
