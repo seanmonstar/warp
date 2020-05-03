@@ -10,6 +10,7 @@ pub(crate) mod service;
 mod unify;
 mod untuple_one;
 mod wrap;
+mod flatten;
 
 use std::future::Future;
 use std::pin::Pin;
@@ -26,6 +27,7 @@ pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
+use self::flatten::Flatten;
 use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
@@ -226,6 +228,20 @@ pub trait Filter: FilterBase {
         <F::Output as TryFuture>::Error: CombineRejection<Self::Error>,
     {
         AndThen {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// TODO
+    fn flatten<F>(self, fun: F) -> Flatten<Self, F> 
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone + Send,
+        F::Output: Future + Send,
+        <F::Output as Future>::Output: Filter<Error = Self::Error>,
+    {
+        Flatten {
             filter: self,
             callback: fun,
         }
