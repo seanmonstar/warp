@@ -1,6 +1,7 @@
 mod and;
 mod and_then;
 mod boxed;
+mod flatten;
 mod map;
 mod map_err;
 mod or;
@@ -10,7 +11,6 @@ pub(crate) mod service;
 mod unify;
 mod untuple_one;
 mod wrap;
-mod flatten;
 
 use std::future::Future;
 use std::pin::Pin;
@@ -24,10 +24,10 @@ use crate::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
+use self::flatten::Flatten;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
-use self::flatten::Flatten;
 use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
@@ -253,7 +253,7 @@ pub trait Filter: FilterBase {
     ///         my_complex_filter
     ///     });
     /// ```
-    fn flatten<F>(self, fun: F) -> Flatten<Self, F> 
+    fn flatten<F>(self, fun: F) -> Flatten<Self, F>
     where
         Self: Sized,
         F: Func<Self::Extract> + Clone + Send,
