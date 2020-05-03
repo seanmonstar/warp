@@ -15,25 +15,20 @@ extern crate listenfd;
 /// ```
 #[tokio::main]
 async fn main() {
-    // Get README.md file for every first level path
-    let readme = warp::get()
-        .and(warp::path::end())
-        .and(warp::fs::file("./README.md"));
-
-    // Get examples directory if the path match with ex
-    let examples = warp::path("ex").and(warp::fs::dir("./examples/"));
-
-    let routes = readme.or(examples);
+    // Match any request and return hello world!
+    let routes = warp::any().map(|| "Hello, World!");
 
     // hyper let's us build a server from a TcpListener (which will be
     // useful shortly). Thus, we'll need to convert our `warp::Filter` into
     // a `hyper::service::MakeService` for use with a `hyper::server::Server`.
     let svc = warp::service(routes);
-    let make_svc = hyper::service::make_service_fn(|_: _| {
-        // clone svc is needed to avoid the error move out of svc
-        let svc = svc.clone();
-        async move { Ok::<_, Infallible>(svc) }
-    });
+    // clone svc is needed to avoid the error move out of svc. It happens when there is
+    // closure inside of the filter
+    // let make_svc = hyper::service::make_service_fn(|_: _| {
+    //   let svc = svc.clone();
+    //   async move { Ok::<_, Infallible>(svc) }
+    // });
+    let make_svc = hyper::service::make_service_fn(|_: _| async move { Ok::<_, Infallible>(svc) });
 
     let mut listenfd = ListenFd::from_env();
     // if listenfd doesn't take a TcpListener (i.e. we're not running via
