@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::{pin_project, project};
 
-use super::{Filter, FilterBase, Func, Internal};
+use super::{Filter, FilterBase, Func, Internal, CombineRejection};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Flatten<T, F> {
@@ -18,10 +18,11 @@ where
     T: Filter,
     F: Func<T::Extract> + Clone + Send,
     F::Output: Future + Send,
-    <F::Output as Future>::Output: Filter<Error = T::Error>,
+    <F::Output as Future>::Output: Filter,
+    <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<T::Error>,
 {
     type Extract = <<F::Output as Future>::Output as FilterBase>::Extract;
-    type Error = T::Error;
+    type Error = <<<F::Output as Future>::Output as FilterBase>::Error as CombineRejection<T::Error>>::One;
     type Future = FlattenFuture<T, F>;
     #[inline]
     fn filter(&self, _: Internal) -> Self::Future {
@@ -37,7 +38,8 @@ where
     T: Filter,
     F: Func<T::Extract>,
     F::Output: Future,
-    <F::Output as Future>::Output: Filter<Error = T::Error>,
+    <F::Output as Future>::Output: Filter,
+    <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<T::Error>,
 {
     First(#[pin] T::Future, F),
     Second(#[pin]F::Output),
@@ -52,7 +54,8 @@ pub struct FlattenFuture<T: Filter, F>
         T: Filter,
         F: Func<T::Extract>,
         F::Output: Future,
-        <F::Output as Future>::Output: Filter<Error = T::Error>,
+        <F::Output as Future>::Output: Filter,
+        <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<T::Error>,
 {
     #[pin]
     state: State<T, F>,
@@ -63,9 +66,11 @@ where
     T: Filter,
     F: Func<T::Extract> + Clone,
     F::Output: Future,
-    <F::Output as Future>::Output: Filter<Error = T::Error>,
+    <F::Output as Future>::Output: Filter,
+    <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<T::Error>,
 {
-    type Output = Result<<<F::Output as Future>::Output as FilterBase>::Extract, <<F::Output as Future>::Output as FilterBase>::Error>;
+    type Output = Result<<<F::Output as Future>::Output as FilterBase>::Extract,
+    <<<F::Output as Future>::Output as FilterBase>::Error as CombineRejection<T::Error>>::One>;
 
     #[inline]
     #[project]
@@ -81,7 +86,7 @@ where
                             self.set(FlattenFuture{ state: State::Second(second) });
                         }
                         Err(e) => {
-                            return Poll::Ready(Err(e));
+                            return Poll::Ready(Err(From::from(e)));
                         }
                     }
                 }
@@ -96,7 +101,7 @@ where
                             self.set(FlattenFuture{ state: State::Done });
                             return Poll::Ready(Ok(item));
                         }
-                        Err(e) => return Poll::Ready(Err(e)),
+                        Err(e) => return Poll::Ready(Err(From::from(e))),
                     }
                 }
                 State::Done => panic!("polled after complete"),

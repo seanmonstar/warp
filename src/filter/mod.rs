@@ -233,13 +233,33 @@ pub trait Filter: FilterBase {
         }
     }
 
-    /// TODO
+    /// Composes this `Filter` with a function receiving the extracted value, and producing a new filter.
+    ///
+    /// The function should return a future that has another filter as output
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// // Some external filter
+    /// let my_complex_filter = warp::any();
+    ///
+    /// warp::path::param()
+    ///     .flatten(move |id: u64| async move {
+    ///         if id != 0 {
+    ///             println!("Do something complex to prepare!");
+    ///         }
+    ///         my_complex_filter
+    ///     });
+    /// ```
     fn flatten<F>(self, fun: F) -> Flatten<Self, F> 
     where
         Self: Sized,
         F: Func<Self::Extract> + Clone + Send,
         F::Output: Future + Send,
-        <F::Output as Future>::Output: Filter<Error = Self::Error>,
+        <F::Output as Future>::Output: Filter,
+        <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<Self::Error>,
     {
         Flatten {
             filter: self,
