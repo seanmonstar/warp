@@ -322,6 +322,35 @@ where
         self.serve_incoming2(incoming)
     }
 
+    /// dox
+    pub fn serve_incoming_with_graceful_shutdown<I>(
+        self,
+        incoming: I,
+        signal: impl Future<Output = ()> + Send + 'static,
+    ) -> impl Future<Output = ()> + 'static
+    where
+        I: TryStream + Send + 'static,
+        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
+    {
+        let incoming = incoming.map_ok(crate::transport::LiftIo);
+        let service = into_service!(self.filter);
+        let pipeline = self.pipeline;
+
+        async move {
+            let srv =
+                HyperServer::builder(hyper::server::accept::from_stream(incoming.into_stream()))
+                    .http1_pipeline_flush(pipeline)
+                    .serve(service)
+                    .with_graceful_shutdown(signal)
+                    .await;
+
+            if let Err(err) = srv {
+                log::error!("server error: {}", err);
+            }
+        }
+    }
+
     async fn serve_incoming2<I>(self, incoming: I)
     where
         I: TryStream + Send,
