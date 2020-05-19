@@ -1,3 +1,17 @@
+### v0.2.3 (May 19, 2020)
+
+- **Features**:
+  - Add `warp::compression` filters, which will compress response bodies.
+  - Add `warp::header::value()` filter to get a request `HeaderValue`.
+  - Add `request_headers` method to `warp::log::Info`.
+  - Add `max_frame_size` to `warp::ws::Ws` builder.
+  - Add `remote_addr` to `warp::test::RequestBuilder`.
+  - Add `try_bind_with_graceful_shutdown` to `warp::Server` builder.
+  - Add `serve_incoming_with_graceful_shutdown` to `warp::Server` builder.
+- **Fixes**:
+  - Fix `warp::addr::remote` when used with `Server::tls`.
+  - Fix panic in `warp::path::{peek, tail, full}` filters when the request URI is in authority-form or asterisk-form.
+
 ### v0.2.2 (March 3, 2020)
 
 - **Features**:
