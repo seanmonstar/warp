@@ -303,6 +303,14 @@ async fn full_path() {
     // does not modify matching
     let m = full_path.and(foo).and(bar);
     assert!(warp::test::request().path("/foo/bar").matches(&m).await);
+
+    // doesn't panic on authority-form
+    let ex = warp::test::request()
+        .path("localhost:1234")
+        .filter(&full_path)
+        .await
+        .unwrap();
+    assert_eq!(ex.as_str(), "/");
 }
 
 #[tokio::test]
