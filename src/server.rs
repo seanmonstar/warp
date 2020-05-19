@@ -322,7 +322,15 @@ where
         self.serve_incoming2(incoming)
     }
 
-    /// dox
+    /// Setup this `Server` with a specific stream of incoming connections and a
+    /// signal to initiate graceful shutdown.
+    ///
+    /// This can be used for Unix Domain Sockets, or TLS, etc.
+    ///
+    /// When the signal completes, the server will start the graceful shutdown
+    /// process.
+    ///
+    /// Returns a `Future` that can be executed on any runtime.
     pub fn serve_incoming_with_graceful_shutdown<I>(
         self,
         incoming: I,
