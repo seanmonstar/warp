@@ -14,7 +14,7 @@ autoexamples = true
 edition = "2018"
 
 [package.metadata.docs.rs]
-features = ["tls"]
+all-features = true
 
 [dependencies]
 async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
