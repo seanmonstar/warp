@@ -13,10 +13,9 @@ use crate::reply::{Reply, Response};
 use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
-use tokio_tungstenite::{
-    tungstenite::protocol::{self, WebSocketConfig},
-    WebSocketStream,
-};
+use tokio_tungstenite::tungstenite::error::Error;
+use tokio_tungstenite::tungstenite::protocol::{self, WebSocketConfig};
+use tokio_tungstenite::WebSocketStream;
 
 /// Creates a Websocket Filter.
 ///
@@ -191,13 +190,14 @@ impl Stream for WebSocket {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
             Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
+            // tungstenite sends Error::ConnectionClosed when connection is closed normally
+            None | Some(Err(Error::ConnectionClosed)) => {
+                log::trace!("websocket closed");
+                Poll::Ready(None)
+            }
             Some(Err(e)) => {
                 log::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
-            }
-            None => {
-                log::trace!("websocket closed");
-                Poll::Ready(None)
             }
         }
     }
