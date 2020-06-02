@@ -37,7 +37,7 @@ tower-service = "0.3"
 tokio-tungstenite = { version = "0.10", default-features = false, optional = true }
 urlencoding = "1.0.0"
 pin-project = "0.4.5"
-tokio-rustls = { version = "0.12.2", optional = true }
+tokio-rustls = { version = "0.13.1", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
