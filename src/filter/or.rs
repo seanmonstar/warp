@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{ready, TryFuture};
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Internal};
 use crate::generic::Either;
@@ -46,7 +46,7 @@ pub struct EitherFuture<T: Filter, U: Filter> {
     original_path_index: PathIndex,
 }
 
-#[pin_project]
+#[pin_project(project = StateProj)]
 enum State<T: Filter, U: Filter> {
     First(#[pin] T::Future, U),
     Second(Option<T::Error>, #[pin] U::Future),
@@ -70,13 +70,11 @@ where
 {
     type Output = Result<(Either<T::Extract, U::Extract>,), Combined<U::Error, T::Error>>;
 
-    #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             let pin = self.as_mut().project();
-            #[project]
             let (err1, fut2) = match pin.state.project() {
-                State::First(first, second) => match ready!(first.try_poll(cx)) {
+                StateProj::First(first, second) => match ready!(first.try_poll(cx)) {
                     Ok(ex1) => {
                         return Poll::Ready(Ok((Either::A(ex1),)));
                     }
@@ -85,7 +83,7 @@ where
                         (e, second.filter(Internal))
                     }
                 },
-                State::Second(err1, second) => {
+                StateProj::Second(err1, second) => {
                     let ex2 = match ready!(second.try_poll(cx)) {
                         Ok(ex2) => Ok((Either::B(ex2),)),
                         Err(e) => {
@@ -100,7 +98,7 @@ where
                     });
                     return Poll::Ready(ex2);
                 }
-                State::Done => panic!("polled after complete"),
+                StateProj::Done => panic!("polled after complete"),
             };
 
             self.set(EitherFuture {
