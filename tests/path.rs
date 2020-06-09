@@ -392,3 +392,28 @@ async fn peek_segments() {
     let segs = ex.segments().collect::<Vec<_>>();
     assert_eq!(segs, Vec::<&str>::new());
 }
+
+#[tokio::test]
+async fn trailing_slash_or_redirect() {
+    // /foo/bar reject redirects to /foo/bar/
+    let result = warp::test::request()
+        .path("/foo/bar")
+        .filter(&warp::path::trailing_slash_or_redirect())
+        .await;
+
+    match result {
+        Ok(x) => assert_eq!(format!("{:?}", x), "unexpected"),
+        Err(reject) => assert_eq!(format!("{:?}", reject), "Rejection(/foo/bar/)"),
+    }
+
+    // /foo/bar/ is NOT redirected
+    let result = warp::test::request()
+        .path("/foo/bar/")
+        .filter(&warp::path::trailing_slash_or_redirect())
+        .await;
+
+    match result {
+        Ok(x) => assert_eq!(format!("{:?}", x), "()"),
+        Err(reject) => assert_eq!(format!("{:?}", reject), "unexpected"),
+    }
+}

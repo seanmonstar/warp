@@ -66,6 +66,9 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     if err.is_not_found() {
         code = StatusCode::NOT_FOUND;
         message = "NOT_FOUND";
+    } else if err.is_rejected_redirected() {
+        code = StatusCode::MOVED_PERMANENTLY;
+        message = "MOVED_PERMANENTLY";
     } else if let Some(DivideByZero) = err.find() {
         code = StatusCode::BAD_REQUEST;
         message = "DIVIDE_BY_ZERO";

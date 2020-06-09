@@ -130,7 +130,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use futures::future;
-use http::uri::PathAndQuery;
+use http::uri::{PathAndQuery, Uri};
 
 use self::internal::Opaque;
 use crate::filter::{filter_fn, one, Filter, FilterBase, Internal, One, Tuple};
@@ -467,6 +467,40 @@ fn path_and_query(route: &Route) -> PathAndQuery {
         .path_and_query()
         .cloned()
         .unwrap_or_else(|| PathAndQuery::from_static(""))
+}
+
+/// Makes the trailing slash mandatory
+///
+/// If there is no trailing slash, redirects 301 MOVED_PERMANENTLY
+/// to the same Uri with trailing slash.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path("foo")
+///     .and(warp::path::trailing_slash_or_redirect())
+///     .map(|| {
+///         // GET /foo rejects with redirect to /foo/.
+///         // GET /foo/ continues normally.
+///         "Hello"
+///     });
+/// ```
+pub fn trailing_slash_or_redirect() -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    full()
+        .and_then(move |path: FullPath| {
+            let path = path.as_str();
+            if path.ends_with("/") {
+                future::ok(())
+            } else {
+                let uri = [path, "/"].concat();
+                let uri = uri.parse::<Uri>();
+                let uri = uri.unwrap();
+                future::err(reject::reject_redirect(uri))
+            }
+        })
+        .untuple_one()
 }
 
 /// Convenient way to chain multiple path filters together.

@@ -32,6 +32,9 @@ use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
 
+use crate::redirect::redirect;
+use crate::reply::Reply;
+
 use http::{
     self,
     header::{HeaderValue, CONTENT_TYPE},
@@ -55,6 +58,13 @@ pub fn not_found() -> Rejection {
     }
 }
 
+/// Rejects a request with `304 PERMANENTLY MOVED`.
+#[inline]
+pub fn reject_redirect(uri: http::Uri) -> Rejection {
+    Rejection {
+        reason: Reason::Redirect(uri),
+    }
+}
 // 400 Bad Request
 #[inline]
 pub(crate) fn invalid_query() -> Rejection {
@@ -177,6 +187,7 @@ pub struct Rejection {
 
 enum Reason {
     NotFound,
+    Redirect(http::Uri),
     Other(Box<Rejections>),
 }
 
@@ -315,6 +326,22 @@ impl Rejection {
             false
         }
     }
+    /// Returns true if this Rejection was made via `warp::reject::redirect`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rejection = warp::reject::reject_redirect(http::Uri::from_static("/redirected/"));
+    ///
+    /// assert!(rejection.is_rejected_redirected());
+    /// ```
+    pub fn is_rejected_redirected(&self) -> bool {
+        if let Reason::Redirect(_uri) = &self.reason {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl From<Infallible> for Rejection {
@@ -338,6 +365,7 @@ impl IsReject for Rejection {
     fn status(&self) -> StatusCode {
         match self.reason {
             Reason::NotFound => StatusCode::NOT_FOUND,
+            Reason::Redirect(ref _uri) => StatusCode::MOVED_PERMANENTLY,
             Reason::Other(ref other) => other.status(),
         }
     }
@@ -347,6 +375,11 @@ impl IsReject for Rejection {
             Reason::NotFound => {
                 let mut res = http::Response::default();
                 *res.status_mut() = StatusCode::NOT_FOUND;
+                res
+            }
+            Reason::Redirect(ref uri) => {
+                let reply = redirect(uri.clone());
+                let res = reply.into_response();
                 res
             }
             Reason::Other(ref other) => other.into_response(),
@@ -364,6 +397,7 @@ impl fmt::Debug for Reason {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Reason::NotFound => f.write_str("NotFound"),
+            Reason::Redirect(ref uri) => f.write_str(&uri.to_string()),
             Reason::Other(ref other) => match **other {
                 Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
                 Rejections::Custom(ref e) => fmt::Debug::fmt(e, f),
@@ -626,7 +660,18 @@ mod sealed {
                     // ignore the NotFound
                     Reason::Other(other)
                 }
+                (Reason::Other(other), Reason::Redirect(_uri))
+                | (Reason::Redirect(_uri), Reason::Other(other)) => {
+                    // ignore the Redirect
+                    Reason::Other(other)
+                }
                 (Reason::NotFound, Reason::NotFound) => Reason::NotFound,
+                (Reason::Redirect(uri), Reason::Redirect(_uri2)) => Reason::Redirect(uri),
+                (Reason::NotFound, Reason::Redirect(_uri))
+                | (Reason::Redirect(_uri), Reason::NotFound) => {
+                    // ignore the Redirect
+                    Reason::NotFound
+                }
             };
 
             Rejection { reason }
@@ -678,6 +723,10 @@ mod tests {
     #[test]
     fn rejection_status() {
         assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            reject_redirect(http::Uri::from_static("/redirected/")).status(),
+            StatusCode::MOVED_PERMANENTLY
+        );
         assert_eq!(
             method_not_allowed().status(),
             StatusCode::METHOD_NOT_ALLOWED
@@ -806,5 +855,17 @@ mod tests {
 
         let s = format!("{:?}", rej);
         assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
+    }
+
+    #[tokio::test]
+    async fn test_reject_redirect() {
+        let reject = reject_redirect(http::Uri::from_static("/foo/bar/"));
+        let resp = reject.into_response();
+
+        assert_eq!(resp.status(), StatusCode::MOVED_PERMANENTLY);
+        assert_eq!(
+            resp.headers().get(http::header::LOCATION).unwrap(),
+            "/foo/bar/"
+        )
     }
 }
