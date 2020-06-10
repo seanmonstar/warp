@@ -245,6 +245,66 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     })
 }
 
+/// Check if the route ends with trailing slash
+/// If there is no trailing slash, then redirect to same uri with trailing slash.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Matches 'foo/', if 'foo' then redirect to 'foo/'
+/// let hello = warp::path::path("foo")
+///    .and(warp::path::redirect_if_not_trailing_slash())
+///    .and(warp::path::end())
+///    .map(|| "Ok");
+/// ```
+pub fn redirect_if_not_trailing_slash() -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    filter_fn(move |route| {
+        let path = route.uri().to_string();
+        // the trailing slash rules don't apply to the website root
+        if !path.is_empty() && path != "/" && !path.ends_with("/") {
+            log::debug!(
+                "Trailing slash missing: {} moved_permanently_redirect",
+                path
+            );
+            let redirect_uri = format!("{}/", path);
+            return future::err(reject::moved_permanently_redirect(redirect_uri));
+        }
+        future::ok(())
+    })
+}
+
+/// Checks if the route does not end with a trailing slash
+/// If there is trailing slash, then redirect to same uri without trailing slash.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// // Matches 'foo', if 'foo/' then redirect to 'foo'
+/// let hello = warp::path::path("foo")
+///    .and(warp::path::redirect_if_has_trailing_slash())
+///    .and(warp::path::end())
+///    .map(|| "Ok");
+/// ```
+pub fn redirect_if_has_trailing_slash() -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    filter_fn(move |route| {
+        let path = route.uri().to_string();
+        // the trailing slash rules does not apply to the website root
+        if !path.is_empty() && path != "/" && path.ends_with("/") {
+            log::debug!(
+                "Trailing slash not allowed: {} moved_permanently_redirect",
+                path
+            );
+            let redirect_uri = path[..path.len() - 1].to_string();
+            return future::err(reject::moved_permanently_redirect(redirect_uri));
+        }
+        future::ok(())
+    })
+}
+
 /// Extract a parameter from a path segment.
 ///
 /// This will try to parse a value from the current request path
@@ -551,6 +611,26 @@ macro_rules! __internal_path {
 
     (@last $sum:expr; ..) => (
         $sum
+    );
+    // must end with trailing slash or redirect
+    (@last $sum:expr; !) => (
+        $crate::Filter::and(
+            $crate::Filter::and(
+                $sum,
+                $crate::path::redirect_if_not_trailing_slash()
+            ),
+            $crate::path::end()
+        )
+    );
+    // must not end with trailing slash or redirect
+    (@last $sum:expr; <) => (
+        $crate::Filter::and(
+            $crate::Filter::and(
+                $sum,
+                $crate::path::redirect_if_has_trailing_slash()
+            ),
+            $crate::path::end()
+        )
     );
     (@last $sum:expr; $end:tt) => (
         $crate::Filter::and(

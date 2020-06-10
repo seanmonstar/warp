@@ -113,6 +113,166 @@ async fn end() {
 }
 
 #[tokio::test]
+async fn redirect_if_not_trailing_slash() {
+    let _ = pretty_env_logger::try_init();
+
+    assert!(
+        warp::test::request()
+            .path("/")
+            .matches(&warp::path::redirect_if_not_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_not_trailing_slash() matches /"
+    );
+
+    assert!(
+        !warp::test::request()
+            .path("/foo")
+            .matches(&warp::path::redirect_if_not_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_not_trailing_slash() doesn't match /foo"
+    );
+
+    assert!(
+        !warp::test::request()
+            .path("/foo/")
+            .matches(&warp::path::redirect_if_not_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_not_trailing_slash() doesn't match /foo/"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("/foo/")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_not_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "path().and(redirect_if_not_trailing_slash()) matches /foo/"
+    );
+
+    // reject redirect to trailing slash
+    let req = warp::test::request().path("/foo");
+    let resp = req
+        .reply(
+            &warp::path("foo")
+                .and(warp::path::redirect_if_not_trailing_slash())
+                .and(warp::path::end())
+                .map(|| warp::reply::html("Ok")),
+        )
+        .await;
+    assert_eq!(resp.status(), 301);
+    assert_eq!(resp.headers()["location"], "/foo/");
+
+    // does not effect longer paths, because it is like end()
+    assert!(
+        !warp::test::request()
+            .path("/foo/bar")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_not_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "redirect_if_not_trailing_slash() doesn't match /foo/bar"
+    );
+
+    assert!(
+        !warp::test::request()
+            .path("/foo/bar/")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_not_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "redirect_if_not_trailing_slash() doesn't match /foo/bar/"
+    );
+}
+
+#[tokio::test]
+async fn redirect_if_has_trailing_slash() {
+    let _ = pretty_env_logger::try_init();
+
+    assert!(
+        warp::test::request()
+            .path("/")
+            .matches(&warp::path::redirect_if_has_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_has_trailing_slash() matches /"
+    );
+    // does not effect longer paths, because is like end()
+    assert!(
+        !warp::test::request()
+            .path("/foo")
+            .matches(&warp::path::redirect_if_has_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_has_trailing_slash() doesn't match /foo"
+    );
+
+    // does not effect longer paths, because is like end()
+    assert!(
+        !warp::test::request()
+            .path("/foo/")
+            .matches(&warp::path::redirect_if_has_trailing_slash().and(warp::path::end()))
+            .await,
+        "redirect_if_has_trailing_slash() doesn't match /foo/"
+    );
+
+    assert!(
+        warp::test::request()
+            .path("/foo")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_has_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "path().and(redirect_if_has_trailing_slash()) matches /foo"
+    );
+
+    // reject redirect to not trailing slash
+    let req = warp::test::request().path("/foo/");
+    let resp = req
+        .reply(
+            &warp::path("foo")
+                .and(warp::path::redirect_if_has_trailing_slash())
+                .and(warp::path::end())
+                .map(|| warp::reply::html("Ok")),
+        )
+        .await;
+    assert_eq!(resp.status(), 301);
+    assert_eq!(resp.headers()["location"], "/foo");
+
+    // does not effect longer paths, because is like end()
+    assert!(
+        !warp::test::request()
+            .path("/foo/bar/")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_has_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "redirect_if_has_trailing_slash() doesn't match /foo/bar/"
+    );
+
+    // does not effect longer paths, because is like end()
+    assert!(
+        !warp::test::request()
+            .path("/foo/bar")
+            .matches(
+                &warp::path("foo")
+                    .and(warp::path::redirect_if_has_trailing_slash())
+                    .and(warp::path::end())
+            )
+            .await,
+        "redirect_if_has_trailing_slash() doesn't match /foo/bar"
+    );
+}
+
+#[tokio::test]
 async fn tail() {
     let tail = warp::path::tail();
 
