@@ -38,6 +38,7 @@ tokio-tungstenite = { version = "0.10", default-features = false, optional = tru
 urlencoding = "1.0.0"
 pin-project = "0.4.17"
 tokio-rustls = { version = "0.13.1", optional = true }
+parking_lot = "0.10.2"
 
 [dev-dependencies]
 pretty_env_logger = "0.4"

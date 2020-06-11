@@ -118,7 +118,7 @@ mod handlers {
 
     pub async fn list_todos(opts: ListOptions, db: Db) -> Result<impl warp::Reply, Infallible> {
         // Just return a JSON array of todos, applying the limit and offset.
-        let todos = db.lock().await;
+        let todos = db.lock();
         let todos: Vec<Todo> = todos
             .clone()
             .into_iter()
@@ -131,7 +131,7 @@ mod handlers {
     pub async fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, Infallible> {
         log::debug!("create_todo: {:?}", create);
 
-        let mut vec = db.lock().await;
+        let mut vec = db.lock();
 
         for todo in vec.iter() {
             if todo.id == create.id {
@@ -153,7 +153,7 @@ mod handlers {
         db: Db,
     ) -> Result<impl warp::Reply, Infallible> {
         log::debug!("update_todo: id={}, todo={:?}", id, update);
-        let mut vec = db.lock().await;
+        let mut vec = db.lock();
 
         // Look for the specified Todo...
         for todo in vec.iter_mut() {
@@ -172,7 +172,7 @@ mod handlers {
     pub async fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, Infallible> {
         log::debug!("delete_todo: id={}", id);
 
-        let mut vec = db.lock().await;
+        let mut vec = db.lock();
 
         let len = vec.len();
         vec.retain(|todo| {
@@ -196,9 +196,9 @@ mod handlers {
 }
 
 mod models {
+    use parking_lot::Mutex;
     use serde_derive::{Deserialize, Serialize};
     use std::sync::Arc;
-    use tokio::sync::Mutex;
 
     /// So we don't have to tackle how different database work, we'll just use
     /// a simple in-memory DB, a vector synchronized by a mutex.
@@ -255,7 +255,7 @@ mod tests {
     #[tokio::test]
     async fn test_post_conflict() {
         let db = models::blank_db();
-        db.lock().await.push(todo1());
+        db.lock().push(todo1());
         let api = filters::todos(db);
 
         let resp = request()
