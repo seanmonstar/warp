@@ -145,19 +145,19 @@ static INDEX_HTML: &str = r#"<!DOCTYPE html>
             chat.appendChild(line);
         }
 
-        ws.onopen = function () {
+        ws.onopen = function() {
             chat.innerHTML = '<p><em>Connected!</em></p>';
         };
 
-        ws.onmessage = function (msg) {
+        ws.onmessage = function(msg) {
             message(msg.data);
         };
 
-        ws.onclose = function () {
+        ws.onclose = function() {
             chat.getElementsByTagName('em')[0].innerText = 'Disconnected!';
         };
 
-        send.onclick = function () {
+        send.onclick = function() {
             const msg = text.value;
             ws.send(msg);
             text.value = '';
