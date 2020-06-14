@@ -99,14 +99,13 @@ async fn negate() {
     let a = warp::header::<String>("warp");
     let f = a.negate(|_| reject());
 
-    let ext = warp::test::request().filter(&f).await;
-    assert!(ext.is_ok());
-
-    let ext = warp::test::request()
-        .header("warp", "speed")
-        .filter(&f)
-        .await;
-    assert!(ext.is_err());
+    assert!(warp::test::request().matches(&f).await);
+    assert!(
+        !warp::test::request()
+            .header("warp", "speed")
+            .matches(&f)
+            .await
+    );
 }
 
 #[tokio::test]
