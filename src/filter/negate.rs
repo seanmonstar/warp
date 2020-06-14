@@ -5,7 +5,7 @@ use std::task::{Context, Poll};
 use futures::{ready, TryFuture};
 use pin_project::pin_project;
 
-use super::{Filter, FilterBase, Internal, Func};
+use super::{Filter, FilterBase, Func, Internal};
 use crate::reject::IsReject;
 
 #[derive(Clone, Copy, Debug)]
@@ -14,7 +14,7 @@ pub struct Negate<T, F> {
     pub(super) callback: F,
 }
 
-impl<T, F> FilterBase for Negate<T, F> 
+impl<T, F> FilterBase for Negate<T, F>
 where
     T: Filter,
     F: Func<T::Extract> + Clone + Send,
@@ -55,7 +55,7 @@ where
             Ok(ex) => {
                 let ex = pin.callback.call(ex);
                 Poll::Ready(Err(ex))
-            },
+            }
             Err(_) => Poll::Ready(Ok(())),
         }
     }

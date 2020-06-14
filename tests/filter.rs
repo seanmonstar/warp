@@ -93,7 +93,7 @@ async fn or() {
 
 #[tokio::test]
 async fn negate() {
-    use warp::reject::reject; 
+    use warp::reject::reject;
     let _ = pretty_env_logger::try_init();
 
     let a = warp::header::<String>("warp");
@@ -102,7 +102,10 @@ async fn negate() {
     let ext = warp::test::request().filter(&f).await;
     assert!(ext.is_ok());
 
-    let ext = warp::test::request().header("warp", "speed").filter(&f).await;
+    let ext = warp::test::request()
+        .header("warp", "speed")
+        .filter(&f)
+        .await;
     assert!(ext.is_err());
 }
 

@@ -26,8 +26,8 @@ use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
-pub(crate) use self::or::Or;
 pub(crate) use self::negate::Negate;
+pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
@@ -271,7 +271,7 @@ pub trait Filter: FilterBase {
     }
 
     /// Compose this `Filter` with a function receiving the extracted items and
-    /// returning a rejection. The resulting `Filter` will match whenever the 
+    /// returning a rejection. The resulting `Filter` will match whenever the
     /// original filter does not.
     ///
     /// This can be considered to be an "inversion" of a filter where the
