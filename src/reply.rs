@@ -155,13 +155,13 @@ impl StdError for ReplyJsonError {}
 ///         <title>HTML with warp!</title>
 ///     </head>
 ///     <body>
-///         <h1>warp + HTML = :heart:</h1>
+///         <h1>warp + HTML = &hearts;</h1>
 ///     </body>
 /// </html>
 /// "#;
 ///
 /// let route = warp::any()
-///     .map(|| {
+///     .map(move || {
 ///         warp::reply::html(body)
 ///     });
 /// ```
