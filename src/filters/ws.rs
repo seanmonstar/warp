@@ -164,6 +164,10 @@ where
 }
 
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
+///
+/// Ping messages sent from the client will be handled internally by replying with a Pong message.
+/// Close messages need to be handled explicitly: usually by closing the `Sink` end of the
+/// `WebSocket`.
 pub struct WebSocket {
     inner: WebSocketStream<hyper::upgrade::Upgraded>,
 }
@@ -248,8 +252,6 @@ impl fmt::Debug for WebSocket {
 }
 
 /// A WebSocket message.
-///
-/// Only repesents Text and Binary messages.
 ///
 /// This will likely become a `non-exhaustive` enum in the future, once that
 /// language feature has stabilized.
