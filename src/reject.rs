@@ -164,6 +164,16 @@ impl dyn Cause {
     }
 }
 
+#[cfg(feature = "anyhow")]
+impl Reject for anyhow::Error {}
+
+#[cfg(feature = "anyhow")]
+impl From<anyhow::Error> for Rejection {
+    fn from(anyhow: anyhow::Error) -> Self {
+        custom(anyhow)
+    }
+}
+
 pub(crate) fn known<T: Into<Known>>(err: T) -> Rejection {
     Rejection::known(err.into())
 }
@@ -657,6 +667,46 @@ mod sealed {
 
         fn combine(self, _: Infallible) -> Self::Combined {
             match self {}
+        }
+    }
+
+    #[cfg(feature = "anyhow")]
+    impl CombineRejection<anyhow::Error> for Infallible {
+        type One = Rejection;
+        type Combined = Rejection;
+
+        fn combine(self, anyhow: anyhow::Error) -> Self::Combined {
+            crate::reject::custom(anyhow)
+        }
+    }
+
+    #[cfg(feature = "anyhow")]
+    impl CombineRejection<Infallible> for anyhow::Error {
+        type One = Rejection;
+        type Combined = Rejection;
+
+        fn combine(self, _: Infallible) -> Self::Combined {
+            crate::reject::custom(self)
+        }
+    }
+
+    #[cfg(feature = "anyhow")]
+    impl CombineRejection<anyhow::Error> for Rejection {
+        type One = Rejection;
+        type Combined = Rejection;
+
+        fn combine(self, e: anyhow::Error) -> Self::Combined {
+            self.combine(crate::reject::custom(e))
+        }
+    }
+
+    #[cfg(feature = "anyhow")]
+    impl CombineRejection<Rejection> for anyhow::Error {
+        type One = Rejection;
+        type Combined = Rejection;
+
+        fn combine(self, rejection: Rejection) -> Self::Combined {
+            rejection.combine(crate::reject::custom(self))
         }
     }
 }

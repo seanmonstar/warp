@@ -17,6 +17,7 @@ edition = "2018"
 all-features = true
 
 [dependencies]
+anyhow = { version = "1", optional = true }
 async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
 bytes = "0.5"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
@@ -83,3 +84,7 @@ required-features = ["websocket"]
 [[example]]
 name = "websockets_chat"
 required-features = ["websocket"]
+
+[[example]]
+name = "anyhow"
+required-features = ["anyhow"]
