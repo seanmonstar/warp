@@ -16,11 +16,9 @@ async fn main() {
     let example1 = warp::get()
         .and(warp::path("example1"))
         .and(warp::query::<HashMap<String, String>>())
-        .map(|p: HashMap<String, String>| {
-            match p.get("key") {
-                Some(key) => Response::builder().body(format!("key = {}", key)),
-                None => Response::builder().body(String::from("No param in query.")),
-            }
+        .map(|p: HashMap<String, String>| match p.get("key") {
+            Some(key) => Response::builder().body(format!("key = {}", key)),
+            None => Response::builder().body(String::from("No param in query.")),
         });
 
     // get /example2?key1=value,key2=42
@@ -31,5 +29,7 @@ async fn main() {
             Response::builder().body(format!("key1 = {}, key2 = {}", p.key1, p.key2))
         });
 
-    warp::serve(example1.or(example2)).run(([127, 0, 0, 1], 3030)).await
+    warp::serve(example1.or(example2))
+        .run(([127, 0, 0, 1], 3030))
+        .await
 }
