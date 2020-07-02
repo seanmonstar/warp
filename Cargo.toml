@@ -83,3 +83,6 @@ required-features = ["websocket"]
 [[example]]
 name = "websockets_chat"
 required-features = ["websocket"]
+
+[[example]]
+name = "query_string"
