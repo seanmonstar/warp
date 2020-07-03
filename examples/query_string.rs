@@ -34,14 +34,16 @@ async fn main() {
             Response::builder().body(format!("key1 = {}, key2 = {}", p.key1, p.key2))
         });
 
+    let opt_query = warp::query::<MyObject>()
+        .map(Some)
+        .or_else(|_| async { Ok::<(Option<MyObject>,), std::convert::Infallible>((None,)) });
+
     // get /example3?key1=value,key2=42
     // builds on example2 but adds custom error handling
     let example3 =
         warp::get()
             .and(warp::path("example3"))
-            .and(warp::query::<MyObject>().map(Some).or_else(|_| async {
-                Ok::<(Option<MyObject>,), std::convert::Infallible>((None,))
-            }))
+            .and(opt_query)
             .map(|p: Option<MyObject>| match p {
                 Some(obj) => {
                     Response::builder().body(format!("key1 = {}, key2 = {}", obj.key1, obj.key2))
