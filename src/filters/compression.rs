@@ -9,7 +9,7 @@ use hyper::{
     Body,
 };
 
-use crate::filter::{Filter, WrapSealed};
+use crate::filter::{Filter, Wrap};
 use crate::reject::IsReject;
 use crate::reply::{Reply, Response};
 
@@ -119,7 +119,7 @@ pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     Compression { func }
 }
 
-impl<FN, F> WrapSealed<F> for Compression<FN>
+impl<FN, F> Wrap<F> for Compression<FN>
 where
     FN: Fn(CompressionProps) -> Response + Clone + Send,
     F: Filter + Clone + Send,
