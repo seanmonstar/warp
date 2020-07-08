@@ -19,4 +19,3 @@ where
         (*self).wrap(filter)
     }
 }
-
