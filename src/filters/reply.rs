@@ -25,7 +25,7 @@ use std::sync::Arc;
 use http::header::{HeaderMap, HeaderName, HeaderValue};
 
 use self::sealed::{WithDefaultHeader_, WithHeader_, WithHeaders_};
-use crate::filter::{Filter, Map, WrapSealed};
+use crate::filter::{Filter, Map, Wrap};
 use crate::reply::Reply;
 
 /// Wrap a [`Filter`](crate::Filter) that adds a header to the reply.
@@ -125,7 +125,7 @@ pub struct WithHeader {
     value: HeaderValue,
 }
 
-impl<F, R> WrapSealed<F> for WithHeader
+impl<F, R> Wrap<F> for WithHeader
 where
     F: Filter<Extract = (R,)>,
     R: Reply,
@@ -144,7 +144,7 @@ pub struct WithHeaders {
     headers: Arc<HeaderMap>,
 }
 
-impl<F, R> WrapSealed<F> for WithHeaders
+impl<F, R> Wrap<F> for WithHeaders
 where
     F: Filter<Extract = (R,)>,
     R: Reply,
@@ -164,7 +164,7 @@ pub struct WithDefaultHeader {
     value: HeaderValue,
 }
 
-impl<F, R> WrapSealed<F> for WithDefaultHeader
+impl<F, R> Wrap<F> for WithDefaultHeader
 where
     F: Filter<Extract = (R,)>,
     R: Reply,

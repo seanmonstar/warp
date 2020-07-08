@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use http::{self, header, StatusCode};
 
-use crate::filter::{Filter, WrapSealed};
+use crate::filter::{Filter, Wrap};
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::Route;
@@ -91,7 +91,7 @@ pub struct Info<'a> {
     status: StatusCode,
 }
 
-impl<FN, F> WrapSealed<F> for Log<FN>
+impl<FN, F> Wrap<F> for Log<FN>
 where
     FN: Fn(Info) + Clone + Send,
     F: Filter + Clone + Send,

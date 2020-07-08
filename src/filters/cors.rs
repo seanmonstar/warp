@@ -13,7 +13,7 @@ use http::{
     header::{self, HeaderName, HeaderValue},
 };
 
-use crate::filter::{Filter, WrapSealed};
+use crate::filter::{Filter, Wrap};
 use crate::reject::{CombineRejection, Rejection};
 use crate::reply::Reply;
 
@@ -272,7 +272,7 @@ impl Builder {
     }
 }
 
-impl<F> WrapSealed<F> for Builder
+impl<F> Wrap<F> for Builder
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
@@ -288,7 +288,7 @@ where
     }
 }
 
-impl<F> WrapSealed<F> for Cors
+impl<F> Wrap<F> for Cors
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,

@@ -1,14 +1,14 @@
 use super::Filter;
 
-pub trait WrapSealed<F: Filter> {
+pub trait Wrap<F: Filter> {
     type Wrapped: Filter;
 
     fn wrap(&self, filter: F) -> Self::Wrapped;
 }
 
-impl<'a, T, F> WrapSealed<F> for &'a T
+impl<'a, T, F> Wrap<F> for &'a T
 where
-    T: WrapSealed<F>,
+    T: Wrap<F>,
     F: Filter,
 {
     type Wrapped = T::Wrapped;
@@ -17,11 +17,11 @@ where
     }
 }
 
-pub trait Wrap<F: Filter>: WrapSealed<F> {}
-
-impl<T, F> Wrap<F> for T
-where
-    T: WrapSealed<F>,
-    F: Filter,
-{
-}
+// pub trait Wrap<F: Filter>: WrapSealed<F> {}
+//
+// impl<T, F> Wrap<F> for T
+// where
+//     T: WrapSealed<F>,
+//     F: Filter,
+// {
+// }
