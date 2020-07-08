@@ -1,8 +1,11 @@
 use super::Filter;
 
+/// Wraps filters.
 pub trait Wrap<F: Filter> {
+    /// The type of the Filter produced by wrapping another Filter.
     type Wrapped: Filter;
 
+    /// Wraps the filter.
     fn wrap(&self, filter: F) -> Self::Wrapped;
 }
 
@@ -17,11 +20,3 @@ where
     }
 }
 
-// pub trait Wrap<F: Filter>: WrapSealed<F> {}
-//
-// impl<T, F> Wrap<F> for T
-// where
-//     T: WrapSealed<F>,
-//     F: Filter,
-// {
-// }

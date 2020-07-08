@@ -30,7 +30,7 @@ use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
-pub(crate) use self::wrap::{Wrap};
+pub use self::wrap::Wrap;
 
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
