@@ -25,7 +25,7 @@ async fn main() {
             None => Response::builder().body(String::from("No \"key\" param in query.")),
         });
 
-    // get /example2?key1=value,key2=42
+    // get /example2?key1=value&key2=42
     // uses the query string to populate a custom object
     let example2 = warp::get()
         .and(warp::path("example2"))
@@ -38,7 +38,7 @@ async fn main() {
         .map(Some)
         .or_else(|_| async { Ok::<(Option<MyObject>,), std::convert::Infallible>((None,)) });
 
-    // get /example3?key1=value,key2=42
+    // get /example3?key1=value&key2=42
     // builds on example2 but adds custom error handling
     let example3 =
         warp::get()
