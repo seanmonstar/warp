@@ -11,16 +11,33 @@ use super::Filter;
 /// - `warp::filters::cors::Cors`
 /// - `warp::filters::cors::Builder`
 /// - `warp::filters::reply::WithHeader`
-/// - `warp::filters::reply::WithHeaderS`
+/// - `warp::filters::reply::WithHeaders`
 /// - `warp::filters::reply::WithDefaultHeader`
 ///
 /// # Example
 /// ```
-/// // use warp::{Filter, Wrap};
+/// use warp::{Filter, Wrap, Rejection};
+/// use warp::filters::BoxedFilter;
 ///
-/// // let route = warp::any()
-/// //    .map(warp::reply)
-/// //    .with(unimplemented!());
+/// struct SimpleLog;
+/// impl <F> Wrap<F> for SimpleLog
+/// where
+///     F: Filter + Sized + Send + Sync + 'static,
+///     F::Extract: Send,
+///     F::Error: Into<Rejection>
+/// {
+///     type Wrapped = BoxedFilter<F::Extract>;
+///
+///     fn wrap(&self, filter: F) -> Self::Wrapped {
+///         filter
+///             .and(warp::any().map(|| log::info!("")))
+///             .boxed()
+///     }
+/// }
+///
+/// let route = warp::any()
+///    .map(warp::reply)
+///    .with(SimpleLog);
 /// ```
 pub trait Wrap<F: Filter> {
     /// The type of the Filter produced by wrapping another Filter.
