@@ -105,11 +105,12 @@ async fn dir_fallback_index_on_dir() {
     let file = warp::fs::dir("examples");
     let req = warp::test::request().path("/dir");
     let res = req.reply(&file).await;
-    let contents = fs::read("examples/dir/index.html").expect("fs::read");
-    assert_eq!(res.headers()["content-length"], contents.len().to_string());
-    assert_eq!(res.status(), 200);
+    assert_eq!(res.headers()["location"], "/dir/");
+    assert_eq!(res.status(), 301);
+
     let req = warp::test::request().path("/dir/");
     let res = req.reply(&file).await;
+    let contents = fs::read("examples/dir/index.html").expect("fs::read");
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
     assert_eq!(res.status(), 200);
 }
