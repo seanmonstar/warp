@@ -30,6 +30,7 @@ use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
+pub use self::wrap::wrap_fn;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
 
 // A crate-private base trait, allowing the actual `filter` method to change

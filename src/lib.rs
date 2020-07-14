@@ -149,6 +149,7 @@ pub use self::filters::{
     trace::trace,
 };
 // ws() function
+pub use self::filter::wrap_fn;
 #[cfg(feature = "websocket")]
 #[doc(hidden)]
 pub use self::filters::ws::ws;
