@@ -212,6 +212,32 @@ fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible
 #[derive(Debug)]
 pub struct File {
     resp: Response,
+    path: ArcPath,
+}
+
+impl File {
+    /// Extract the `&Path` of the file this `Response` delivers.
+    ///
+    /// # Example
+    ///
+    /// The example below changes the Content-Type response header for every file called `video.mp4`.
+    ///
+    /// ```
+    /// use warp::{Filter, reply::Reply};
+    ///
+    /// let route = warp::path("static")
+    ///     .and(warp::fs::dir("/www/static"))
+    ///     .map(|reply: warp::filters::fs::File| {
+    ///         if reply.path().ends_with("video.mp4") {
+    ///             warp::reply::with_header(reply, "Content-Type", "video/mp4").into_response()
+    ///         } else {
+    ///             reply.into_response()
+    ///         }
+    ///     });
+    /// ```
+    pub fn path(&self) -> &Path {
+        self.path.as_ref()
+    }
 }
 
 // Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
@@ -323,7 +349,7 @@ fn file_conditional(
             }
         };
 
-        File { resp }
+        File { resp, path }
     })
 }
 
