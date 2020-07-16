@@ -32,14 +32,14 @@ use self::internal::WithTrace;
 ///
 /// let route = warp::any()
 ///     .map(warp::reply)
-///     .with(warp::tracing());
+///     .with(warp::trace::request);
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
-pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
+pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
     use tracing::field::{display, Empty};
-    let func = move |info: Info| {
+    trace(|info: Info| {
         let span = tracing::info_span!(
             "request",
             remote_addr = Empty,
@@ -64,8 +64,7 @@ pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
         }
 
         span
-    };
-    Trace { func }
+    })
 }
 
 /// Create a wrapping filter that instruments every request with a custom
@@ -77,21 +76,20 @@ pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
 /// ```
 /// use warp::Filter;
 ///
-/// let tracing = warp::tracing::custom(|info| {
-///     // Create a span using tracing macros
-///     tracing::info_span!(
-///         "request",
-///         method = %info.method(),
-///         path = %info.path(),
-///     )
-/// });
 /// let route = warp::any()
 ///     .map(warp::reply)
-///     .with(tracing);
+///     .with(warp::trace(|info| {
+///         // Create a span using tracing macros
+///         tracing::info_span!(
+///             "request",
+///             method = %info.method(),
+///             path = %info.path(),
+///         )
+///     });
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
-pub fn custom<F>(func: F) -> Trace<F>
+pub fn trace<F>(func: F) -> Trace<F>
 where
     F: Fn(Info) -> Span + Clone,
 {
@@ -111,19 +109,19 @@ where
 ///
 /// let hello = warp::path("hello")
 ///     .map(warp::reply)
-///     .with(warp::tracing::context("hello"));
+///     .with(warp::trace::named("hello"));
 ///
 /// let goodbye = warp::path("goodbye")
 ///     .map(warp::reply)
-///     .with(warp::tracing::context("goodbye"));
+///     .with(warp::trace::named("goodbye"));
 ///
 /// let routes = hello.or(goodbye);
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
-pub fn context(name: &'static str) -> Trace<impl Fn(Info<'_>) -> tracing::Span + Copy> {
-    custom(move |_| {
+pub fn named(name: &'static str) -> Trace<impl Fn(Info<'_>) -> Span + Copy> {
+    trace(move |_| {
         tracing::debug_span!(
             target: "warp",
             "context",

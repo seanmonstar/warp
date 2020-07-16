@@ -143,9 +143,9 @@ pub use self::filters::{
     // query() function
     query::query,
     sse,
-    tracing,
-    // tracing() function
-    tracing::tracing,
+    trace,
+    // trace() function
+    trace::trace,
 };
 // ws() function
 #[cfg(feature = "websocket")]

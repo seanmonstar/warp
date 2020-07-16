@@ -32,7 +32,7 @@ async fn uses_tracing() {
         .map(warp::reply)
         // Here we add the tracing logger which will ensure that all requests has a span with
         // useful information about the request (method, url, version, remote_addr, etc.)
-        .with(warp::tracing());
+        .with(warp::trace());
 
     tracing::info!("logged using tracing macro");
 

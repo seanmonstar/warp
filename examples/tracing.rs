@@ -1,6 +1,6 @@
 //! [`tracing`] is a framework for instrumenting Rust programs to
 //! collect scoped, structured, and async-aware diagnostics. This example
-//! demonstrates how the `warp::tracing` module can be used to instrument `warp`
+//! demonstrates how the `warp::trace` module can be used to instrument `warp`
 //! applications with `tracing`.
 //!
 //! [`tracing`]: https://crates.io/tracing
@@ -35,7 +35,7 @@ async fn main() {
         })
         // Wrap the route in a `tracing` span to add the route's name as context
         // to any events that occur inside it.
-        .with(warp::tracing::context("hello"));
+        .with(warp::trace::named("hello"));
 
     let goodbye = warp::path("goodbye")
         .and(warp::get())
@@ -44,7 +44,7 @@ async fn main() {
             "So long and thanks for all the fish!"
         })
         // We can also provide our own custom `tracing` spans to wrap a route.
-        .with(warp::tracing::custom(|info| {
+        .with(warp::trace(|info| {
             // Construct our own custom span for this route.
             tracing::info_span!("goodbye", req.path = ?info.path())
         }));
@@ -53,7 +53,7 @@ async fn main() {
         .or(goodbye)
         // Wrap all the routes with a filter that creates a `tracing` span for
         // each request we receive, including data about the request.
-        .with(warp::tracing());
+        .with(warp::trace::request());
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
