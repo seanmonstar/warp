@@ -3,7 +3,7 @@
 use std::convert::Infallible;
 use std::num::NonZeroU16;
 
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 use warp::http::StatusCode;
 use warp::{reject, Filter, Rejection, Reply};
 
@@ -11,7 +11,9 @@ use warp::{reject, Filter, Rejection, Reply};
 /// the request, but a different filter *could* process it.
 #[tokio::main]
 async fn main() {
-    let math = warp::path!("math" / u16)
+    let math = warp::path!("math" / u16);
+    let div_with_header = math
+        .and(warp::get())
         .and(div_by())
         .map(|num: u16, denom: NonZeroU16| {
             warp::reply::json(&Math {
@@ -20,7 +22,17 @@ async fn main() {
             })
         });
 
-    let routes = warp::get().and(math).recover(handle_rejection);
+    let div_with_body =
+        math.and(warp::post())
+            .and(warp::body::json())
+            .map(|num: u16, body: DenomRequest| {
+                warp::reply::json(&Math {
+                    op: format!("{} / {}", num, body.denom),
+                    output: num / body.denom.get(),
+                })
+            });
+
+    let routes = div_with_header.or(div_with_body).recover(handle_rejection);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
@@ -34,6 +46,11 @@ fn div_by() -> impl Filter<Extract = (NonZeroU16,), Error = Rejection> + Copy {
             Err(reject::custom(DivideByZero))
         }
     })
+}
+
+#[derive(Deserialize)]
+struct DenomRequest {
+    pub denom: NonZeroU16,
 }
 
 #[derive(Debug)]
@@ -73,8 +90,8 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
         // This error happens if the body could not be deserialized correctly
         // We can use the cause to analyze the error and customize the error message
         let cause = e.cause();
-        if cause.to_string().contains("someField") {
-            message = "FIELD_ERROR: someField"
+        if cause.to_string().contains("denom") {
+            message = "FIELD_ERROR: denom"
         } else {
             message = "BAD_REQUEST";
         }
