@@ -187,17 +187,32 @@ mod internal {
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
         match reply {
             Ok((Traced(resp),)) => {
-                tracing::info!(target: "warp::filters::tracing", status = %resp.status().as_u16(), "finished processing with success");
+                tracing::info!(target: "warp::filters::tracing", status = resp.status().as_u16(), "finished processing with success");
             }
             Err(e) if e.status().is_server_error() => {
-                tracing::error!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "unable to process request (internal error)");
+                tracing::error!(
+                    target: "warp::filters::tracing",
+                    status = e.status().as_u16(),
+                    error = ?e,
+                    "unable to process request (internal error)"
+                );
             }
             Err(e) if e.status().is_client_error() => {
-                tracing::warn!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "unable to serve request (client error)");
+                tracing::warn!(
+                    target: "warp::filters::tracing",
+                    status = e.status().as_u16(),
+                    error = ?e,
+                    "unable to serve request (client error)"
+                );
             }
             Err(e) => {
                 // Either informational or redirect
-                tracing::info!(target: "warp::filters::tracing", status = %e.status().as_u16(), msg = ?e, "finished processing with status");
+                tracing::info!(
+                    target: "warp::filters::tracing",
+                    status = e.status().as_u16(),
+                    result = ?e,
+                    "finished processing with status"
+                );
             }
         }
     }
