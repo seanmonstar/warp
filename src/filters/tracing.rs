@@ -67,6 +67,39 @@ where
     Trace { func }
 }
 
+/// Create a wrapping filter that instruments every request with a `tracing`
+/// [`Span`] at the `DEBUG` level representing a named context.
+///
+/// This can be used to instrument multiple routes with their own sub-spans in a
+/// per-request trace.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let hello = warp::path("hello")
+///     .map(warp::reply)
+///     .with(warp::tracing::context("hello"));
+///
+/// let goodbye = warp::path("goodbye")
+///     .map(warp::reply)
+///     .with(warp::tracing::context("goodbye"));
+///
+/// let routes = hello.or(goodbye);
+/// ```
+///
+/// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
+pub fn context(name: &'static str) -> Trace<impl Fn(Info<'_>) -> tracing::Span + Copy> {
+    custom(move |_| {
+        tracing::debug_span!(
+            target: "warp",
+            "context",
+            "{}", name,
+        )
+    })
+}
+
 /// Decorates a [`Filter`](::Filter) to log requests and responses.
 #[derive(Clone, Copy, Debug)]
 pub struct Trace<F> {
