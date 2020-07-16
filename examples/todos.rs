@@ -53,7 +53,7 @@ mod filters {
             .and(warp::get())
             .and(warp::query::<ListOptions>())
             .and(with_db(db))
-            .and_then(handlers::list_todos)
+            .map_async(handlers::list_todos)
     }
 
     /// POST /todos with JSON body
@@ -64,7 +64,7 @@ mod filters {
             .and(warp::post())
             .and(json_body())
             .and(with_db(db))
-            .and_then(handlers::create_todo)
+            .map_async(handlers::create_todo)
     }
 
     /// PUT /todos/:id with JSON body
@@ -75,7 +75,7 @@ mod filters {
             .and(warp::put())
             .and(json_body())
             .and(with_db(db))
-            .and_then(handlers::update_todo)
+            .map_async(handlers::update_todo)
     }
 
     /// DELETE /todos/:id
@@ -93,7 +93,7 @@ mod filters {
             .and(admin_only)
             .and(warp::delete())
             .and(with_db(db))
-            .and_then(handlers::delete_todo)
+            .map_async(handlers::delete_todo)
     }
 
     fn with_db(db: Db) -> impl Filter<Extract = (Db,), Error = std::convert::Infallible> + Clone {
@@ -113,10 +113,9 @@ mod filters {
 /// No tuples are needed, it's auto flattened for the functions.
 mod handlers {
     use super::models::{Db, ListOptions, Todo};
-    use std::convert::Infallible;
     use warp::http::StatusCode;
 
-    pub async fn list_todos(opts: ListOptions, db: Db) -> Result<impl warp::Reply, Infallible> {
+    pub async fn list_todos(opts: ListOptions, db: Db) -> impl warp::Reply {
         // Just return a JSON array of todos, applying the limit and offset.
         let todos = db.lock().await;
         let todos: Vec<Todo> = todos
@@ -125,10 +124,10 @@ mod handlers {
             .skip(opts.offset.unwrap_or(0))
             .take(opts.limit.unwrap_or(std::usize::MAX))
             .collect();
-        Ok(warp::reply::json(&todos))
+        warp::reply::json(&todos)
     }
 
-    pub async fn create_todo(create: Todo, db: Db) -> Result<impl warp::Reply, Infallible> {
+    pub async fn create_todo(create: Todo, db: Db) -> impl warp::Reply {
         log::debug!("create_todo: {:?}", create);
 
         let mut vec = db.lock().await;
@@ -137,21 +136,17 @@ mod handlers {
             if todo.id == create.id {
                 log::debug!("    -> id already exists: {}", create.id);
                 // Todo with id already exists, return `400 BadRequest`.
-                return Ok(StatusCode::BAD_REQUEST);
+                return StatusCode::BAD_REQUEST;
             }
         }
 
         // No existing Todo with id, so insert and return `201 Created`.
         vec.push(create);
 
-        Ok(StatusCode::CREATED)
+        StatusCode::CREATED
     }
 
-    pub async fn update_todo(
-        id: u64,
-        update: Todo,
-        db: Db,
-    ) -> Result<impl warp::Reply, Infallible> {
+    pub async fn update_todo(id: u64, update: Todo, db: Db) -> impl warp::Reply {
         log::debug!("update_todo: id={}, todo={:?}", id, update);
         let mut vec = db.lock().await;
 
@@ -159,17 +154,17 @@ mod handlers {
         for todo in vec.iter_mut() {
             if todo.id == id {
                 *todo = update;
-                return Ok(StatusCode::OK);
+                return StatusCode::OK;
             }
         }
 
         log::debug!("    -> todo id not found!");
 
         // If the for loop didn't return OK, then the ID doesn't exist...
-        Ok(StatusCode::NOT_FOUND)
+        StatusCode::NOT_FOUND
     }
 
-    pub async fn delete_todo(id: u64, db: Db) -> Result<impl warp::Reply, Infallible> {
+    pub async fn delete_todo(id: u64, db: Db) -> impl warp::Reply {
         log::debug!("delete_todo: id={}", id);
 
         let mut vec = db.lock().await;
@@ -187,10 +182,10 @@ mod handlers {
         if deleted {
             // respond with a `204 No Content`, which means successful,
             // yet no body expected...
-            Ok(StatusCode::NO_CONTENT)
+            StatusCode::NO_CONTENT
         } else {
             log::debug!("    -> todo id not found!");
-            Ok(StatusCode::NOT_FOUND)
+            StatusCode::NOT_FOUND
         }
     }
 }
