@@ -12,6 +12,7 @@ use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
+use tracing_futures::Instrument;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -129,10 +130,10 @@ where
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
+        let span = tracing::info_span!("Server::run", ?addr);
+        tracing::info!(parent: &span, "listening on http://{}", addr);
 
-        tracing::info!("listening on http://{}", addr);
-
-        fut.await;
+        fut.instrument(span).await;
     }
 
     /// Run this `Server` forever on the current thread with a specific stream
@@ -146,6 +147,7 @@ where
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
         self.run_incoming2(incoming.map_ok(crate::transport::LiftIo).into_stream())
+            .instrument(tracing::info_span!("Server::run_incoming"))
             .await;
     }
 
@@ -320,6 +322,7 @@ where
     {
         let incoming = incoming.map_ok(crate::transport::LiftIo);
         self.serve_incoming2(incoming)
+            .instrument(tracing::info_span!("Server::serve_incoming"))
     }
 
     /// Setup this `Server` with a specific stream of incoming connections and a
@@ -357,6 +360,9 @@ where
                 tracing::error!("server error: {}", err);
             }
         }
+        .instrument(tracing::info_span!(
+            "Server::serve_incoming_with_graceful_shutdown"
+        ))
     }
 
     async fn serve_incoming2<I>(self, incoming: I)
@@ -445,10 +451,10 @@ where
     /// *This function requires the `"tls"` feature.*
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
+        let span = tracing::info_span!("TlsServer::run", %addr);
+        tracing::info!(parent: &span, "listening on https://{}", addr);
 
-        tracing::info!("listening on https://{}", addr);
-
-        fut.await;
+        fut.instrument(span).await;
     }
 
     /// Bind to a socket address, returning a `Future` that can be
