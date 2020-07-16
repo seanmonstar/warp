@@ -293,13 +293,14 @@ mod internal {
 
         fn filter(&self, _: Internal) -> Self::Future {
             let span = route::with(|route| (self.trace.func)(Info { route }));
+            let _entered = span.enter();
 
-            tracing::info!(target: "warp::filters::tracing", parent: &span, "processing request");
+            tracing::info!(target: "warp::filters::tracing", "processing request");
             self.filter
                 .filter(Internal)
                 .map_ok(convert_reply as fn(F::Extract) -> Self::Extract)
                 .inspect(finished_logger as fn(&Result<Self::Extract, F::Error>))
-                .instrument(span)
+                .instrument(span.clone())
         }
     }
 }
