@@ -323,7 +323,11 @@ impl fmt::Display for BodyDeserializeError {
     }
 }
 
-impl StdError for BodyDeserializeError {}
+impl StdError for BodyDeserializeError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.cause.as_ref())
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
