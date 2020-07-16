@@ -38,17 +38,32 @@ use self::internal::WithTrace;
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
 pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
+    use tracing::field::{display, Empty};
     let func = move |info: Info| {
-        tracing::info_span!(
+        let span = tracing::info_span!(
             "request",
-            remote_addr = %OptFmt(info.route.remote_addr()),
+            remote_addr = Empty,
             method = %info.method(),
             path = %info.path(),
             version = ?info.route.version(),
-            // status = %info.status().as_u16(),
-            referer = %OptFmt(info.referer()),
-            user_agent = %OptFmt(info.user_agent()),
-        )
+            referer = Empty,
+            user_agent = Empty,
+        );
+
+        // Record optional fields.
+        if let Some(remote_addr) = info.remote_addr() {
+            span.record("remote_addr", &display(remote_addr));
+        }
+
+        if let Some(referer) = info.referer() {
+            span.record("referer", &display(referer));
+        }
+
+        if let Some(user_agent) = info.user_agent() {
+            span.record("user_agent", &display(user_agent));
+        }
+
+        span
     };
     Trace { func }
 }
