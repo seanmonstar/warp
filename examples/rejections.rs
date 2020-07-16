@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 use std::convert::Infallible;
+use std::error::Error;
 use std::num::NonZeroU16;
 
 use serde_derive::{Deserialize, Serialize};
@@ -89,12 +90,16 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     } else if let Some(e) = err.find::<warp::filters::body::BodyDeserializeError>() {
         // This error happens if the body could not be deserialized correctly
         // We can use the cause to analyze the error and customize the error message
-        let cause = e.cause();
-        if cause.to_string().contains("denom") {
-            message = "FIELD_ERROR: denom"
-        } else {
-            message = "BAD_REQUEST";
-        }
+        message = match e.source() {
+            Some(cause) => {
+                if cause.to_string().contains("denom") {
+                    "FIELD_ERROR: denom"
+                } else {
+                    "BAD_REQUEST"
+                }
+            }
+            None => "BAD_REQUEST",
+        };
         code = StatusCode::BAD_REQUEST;
     } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
         // We can handle a specific error, here METHOD_NOT_ALLOWED,

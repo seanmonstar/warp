@@ -323,12 +323,9 @@ impl fmt::Display for BodyDeserializeError {
     }
 }
 
-impl StdError for BodyDeserializeError {}
-
-impl BodyDeserializeError {
-    /// Access the cause of the deserialization error
-    pub fn cause(&self) -> &BoxError {
-        &self.cause
+impl StdError for BodyDeserializeError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.cause.as_ref())
     }
 }
 
