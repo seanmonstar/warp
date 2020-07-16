@@ -105,7 +105,7 @@ where
 {
     Json {
         inner: serde_json::to_vec(val).map_err(|err| {
-            log::error!("reply::json error: {}", err);
+            tracing::error!("reply::json error: {}", err);
         }),
     }
 }
@@ -275,13 +275,13 @@ pub trait Reply: BoxedReply + Send {
                     Reply_(res)
                 },
                 Err(err) => {
-                    log::error!("with_header value error: {}", err.into());
+                    tracing::error!("with_header value error: {}", err.into());
                     Reply_(::reject::server_error()
                         .into_response())
                 }
             },
             Err(err) => {
-                log::error!("with_header name error: {}", err.into());
+                tracing::error!("with_header name error: {}", err.into());
                 Reply_(::reject::server_error()
                     .into_response())
             }
@@ -358,12 +358,14 @@ where
         Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
             Ok(value) => Some((name, value)),
             Err(err) => {
-                log::error!("with_header value error: {}", err.into());
+                let err = err.into();
+                tracing::error!("with_header value error: {}", err);
                 None
             }
         },
         Err(err) => {
-            log::error!("with_header name error: {}", err.into());
+            let err = err.into();
+            tracing::error!("with_header name error: {}", err);
             None
         }
     };
@@ -418,7 +420,7 @@ where
         match self {
             Ok(t) => t.into_response(),
             Err(e) => {
-                log::error!("reply error: {:?}", e);
+                tracing::error!("reply error: {:?}", e);
                 StatusCode::INTERNAL_SERVER_ERROR.into_response()
             }
         }

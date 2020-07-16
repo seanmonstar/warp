@@ -130,7 +130,7 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        log::info!("listening on http://{}", addr);
+        tracing::info!("listening on http://{}", addr);
 
         fut.await;
     }
@@ -157,7 +157,7 @@ where
     {
         let fut = self.serve_incoming2(incoming);
 
-        log::info!("listening with custom incoming");
+        tracing::info!("listening with custom incoming");
 
         fut.await;
     }
@@ -183,14 +183,14 @@ where
         let srv = match try_bind!(self, &addr) {
             Ok((_, srv)) => srv,
             Err(err) => {
-                log::error!("error binding to {}: {}", addr, err);
+                tracing::error!("error binding to {}: {}", addr, err);
                 return;
             }
         };
 
         srv.map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         })
         .await;
@@ -211,7 +211,7 @@ where
         let (addr, srv) = bind!(self, addr);
         let srv = srv.map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
 
@@ -233,7 +233,7 @@ where
         let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
         let srv = srv.map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
 
@@ -281,7 +281,7 @@ where
         let (addr, srv) = bind!(self, addr);
         let fut = srv.with_graceful_shutdown(signal).map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
         (addr, fut)
@@ -300,7 +300,7 @@ where
         let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
         let srv = srv.with_graceful_shutdown(signal).map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
 
@@ -354,7 +354,7 @@ where
                     .await;
 
             if let Err(err) = srv {
-                log::error!("server error: {}", err);
+                tracing::error!("server error: {}", err);
             }
         }
     }
@@ -373,7 +373,7 @@ where
             .await;
 
         if let Err(err) = srv {
-            log::error!("server error: {}", err);
+            tracing::error!("server error: {}", err);
         }
     }
 
@@ -446,7 +446,7 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
         let (addr, fut) = self.bind_ephemeral(addr);
 
-        log::info!("listening on https://{}", addr);
+        tracing::info!("listening on https://{}", addr);
 
         fut.await;
     }
@@ -473,7 +473,7 @@ where
         let (addr, srv) = bind!(tls: self, addr);
         let srv = srv.map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
 
@@ -495,7 +495,7 @@ where
 
         let fut = srv.with_graceful_shutdown(signal).map(|result| {
             if let Err(err) = result {
-                log::error!("server error: {}", err)
+                tracing::error!("server error: {}", err)
             }
         });
         (addr, fut)

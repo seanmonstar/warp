@@ -372,7 +372,7 @@ impl RequestBuilder {
                 let res = match result {
                     Ok(rep) => rep.into_response(),
                     Err(rej) => {
-                        log::debug!("rejected: {:?}", rej);
+                        tracing::debug!("rejected: {:?}", rej);
                         rej.into_response()
                     }
                 };

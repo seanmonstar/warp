@@ -139,13 +139,13 @@ where
             .body
             .on_upgrade()
             .and_then(move |upgraded| {
-                log::trace!("websocket upgrade complete");
+                tracing::trace!("websocket upgrade complete");
                 WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
             })
             .and_then(move |socket| on_upgrade(socket).map(Ok))
             .map(|result| {
                 if let Err(err) = result {
-                    log::debug!("ws upgrade error: {}", err);
+                    tracing::debug!("ws upgrade error: {}", err);
                 }
             });
         ::tokio::task::spawn(fut);
@@ -196,11 +196,11 @@ impl Stream for WebSocket {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
             Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
             Some(Err(e)) => {
-                log::debug!("websocket poll error: {}", e);
+                tracing::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
             }
             None => {
-                log::trace!("websocket closed");
+                tracing::trace!("websocket closed");
                 Poll::Ready(None)
             }
         }
@@ -221,7 +221,7 @@ impl Sink<Message> for WebSocket {
         match Pin::new(&mut self.inner).start_send(item.inner) {
             Ok(()) => Ok(()),
             Err(e) => {
-                log::debug!("websocket start_send error: {}", e);
+                tracing::debug!("websocket start_send error: {}", e);
                 Err(crate::Error::new(e))
             }
         }
@@ -238,7 +238,7 @@ impl Sink<Message> for WebSocket {
         match ready!(Pin::new(&mut self.inner).poll_close(cx)) {
             Ok(()) => Poll::Ready(Ok(())),
             Err(err) => {
-                log::debug!("websocket close error: {}", err);
+                tracing::debug!("websocket close error: {}", err);
                 Poll::Ready(Err(crate::Error::new(err)))
             }
         }
