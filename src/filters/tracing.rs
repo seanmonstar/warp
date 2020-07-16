@@ -1,5 +1,13 @@
-//! Tracing Filters
-
+//! [`tracing`] filters.
+//!
+//! [`tracing`] tracing is a framework for instrumenting Rust programs to
+//! collect scoped, structured, and async-aware diagnostics. This module
+//! provides a set of filters for instrumenting Warp applications with `tracing`
+//! spans. [Spans] can be used to associate individual events  with a request,
+//! and track contexts through the application.
+//!
+//! [`tracing`]: https://crates.io/tracing
+/// [Spans]: https://docs.rs/tracing/latest/tracing/#spans
 use tracing::Span;
 
 use std::fmt;
@@ -14,7 +22,8 @@ use crate::route::Route;
 
 use self::internal::WithTrace;
 
-/// Create a wrapping filter which adds a span with request info
+/// Create a wrapping filter that instruments every request with a `tracing`
+/// [`Span`] at the [`INFO`] level, containing a summary of the request.
 ///
 /// # Example
 ///
@@ -25,6 +34,9 @@ use self::internal::WithTrace;
 ///     .map(warp::reply)
 ///     .with(warp::tracing());
 /// ```
+///
+/// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
+/// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
 pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
     let func = move |info: Info| {
         tracing::info_span!(
@@ -41,7 +53,9 @@ pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
     Trace { func }
 }
 
-/// Create a wrapping filter which adds a custom span with request info
+/// Create a wrapping filter that instruments every request with a custom
+/// `tracing` [`Span`] provided by a function.
+///
 ///
 /// # Example
 ///
@@ -60,6 +74,8 @@ pub fn tracing() -> Trace<impl Fn(Info) -> Span + Clone> {
 ///     .map(warp::reply)
 ///     .with(tracing);
 /// ```
+///
+/// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 pub fn custom<F>(func: F) -> Trace<F>
 where
     F: Fn(Info) -> Span + Clone,
@@ -68,7 +84,7 @@ where
 }
 
 /// Create a wrapping filter that instruments every request with a `tracing`
-/// [`Span`] at the `DEBUG` level representing a named context.
+/// [`Span`] at the [`DEBUG`] level representing a named context.
 ///
 /// This can be used to instrument multiple routes with their own sub-spans in a
 /// per-request trace.
@@ -90,6 +106,7 @@ where
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
+/// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
 pub fn context(name: &'static str) -> Trace<impl Fn(Info<'_>) -> tracing::Span + Copy> {
     custom(move |_| {
         tracing::debug_span!(
@@ -100,7 +117,11 @@ pub fn context(name: &'static str) -> Trace<impl Fn(Info<'_>) -> tracing::Span +
     })
 }
 
-/// Decorates a [`Filter`](::Filter) to log requests and responses.
+/// Decorates a [`Filter`](crate::Filter) to create a [`tracing`] [span] for
+/// requests and responses.
+///
+/// [`tracing`]: https://crates.io/tracing
+/// [span]: https://docs.rs/tracing/latest/tracing/#spans
 #[derive(Clone, Copy, Debug)]
 pub struct Trace<F> {
     func: F,
