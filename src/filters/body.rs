@@ -325,6 +325,13 @@ impl fmt::Display for BodyDeserializeError {
 
 impl StdError for BodyDeserializeError {}
 
+impl BodyDeserializeError {
+    /// Access the cause of the deserialization error
+    pub fn cause(&self) -> &BoxError {
+        &self.cause
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
 

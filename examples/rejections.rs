@@ -69,6 +69,16 @@ async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     } else if let Some(DivideByZero) = err.find() {
         code = StatusCode::BAD_REQUEST;
         message = "DIVIDE_BY_ZERO";
+    } else if let Some(e) = err.find::<warp::filters::body::BodyDeserializeError>() {
+        // This error happens if the body could not be deserialized correctly
+        // We can use the cause to analyze the error and customize the error message
+        let cause = e.cause();
+        if cause.to_string().contains("someField") {
+            message = "FIELD_ERROR: someField"
+        } else {
+            message = "BAD_REQUEST";
+        }
+        code = StatusCode::BAD_REQUEST;
     } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
         // We can handle a specific error, here METHOD_NOT_ALLOWED,
         // and render it however we want
