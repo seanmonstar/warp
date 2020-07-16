@@ -85,7 +85,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
 ///             method = %info.method(),
 ///             path = %info.path(),
 ///         )
-///     });
+///     }));
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
