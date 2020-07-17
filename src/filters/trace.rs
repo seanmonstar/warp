@@ -32,7 +32,7 @@ use self::internal::WithTrace;
 ///
 /// let route = warp::any()
 ///     .map(warp::reply)
-///     .with(warp::trace::request);
+///     .with(warp::trace::request());
 /// ```
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
