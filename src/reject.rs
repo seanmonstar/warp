@@ -97,6 +97,12 @@ pub(crate) fn payload_too_large() -> Rejection {
     known(PayloadTooLarge { _p: () })
 }
 
+// 301 Moved Permanently Redirect
+#[inline]
+pub(crate) fn moved_permanently_redirect(redirect_uri: String) -> Rejection {
+    known(MovedPermanentlyRedirect { redirect_uri })
+}
+
 // 415 Unsupported Media Type
 //
 // Used by the body filters if the request payload content-type doesn't match
@@ -248,6 +254,7 @@ enum_known! {
     InvalidQuery(InvalidQuery),
     LengthRequired(LengthRequired),
     PayloadTooLarge(PayloadTooLarge),
+    MovedPermanentlyRedirect(MovedPermanentlyRedirect),
     UnsupportedMediaType(UnsupportedMediaType),
     FileOpenError(crate::fs::FileOpenError),
     FilePermissionError(crate::fs::FilePermissionError),
@@ -395,6 +402,7 @@ impl Rejections {
                 Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
                 Known::LengthRequired(_) => StatusCode::LENGTH_REQUIRED,
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+                Known::MovedPermanentlyRedirect(_) => StatusCode::MOVED_PERMANENTLY,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
                 Known::FilePermissionError(_) | Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
                 Known::FileOpenError(_)
@@ -415,6 +423,15 @@ impl Rejections {
                     CONTENT_TYPE,
                     HeaderValue::from_static("text/plain; charset=utf-8"),
                 );
+                // MovedPermanentlyRedirect needs to set a header
+                if let Known::MovedPermanentlyRedirect(MovedPermanentlyRedirect { redirect_uri }) =
+                    e
+                {
+                    res.headers_mut().insert(
+                        http::header::LOCATION,
+                        HeaderValue::from_str(redirect_uri).unwrap(),
+                    );
+                }
                 res
             }
             Rejections::Custom(ref e) => {
@@ -499,6 +516,27 @@ unit_error! {
     /// The request's content-type is not supported
     pub UnsupportedMediaType: "The request's content-type is not supported"
 }
+
+/// Moved Permanently Redirect
+#[derive(Debug)]
+pub struct MovedPermanentlyRedirect {
+    redirect_uri: String,
+}
+
+impl MovedPermanentlyRedirect {
+    /// Retrieve the redirect uri
+    pub fn redirect_uri(&self) -> String {
+        self.redirect_uri.clone()
+    }
+}
+
+impl ::std::fmt::Display for MovedPermanentlyRedirect {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Moved Permanently Redirect {:?}", self.redirect_uri)
+    }
+}
+
+impl StdError for MovedPermanentlyRedirect {}
 
 /// Missing request header
 #[derive(Debug)]

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>/sub-dir1/index.html</title>
+    </head>
+    <body>
+        <h1>Welcome to /sub-dir1/index.html</h1>
+
+        <h1>The problem of trailing slash - a subtle problem</h1>
+        <p>If the URL does not include the filename, but only the directory, the server will return the default index.html file of that sub-dir.</p>
+        <p>It is not a 301 redirect, this action is taken quietly by the server. The browser knows nothing about that.</p>
+        <p>But the URL for sub-dir can be ambiguous. It can have or not have the trailing slash.</p>
+        <p>1st example: /sub-dir1/</p>
+        <p>2nd example: /sub-dir1</p>
+        <p>Both of these will open the same page /sub-dir/index.html and it looks fine.</p>
+        <H1>But</H1>
+        <p>If this page contains relative links, these 2 examples will behave differently !</p>
+        <p>For example this relative link:</p>
+        <p><a href="another.html">another.html</a></p>
+        <p>The 1st example (trailing slash) will open the page: /sub-dir1/another.html. This is expected.</p>
+        <p>The 2nd example (not trailing slash) would open the page: /another.html. What? How?</p>
+        <p>The story goes that the browser joined '/sub-dir1' and 'another.html'.</p>
+        <p>The browser doesn't know that sub-dir1 is a dir. Without the trailing slash, it looks just like a normal file.</p>
+        <p>And it joined this relative link in an unexpected way.</p>
+        <p>It is recommended that the sub-dirs always have the trailing slash.</p>
+        <p>If the server recognize a directory and finds the URL missing the trailing slash, it sends a 301 redirect response to the correct URL.</p>
+        <h1>The behavior of relative links</h1>
+        <h2>same folder</h2>
+        <p><a href="another.html">another.html</a></p>
+        <h2>parent folder</h2>
+        <p><a href="..">..</a></p>
+        <p><a href="../">../</a></p>
+        <p><a href="../index.html">../index.html</a></p>
+        <p><a href="../another.html">../another.html</a></p>
+        <h2>child folder</h2>
+        <p><a href="sub-dir2">sub-dir2</a></p>
+        <p><a href="sub-dir2/">sub-dir2/</a></p>
+        <p><a href="sub-dir2/index.html">sub-dir2/index.html</a></p>
+        <p><a href="sub-dir2/another.html">sub-dir2/another.html</a></p>
+    </body>
+</html>
