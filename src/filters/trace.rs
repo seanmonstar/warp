@@ -254,11 +254,11 @@ mod internal {
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
         match reply {
             Ok((Traced(resp),)) => {
-                tracing::info!(target: "warp::filters::tracing", status = resp.status().as_u16(), "finished processing with success");
+                tracing::info!(target: "warp::filters::trace", status = resp.status().as_u16(), "finished processing with success");
             }
             Err(e) if e.status().is_server_error() => {
                 tracing::error!(
-                    target: "warp::filters::tracing",
+                    target: "warp::filters::trace",
                     status = e.status().as_u16(),
                     error = ?e,
                     "unable to process request (internal error)"
@@ -266,7 +266,7 @@ mod internal {
             }
             Err(e) if e.status().is_client_error() => {
                 tracing::warn!(
-                    target: "warp::filters::tracing",
+                    target: "warp::filters::trace",
                     status = e.status().as_u16(),
                     error = ?e,
                     "unable to serve request (client error)"
@@ -275,7 +275,7 @@ mod internal {
             Err(e) => {
                 // Either informational or redirect
                 tracing::info!(
-                    target: "warp::filters::tracing",
+                    target: "warp::filters::trace",
                     status = e.status().as_u16(),
                     result = ?e,
                     "finished processing with status"
@@ -308,7 +308,7 @@ mod internal {
             let span = route::with(|route| (self.trace.func)(Info { route }));
             let _entered = span.enter();
 
-            tracing::info!(target: "warp::filters::tracing", "processing request");
+            tracing::info!(target: "warp::filters::trace", "processing request");
             self.filter
                 .filter(Internal)
                 .map_ok(convert_reply as fn(F::Extract) -> Self::Extract)
