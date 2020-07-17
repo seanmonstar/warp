@@ -23,6 +23,8 @@ use self::internal::WithTrace;
 
 /// Create a wrapping filter that instruments every request with a `tracing`
 /// [`Span`] at the [`INFO`] level, containing a summary of the request.
+/// Additionally, if the [`DEBUG`] level is enabled, the span will contain an
+/// event recording the request's headers.
 ///
 /// # Example
 ///
@@ -36,6 +38,7 @@ use self::internal::WithTrace;
 ///
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
+/// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
 pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
     use tracing::field::{display, Empty};
     trace(|info: Info| {
@@ -57,18 +60,10 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             span.record("referer", &display(referer));
         }
 
-        // The user agent string and the headers are, potentially, quite long,
-        // so let's record them in an event within the generated span, rather
-        // than including them as context on *every* request.
-        if let Some(user_agent) = info.user_agent() {
-            tracing::debug!(
-                user_agent, headers = ?info.headers(), "received request"
-            );
-        } else {
-            tracing::debug!(
-                headers = ?info.headers(), "received request"
-            );
-        }
+        // The the headers are, potentially, quite long, so let's record them in
+        // an event within the generated span, rather than including them as
+        // context on *every* request.
+        tracing::debug!(parent: &span, headers = ?info.headers(), "received request");
 
         span
     })
