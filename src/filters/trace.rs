@@ -10,7 +10,6 @@
 //! [`Spans`]: https://docs.rs/tracing/latest/tracing/#spans
 use tracing::Span;
 
-use std::fmt;
 use std::net::SocketAddr;
 
 use http::{self, header};
@@ -206,18 +205,6 @@ impl<'a> Info<'a> {
             .headers()
             .get(header::HOST)
             .and_then(|v| v.to_str().ok())
-    }
-}
-
-struct OptFmt<T>(Option<T>);
-
-impl<T: fmt::Display> fmt::Display for OptFmt<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref t) = self.0 {
-            fmt::Display::fmt(t, f)
-        } else {
-            f.write_str("-")
-        }
     }
 }
 
