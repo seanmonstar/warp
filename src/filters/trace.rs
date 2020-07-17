@@ -128,13 +128,7 @@ where
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
 pub fn named(name: &'static str) -> Trace<impl Fn(Info<'_>) -> Span + Copy> {
-    trace(move |_| {
-        tracing::debug_span!(
-            target: "warp",
-            "context",
-            "{}", name,
-        )
-    })
+    trace(move |_| tracing::debug_span!("context", "{}", name,))
 }
 
 /// Decorates a [`Filter`](crate::Filter) to create a [`tracing`] [span] for
