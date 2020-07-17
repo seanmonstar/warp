@@ -46,7 +46,6 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             path = %info.path(),
             version = ?info.route.version(),
             referer = Empty,
-            user_agent = Empty,
         );
 
         // Record optional fields.
@@ -58,8 +57,17 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             span.record("referer", &display(referer));
         }
 
+        // The user agent string and the headers are, potentially, quite long,
+        // so let's record them in an event within the generated span, rather
+        // than including them as context on *every* request.
         if let Some(user_agent) = info.user_agent() {
-            span.record("user_agent", &display(user_agent));
+            tracing::debug!(
+                user_agent, headers = ?info.headers(), "received request"
+            );
+        } else {
+            tracing::debug!(
+                headers = ?info.headers(), "received request"
+            );
         }
 
         span
@@ -205,6 +213,11 @@ impl<'a> Info<'a> {
             .headers()
             .get(header::HOST)
             .and_then(|v| v.to_str().ok())
+    }
+
+    /// View the request headers.
+    pub fn headers(&self) -> &http::HeaderMap {
+        self.route.headers()
     }
 }
 
