@@ -14,12 +14,12 @@ pub fn query<T: DeserializeOwned + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(|route| {
         let query_string = route.query().unwrap_or_else(|| {
-            log::debug!("route was called without a query string, defaulting to empty");
+            tracing::debug!("route was called without a query string, defaulting to empty");
             ""
         });
 
         let query_encoded = serde_urlencoded::from_str(query_string).map_err(|e| {
-            log::debug!("failed to decode query string '{}': {:?}", query_string, e);
+            tracing::debug!("failed to decode query string '{}': {:?}", query_string, e);
             reject::invalid_query()
         });
         future::ready(query_encoded)

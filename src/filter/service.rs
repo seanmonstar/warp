@@ -129,7 +129,7 @@ where
             Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok.into_response())),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(err)) => {
-                log::debug!("rejected: {:?}", err);
+                tracing::debug!("rejected: {:?}", err);
                 Poll::Ready(Ok(err.into_response()))
             }
         }

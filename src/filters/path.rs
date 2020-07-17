@@ -179,7 +179,7 @@ where
     Exact(Opaque(p))
     /*
     segment(move |seg| {
-        log::trace!("{:?}?: {:?}", p, seg);
+        tracing::trace!("{:?}?: {:?}", p, seg);
         if seg == p {
             Ok(())
         } else {
@@ -209,7 +209,7 @@ where
         route::with(|route| {
             let p = self.0.as_ref();
             future::ready(with_segment(route, |seg| {
-                log::trace!("{:?}?: {:?}", p, seg);
+                tracing::trace!("{:?}?: {:?}", p, seg);
 
                 if seg == p {
                     Ok(())
@@ -266,7 +266,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 pub fn param<T: FromStr + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_segment(|seg| {
-        log::trace!("param?: {:?}", seg);
+        tracing::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }

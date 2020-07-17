@@ -231,7 +231,7 @@ impl<T: Serialize> SseFormat for SseJson<T> {
             k.fmt(f)?;
             serde_json::to_string(&self.0)
                 .map_err(|error| {
-                    log::error!("sse::json error {}", error);
+                    tracing::error!("sse::json error {}", error);
                     fmt::Error
                 })
                 .and_then(|data| data.fmt(f))?;
@@ -409,7 +409,7 @@ where
             .event_stream
             .map_err(|error| {
                 // FIXME: error logging
-                log::error!("sse stream error: {}", error);
+                tracing::error!("sse stream error: {}", error);
                 SseError
             })
             .into_stream()
@@ -592,7 +592,7 @@ where
             }
             Poll::Ready(None) => Poll::Ready(None),
             Poll::Ready(Some(Err(error))) => {
-                log::error!("sse::keep error: {}", error);
+                tracing::error!("sse::keep error: {}", error);
                 Poll::Ready(Some(Err(SseError)))
             }
         }

@@ -368,7 +368,9 @@ impl Configured {
                         return Err(Forbidden::MethodNotAllowed);
                     }
                 } else {
-                    log::trace!("preflight request missing access-control-request-method header");
+                    tracing::trace!(
+                        "preflight request missing access-control-request-method header"
+                    );
                     return Err(Forbidden::MethodNotAllowed);
                 }
 
@@ -388,7 +390,7 @@ impl Configured {
             (Some(origin), _) => {
                 // Any other method, simply check for a valid origin...
 
-                log::trace!("origin header: {:?}", origin);
+                tracing::trace!("origin header: {:?}", origin);
                 if self.is_origin_allowed(origin) {
                     Ok(Validated::Simple(origin.clone()))
                 } else {
