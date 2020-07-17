@@ -363,8 +363,9 @@ impl Into<Vec<u8>> for Message {
 
 // ===== Rejections =====
 
+/// Connection header did not include 'upgrade'
 #[derive(Debug)]
-pub(crate) struct MissingConnectionUpgrade;
+pub struct MissingConnectionUpgrade;
 
 impl ::std::fmt::Display for MissingConnectionUpgrade {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
