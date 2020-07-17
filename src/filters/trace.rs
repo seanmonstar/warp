@@ -41,7 +41,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
     trace(|info: Info| {
         let span = tracing::info_span!(
             "request",
-            remote_addr = Empty,
+            remote.addr = Empty,
             method = %info.method(),
             path = %info.path(),
             version = ?info.route.version(),
@@ -50,7 +50,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
 
         // Record optional fields.
         if let Some(remote_addr) = info.remote_addr() {
-            span.record("remote_addr", &display(remote_addr));
+            span.record("remote.addr", &display(remote_addr));
         }
 
         if let Some(referer) = info.referer() {
