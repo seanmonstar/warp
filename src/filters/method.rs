@@ -131,7 +131,7 @@ where
 {
     filter_fn(move |route| {
         let method = func();
-        log::trace!("method::{:?}?: {:?}", method, route.method());
+        tracing::trace!("method::{:?}?: {:?}", method, route.method());
         if route.method() == method {
             future::ok(())
         } else {

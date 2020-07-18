@@ -80,7 +80,7 @@
 //! ## Testing
 //!
 //! Testing your web services easily is extremely important, and warp provides
-//! a [`test`](test) module to help send mocked requests through your service.
+//! a [`test`](self::test) module to help send mocked requests through your service.
 //!
 //! [Filter]: trait.Filter.html
 //! [reject]: reject/index.html
@@ -143,6 +143,9 @@ pub use self::filters::{
     // query() function
     query::query,
     sse,
+    trace,
+    // trace() function
+    trace::trace,
 };
 // ws() function
 #[cfg(feature = "websocket")]
