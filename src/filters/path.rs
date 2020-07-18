@@ -262,6 +262,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 pub fn redirect_if_not_trailing_slash() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
         let path = route.uri().to_string();
+        println!("redirect_if_not_trailing_slash() {}", path);
         // the trailing slash rules don't apply to the website root
         if !path.is_empty() && path != "/" && !path.ends_with("/") {
             log::debug!(
