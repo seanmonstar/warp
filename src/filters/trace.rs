@@ -60,10 +60,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             span.record("referer", &display(referer));
         }
 
-        // The the headers are, potentially, quite long, so let's record them in
-        // an event within the generated span, rather than including them as
-        // context on *every* request.
-        tracing::debug!(parent: &span, headers = ?info.headers(), "received request");
+        tracing::debug!(parent: &span, "received request");
 
         span
     })
@@ -205,7 +202,7 @@ impl<'a> Info<'a> {
     }
 
     /// View the request headers.
-    pub fn headers(&self) -> &http::HeaderMap {
+    pub fn request_headers(&self) -> &http::HeaderMap {
         self.route.headers()
     }
 }
