@@ -474,7 +474,7 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// Any number of either type identifiers or string expressions can be passed,
 /// each separated by a forward slash (`/`). Strings will be used to match
 /// path segments exactly, and type identifiers are used just like
-/// [`param`](filters::path::param) filters.
+/// [`param`](crate::path::param) filters.
 ///
 /// # Example
 ///
