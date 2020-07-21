@@ -2,11 +2,11 @@ use futures::StreamExt;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
-use warp::{sse::ServerSentEvent, Filter};
+use warp::{sse::Event, Filter};
 
 // create server-sent event
-fn sse_counter(counter: u64) -> Result<impl ServerSentEvent, Infallible> {
-    Ok(warp::sse::data(counter))
+fn sse_counter(counter: u64) -> Result<Event, Infallible> {
+    Ok(warp::sse::Event::default().set_data(Some(counter)))
 }
 
 #[tokio::main]
