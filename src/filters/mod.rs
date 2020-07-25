@@ -5,6 +5,7 @@
 
 pub mod addr;
 pub mod any;
+pub mod authority;
 pub mod body;
 #[cfg(feature = "compression")]
 pub mod compression;
@@ -13,7 +14,6 @@ pub mod cors;
 pub mod ext;
 pub mod fs;
 pub mod header;
-pub mod authority;
 pub mod log;
 pub mod method;
 #[cfg(feature = "multipart")]

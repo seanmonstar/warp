@@ -1,10 +1,10 @@
 //! Authority (aka `Host` header) filter
 //!
-use std::str::FromStr;
-use crate::filter::{Filter, filter_fn_one, One};
+use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::{self, Rejection};
 use futures::future;
 pub use http::uri::Authority;
+use std::str::FromStr;
 
 /// Creates a `Filter` that requires a specific authority (target server's
 /// host and port) in the request.
@@ -21,11 +21,9 @@ pub use http::uri::Authority;
 pub fn authority(expected: &str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
     let expected = Authority::from_str(expected).expect("invalid authority");
     optional()
-        .and_then(move |option: Option<Authority>| {
-            match option {
-                Some(authority) if authority == expected => future::ok(()),
-                _ => future::err(reject::not_found())
-            }
+        .and_then(move |option: Option<Authority>| match option {
+            Some(authority) if authority == expected => future::ok(()),
+            _ => future::err(reject::not_found()),
         })
         .untuple_one()
 }
@@ -75,22 +73,20 @@ pub fn optional() -> impl Filter<Extract = One<Option<Authority>>, Error = Rejec
                     .and_then(|value| Authority::from_str(value).map_err(|_| reject::invalid_header(name)))
             );
 
-        future::ready(
-            match (from_uri, from_header) {
-                // no authority in the request (HTTP/1.0 or non-conforming)
-                (None, None) => Ok(None),
+        future::ready(match (from_uri, from_header) {
+            // no authority in the request (HTTP/1.0 or non-conforming)
+            (None, None) => Ok(None),
 
-                // authority specified in either or both matching
-                (Some(a), None) => Ok(Some(a.clone())),
-                (None, Some(Ok(a))) => Ok(Some(a)),
-                (Some(a), Some(Ok(b))) if *a == b => Ok(Some(b)),
+            // authority specified in either or both matching
+            (Some(a), None) => Ok(Some(a.clone())),
+            (None, Some(Ok(a))) => Ok(Some(a)),
+            (Some(a), Some(Ok(b))) if *a == b => Ok(Some(b)),
 
-                // mismatch
-                (Some(_), Some(Ok(_))) => Err(reject::invalid_header(name)),
+            // mismatch
+            (Some(_), Some(Ok(_))) => Err(reject::invalid_header(name)),
 
-                // parse error
-                (_, Some(Err(r))) => Err(r),
-            }
-        )
+            // parse error
+            (_, Some(Err(r))) => Err(r),
+        })
     })
 }
