@@ -10,6 +10,7 @@ pub(crate) mod service;
 mod unify;
 mod untuple_one;
 mod wrap;
+mod inject;
 
 use std::future::Future;
 use std::pin::Pin;
