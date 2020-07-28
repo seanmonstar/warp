@@ -47,7 +47,7 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "3.0.0"
-tokio = { version = "0.2", features = ["macros", "net"] }
+tokio = { version = "0.2", features = ["macros"] }
 listenfd = "0.3"
 
 [features]
