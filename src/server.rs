@@ -314,9 +314,9 @@ where
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     ///
     /// Returns a `Future` that can be executed on any runtime.
-    pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()> + 'static
+    pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()>
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -338,9 +338,9 @@ where
         self,
         incoming: I,
         signal: impl Future<Output = ()> + Send + 'static,
-    ) -> impl Future<Output = ()> + 'static
+    ) -> impl Future<Output = ()>
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
