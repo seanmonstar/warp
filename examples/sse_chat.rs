@@ -94,9 +94,9 @@ fn user_connected(users: Users) -> impl Stream<Item = Result<Event, warp::Error>
     // Convert messages into Server-Sent Events and return resulting stream.
     rx.map(|msg| match msg {
         Message::UserId(my_id) => Ok(Event::default()
-            .set_event(Some("user"))
-            .set_data(Some(my_id))),
-        Message::Reply(reply) => Ok(Event::default().set_data(Some(reply))),
+            .event(Some("user"))
+            .data(Some(my_id))),
+        Message::Reply(reply) => Ok(Event::default().data(Some(reply))),
     })
 }
 

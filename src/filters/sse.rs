@@ -11,16 +11,16 @@
 //!
 //! fn sse_events() -> impl Stream<Item = Result<Event, Infallible>> {
 //!     iter(vec![
-//!         Ok(Event::default().set_data(Some("unnamed event"))),
+//!         Ok(Event::default().data(Some("unnamed event"))),
 //!         Ok(
-//!             Event::default().set_event(Some("chat"))
-//!             .set_data(Some("chat message"))
+//!             Event::default().event(Some("chat"))
+//!             .data(Some("chat message"))
 //!         ),
 //!         Ok(
-//!             Event::default().set_id(Some(13))
-//!             .set_event(Some("chat"))
-//!             .set_data(Some("other chat message\nwith next line"))
-//!             .set_retry(Some(Duration::from_millis(5000)))
+//!             Event::default().id(Some(13))
+//!             .event(Some("chat"))
+//!             .data(Some("other chat message\nwith next line"))
+//!             .retry(Some(Duration::from_millis(5000)))
 //!         )
 //!     ])
 //! }
@@ -53,7 +53,7 @@ use futures::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use pin_project::pin_project;
-use serde_json::{self, Result as SerdeResult};
+use serde_json::{self, Error};
 use tokio::time::{self, Delay};
 
 use self::sealed::SseError;
@@ -66,7 +66,7 @@ use crate::{Filter, Rejection, Reply};
 #[derive(Debug)]
 enum DataType {
     Text(String),
-    Json(SerdeResult<String>),
+    Json(String),
 }
 
 /// Server-sent event
@@ -83,45 +83,45 @@ pub struct Event {
 impl Event {
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn set_data<T: Display>(mut self, data: Option<T>) -> Event {
+    pub fn data<T: Display>(mut self, data: Option<T>) -> Event {
         self.data = data.map(|d| DataType::Text(d.to_string()));
         self
     }
 
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn set_json_data<T: Serialize>(mut self, data: Option<T>) -> Event {
+    pub fn json_data<T: Serialize>(mut self, data: Option<T>) -> Result<Event, Error>  {
         self.data = match data {
-            Some(data) => Some(DataType::Json(serde_json::to_string(&data))),
+            Some(data) => Some(DataType::Json(serde_json::to_string(&data)?)),
             None => None,
         };
-        self
+        Ok(self)
     }
 
     /// Set Server-sent event comment
     /// Comment field (":<comment-text>")
-    pub fn set_comment<T: Display>(mut self, comment: Option<T>) -> Event {
+    pub fn comment<T: Display>(mut self, comment: Option<T>) -> Event {
         self.comment = comment.map(|c| c.to_string());
         self
     }
 
     /// Set Server-sent event event
     /// Event name field ("event:<event-name>")
-    pub fn set_event<T: Display>(mut self, event: Option<T>) -> Event {
+    pub fn event<T: Display>(mut self, event: Option<T>) -> Event {
         self.event = event.map(|e| e.to_string());
         self
     }
 
     /// Set Server-sent event retry
     /// Retry timeout field ("retry:<timeout>")
-    pub fn set_retry(mut self, duration: Option<Duration>) -> Event {
+    pub fn retry(mut self, duration: Option<Duration>) -> Event {
         self.retry = duration;
         self
     }
 
     /// Set Server-sent event id
     /// Identifier field ("id:<identifier>")
-    pub fn set_id<T: Display>(mut self, id: Option<T>) -> Event {
+    pub fn id<T: Display>(mut self, id: Option<T>) -> Event {
         self.id = id.map(|e| e.to_string());
         self
     }
@@ -151,12 +151,7 @@ impl Display for Event {
             }
             Some(DataType::Json(ref data)) => {
                 "data:".fmt(f)?;
-                data.as_ref()
-                    .map_err(|error| {
-                        log::error!("sse::json error {}", error);
-                        fmt::Error
-                    })
-                    .and_then(|data| data.fmt(f))?;
+                data.fmt(f)?;
                 f.write_char('\n')?;
             }
             None => {}
@@ -268,21 +263,21 @@ where
 /// fn event_stream() -> impl Stream<Item = Result<Event, Infallible>> {
 ///         iter(vec![
 ///             // Unnamed event with data only
-///             Ok(Event::default().set_data(Some("payload"))),
+///             Ok(Event::default().data(Some("payload"))),
 ///             // Named event with ID and retry timeout
 ///             Ok(
-///                 Event::default().set_data(Some("other message\nwith next line"))
-///                 .set_event(Some("chat"))
-///                 .set_id(Some(1))
-///                 .set_retry(Some(Duration::from_millis(15000)))
+///                 Event::default().data(Some("other message\nwith next line"))
+///                 .event(Some("chat"))
+///                 .id(Some(1))
+///                 .retry(Some(Duration::from_millis(15000)))
 ///             ),
 ///             // Event with JSON data
 ///             Ok(
-///                 Event::default().set_id(Some(2))
-///                 .set_json_data(Some(Msg {
+///                 Event::default().id(Some(2))
+///                 .json_data(Some(Msg {
 ///                     from: 2,
 ///                     text: "hello".into(),
-///                 })),
+///                 })).unwrap(),
 ///             )
 ///         ])
 /// }
@@ -433,7 +428,7 @@ struct SseKeepAlive<S> {
 ///
 /// // create server-sent event
 /// fn sse_counter(counter: u64) ->  Result<Event, Infallible> {
-///     Ok(Event::default().set_data(Some(counter)))
+///     Ok(Event::default().data(Some(counter)))
 /// }
 ///
 /// fn main() {
@@ -480,7 +475,7 @@ where
                     pin.alive_timer
                         .reset(tokio::time::Instant::now() + *pin.max_interval);
                     let comment_str = pin.comment_text.clone();
-                    let event = Event::default().set_comment(Some(comment_str));
+                    let event = Event::default().comment(Some(comment_str));
                     Poll::Ready(Some(Ok(event)))
                 }
             },
