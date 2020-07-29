@@ -90,7 +90,7 @@ impl Event {
 
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn json_data<T: Serialize>(mut self, data: Option<T>) -> Result<Event, Error>  {
+    pub fn json_data<T: Serialize>(mut self, data: Option<T>) -> Result<Event, Error> {
         self.data = match data {
             Some(data) => Some(DataType::Json(serde_json::to_string(&data)?)),
             None => None,
