@@ -3,7 +3,7 @@
 //! demonstrates how the `warp::trace` module can be used to instrument `warp`
 //! applications with `tracing`.
 //!
-//! [`tracing`]: https://crates.io/tracing
+//! [`tracing`]: https://crates.io/crates/tracing
 #![deny(warnings)]
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::Filter;
