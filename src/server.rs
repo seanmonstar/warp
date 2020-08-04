@@ -128,7 +128,7 @@ where
     <F::Future as TryFuture>::Error: IsReject,
 {
     /// Run this `Server` forever on the current thread.
-    pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("Server::run", ?addr);
         tracing::info!(parent: &span, "listening on http://{}", addr);
@@ -180,7 +180,7 @@ where
     ///
     /// In case we are unable to bind to the specified address, resolves to an
     /// error and logs the reason.
-    pub async fn try_bind(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn try_bind(self, addr: impl Into<SocketAddr>) {
         let addr = addr.into();
         let srv = match try_bind!(self, &addr) {
             Ok((_, srv)) => srv,
@@ -208,7 +208,7 @@ where
     /// Panics if we are unable to bind to the provided address.
     pub fn bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
         let (addr, srv) = bind!(self, addr);
         let srv = srv.map(|result| {
@@ -229,7 +229,7 @@ where
     /// any runtime.
     pub fn try_bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error> {
         let addr = addr.into();
         let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
@@ -449,7 +449,7 @@ where
     /// Run this `TlsServer` forever on the current thread.
     ///
     /// *This function requires the `"tls"` feature.*
-    pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("TlsServer::run", %addr);
         tracing::info!(parent: &span, "listening on https://{}", addr);
@@ -461,7 +461,7 @@ where
     /// executed on a runtime.
     ///
     /// *This function requires the `"tls"` feature.*
-    pub async fn bind(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn bind(self, addr: impl Into<SocketAddr>) {
         let (_, fut) = self.bind_ephemeral(addr);
         fut.await;
     }
@@ -474,7 +474,7 @@ where
     /// *This function requires the `"tls"` feature.*
     pub fn bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
         let (addr, srv) = bind!(tls: self, addr);
         let srv = srv.map(|result| {
