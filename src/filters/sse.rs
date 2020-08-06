@@ -314,7 +314,7 @@ where
 /// ```
 pub fn reply<S>(event_stream: S) -> impl Reply
 where
-    S: TryStream<Ok = Event> + Send + Sync + 'static,
+    S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     SseReply { event_stream }
@@ -327,7 +327,7 @@ struct SseReply<S> {
 
 impl<S> Reply for SseReply<S>
 where
-    S: TryStream<Ok = Event> + Send + Sync + 'static,
+    S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     #[inline]
