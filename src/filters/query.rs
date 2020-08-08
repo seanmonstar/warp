@@ -59,6 +59,10 @@ use crate::reject::{self, Rejection};
 ///     });
 /// ```
 ///
+/// Not all structs are supported for use as query objects, e.g. structs containing vectors will
+/// result in an error at runtime. If you need more flexibility, consider using [raw] to supply
+/// your own deserialization mechanism.
+///
 /// For more examples, please take a look at [examples/query_string.rs](https://github.com/seanmonstar/warp/blob/master/examples/query_string.rs).
 ///
 /// [Serde]: https://docs.rs/serde
