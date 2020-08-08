@@ -79,6 +79,32 @@ pub fn query<T: DeserializeOwned + Send + 'static>(
 }
 
 /// Creates a `Filter` that returns the raw query string as type String.
+///
+/// Can be used to implement a filter with a custom deserializer, for example the `serde_qs` crate.
+///
+/// ```
+/// # fn main() {
+/// # use serde::de::DeserializeOwned;
+/// # use serde_derive::Deserialize;
+/// # mod serde_qs { pub fn from_str<T>(_: &str) -> Result<T, ()> { unreachable!() } }
+/// # use warp::Filter;
+/// fn query_qs<T: DeserializeOwned>()
+///     -> impl Filter<Extract = (T,), Error = warp::Rejection> + Copy
+/// {
+///     warp::query::raw().and_then(|q: String| async move {
+///         serde_qs::from_str::<T>(&q).map_err(|e| warp::reject::reject())
+///     })
+/// }
+///
+/// #[derive(Deserialize, Debug)]
+/// struct FooQuery { q: Vec<u64> }
+///
+/// let product = warp::path("product").and(query_qs::<FooQuery>())
+///     .map(|product: FooQuery| format!("{}", product.q.into_iter().product::<u64>()));
+///
+/// # }
+/// ```
+
 pub fn raw() -> impl Filter<Extract = One<String>, Error = Rejection> + Copy {
     filter_fn_one(|route| {
         let route = route
