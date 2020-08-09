@@ -1,9 +1,9 @@
 #![deny(warnings)]
-use warp::authority::Authority;
+use warp::host::Authority;
 
 #[tokio::test]
-async fn authority() {
-    let filter = warp::authority("known.com");
+async fn exact() {
+    let filter = warp::host::exact("known.com");
 
     // no authority
     let req = warp::test::request();
@@ -74,7 +74,7 @@ async fn authority() {
 
 #[tokio::test]
 async fn optional() {
-    let filter = warp::authority::optional();
+    let filter = warp::host::optional();
 
     let req = warp::test::request().header("host", "example.com");
     assert_eq!(

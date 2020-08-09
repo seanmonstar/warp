@@ -1,4 +1,4 @@
-//! Authority (aka `Host` header) filter
+//! Host ("authority") filter
 //!
 use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::{self, Rejection};
@@ -9,17 +9,19 @@ use std::str::FromStr;
 /// Creates a `Filter` that requires a specific authority (target server's
 /// host and port) in the request.
 ///
+/// Authority is specified either in the `Host` header or in the target URI.
+///
 /// # Example
 ///
 /// ```
-/// use warp::{Filter, authority::Authority};
+/// use warp::Filter;
 ///
 /// let multihost =
-///     warp::authority("foo.com").map(|| "you've reached foo.com")
-///     .or(warp::authority("bar.com").map(|| "you've reached bar.com"));
+///     warp::host::exact("foo.com").map(|| "you've reached foo.com")
+///     .or(warp::host::exact("bar.com").map(|| "you've reached bar.com"));
 /// ```
-pub fn authority(expected: &str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    let expected = Authority::from_str(expected).expect("invalid authority");
+pub fn exact(expected: &str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    let expected = Authority::from_str(expected).expect("invalid host/authority");
     optional()
         .and_then(move |option: Option<Authority>| match option {
             Some(authority) if authority == expected => future::ok(()),
@@ -31,6 +33,8 @@ pub fn authority(expected: &str) -> impl Filter<Extract = (), Error = Rejection>
 /// Creates a `Filter` that looks for an authority (target server's host
 /// and port) in the request.
 ///
+/// Authority is specified either in the `Host` header or in the target URI.
+///
 /// If found, extracts the `Authority`, otherwise continues the request,
 /// extracting `None`.
 ///
@@ -40,9 +44,9 @@ pub fn authority(expected: &str) -> impl Filter<Extract = (), Error = Rejection>
 /// # Example
 ///
 /// ```
-/// use warp::{Filter, authority::Authority};
+/// use warp::{Filter, host::Authority};
 ///
-/// let authority = warp::authority::optional()
+/// let host = warp::host::optional()
 ///     .map(|authority: Option<Authority>| {
 ///         if let Some(a) = authority {
 ///             format!("{} is currently not at home", a.host())

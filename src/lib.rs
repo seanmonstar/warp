@@ -120,9 +120,6 @@ pub use self::filters::{
     addr,
     // any() function
     any::any,
-    authority,
-    // authority() function
-    authority::authority,
     body,
     cookie,
     // cookie() function
@@ -135,6 +132,7 @@ pub use self::filters::{
     header,
     // header() function
     header::header,
+    host,
     log,
     // log() function
     log::log,
