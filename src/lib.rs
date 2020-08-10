@@ -132,6 +132,7 @@ pub use self::filters::{
     header,
     // header() function
     header::header,
+    host,
     log,
     // log() function
     log::log,
