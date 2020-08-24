@@ -25,3 +25,31 @@ where
     F: Filter,
 {
 }
+
+/// Function that receives a filter to be combined with pre and after filters
+pub fn wrap_fn<F, T, U>(func: F) -> WrapFn<F>
+where
+    F: Fn(T) -> U,
+    T: Filter,
+    U: Filter,
+{
+    WrapFn { func }
+}
+
+#[derive(Debug)]
+pub struct WrapFn<F> {
+    func: F,
+}
+
+impl<F, T, U> WrapSealed<T> for WrapFn<F>
+where
+    F: Fn(T) -> U,
+    T: Filter,
+    U: Filter,
+{
+    type Wrapped = U;
+
+    fn wrap(&self, filter: T) -> Self::Wrapped {
+        (self.func)(filter)
+    }
+}
