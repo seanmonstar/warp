@@ -43,6 +43,13 @@ async fn dir() {
     assert_eq!(res.headers()["accept-ranges"], "bytes");
 
     assert_eq!(res.body(), &*contents);
+
+    let malformed_req = warp::test::request().path("todos.rs");
+    assert!(malformed_req
+        .filter(&file)
+        .await
+        .unwrap_err()
+        .is_not_found());
 }
 
 #[tokio::test]
