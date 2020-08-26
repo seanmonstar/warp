@@ -45,11 +45,7 @@ async fn dir() {
     assert_eq!(res.body(), &*contents);
 
     let malformed_req = warp::test::request().path("todos.rs");
-    assert!(malformed_req
-        .filter(&file)
-        .await
-        .unwrap_err()
-        .is_not_found());
+    assert_eq!(malformed_req.reply(&file).await.status(), 404);
 }
 
 #[tokio::test]
