@@ -96,7 +96,7 @@ impl Route {
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
         let index = self.segments_index + index;
         let path = self.req.uri().path();
-        if path.len() < index {
+        if path.len() == 0 {
             return;
         } else if path.len() == index {
             self.segments_index = index;
