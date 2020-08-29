@@ -96,7 +96,9 @@ impl Route {
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
         let index = self.segments_index + index;
         let path = self.req.uri().path();
-        if path.len() == 0 {
+        if path.is_empty() {
+            // note: empty path is malformed due to
+            // mismatch in output of path_and_query
             return;
         } else if path.len() == index {
             self.segments_index = index;
