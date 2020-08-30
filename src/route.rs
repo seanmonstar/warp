@@ -97,8 +97,7 @@ impl Route {
         let index = self.segments_index + index;
         let path = self.req.uri().path();
         if path.is_empty() {
-            // note: empty path is malformed due to
-            // mismatch in output of path_and_query
+            // malformed path
             return;
         } else if path.len() == index {
             self.segments_index = index;
