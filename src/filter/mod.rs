@@ -33,6 +33,20 @@ use self::untuple_one::UntupleOne;
 pub use self::wrap::wrap_fn;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
 
+/// Fold filters into an `or` chain.
+pub fn fold<F, I>(filters: I) -> Option<Or<F, F>>
+where
+    F: Filter<Error = Rejection> + Sized,
+    F::Error: CombineRejection<F::Error>,
+    I: IntoIterator<Item = F>
+{
+    let mut it = filters.into_iter();
+    if let (Some(first), Some(second)) = (it.nth(0), it.nth(0)) {
+        return Some(it.fold(first.or(second), |acc, i| acc.second.or(i)));
+    }
+    None
+}
+
 // A crate-private base trait, allowing the actual `filter` method to change
 // signatures without it being a breaking change.
 pub trait FilterBase {
@@ -90,6 +104,7 @@ pub struct Internal;
 /// `map` would be given a single argument of `((), String,)`, which is just
 /// no fun.
 pub trait Filter: FilterBase {
+
     /// Composes a new `Filter` that requires both this and the other to filter a request.
     ///
     /// Additionally, this will join together the extracted values of both
