@@ -5,7 +5,7 @@
 
 use http::{header, StatusCode};
 
-use self::sealed::AsLocation;
+pub use self::sealed::AsLocation;
 use crate::reply::{self, Reply};
 
 /// A simple `301` redirect to a different location.
@@ -52,8 +52,10 @@ mod sealed {
     use bytes::Bytes;
     use http::{header::HeaderValue, Uri};
 
-    // These sealed traits are to allow adding possibly new impls so other
-    // arguments could be accepted, like maybe just `warp::redirect("/v2")`.
+    /// Trait for redirect locations. Currently only a `Uri` can be used in
+    /// redirect.
+    /// This sealed trait exists to allow adding possibly new impls so other
+    /// arguments could be accepted, like maybe just `warp::redirect("/v2")`.
     pub trait AsLocation: Sealed {}
     pub trait Sealed {
         fn header_value(self) -> HeaderValue;
