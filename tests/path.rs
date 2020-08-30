@@ -151,6 +151,13 @@ async fn tail() {
 
     let m = tail.and(warp::path::end());
     assert!(warp::test::request().path("/foo/bar").matches(&m).await);
+
+    let ex = warp::test::request()
+        .path("localhost")
+        .filter(&tail)
+        .await
+        .unwrap();
+    assert_eq!(ex.as_str(), "/");
 }
 
 #[tokio::test]
