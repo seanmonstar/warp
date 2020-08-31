@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/warp/0.2.4")]
+#![doc(html_root_url = "https://docs.rs/warp/0.2.5")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![cfg_attr(test, deny(warnings))]
