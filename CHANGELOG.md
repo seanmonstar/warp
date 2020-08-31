@@ -1,3 +1,8 @@
+### v0.1.23 (August 31, 2020)
+
+- **Fixes**:
+  - Fix panic when URI doesn't contain a slash.
+
 ### v0.1.22 (March 3, 2020)
 
 - **Features**:
