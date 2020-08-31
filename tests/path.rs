@@ -155,6 +155,12 @@ fn tail() {
     assert!(warp::test::request()
         .path("/foo/bar")
         .matches(&tail.and(warp::path::end())));
+
+    let ex = warp::test::request()
+        .path("localhost")
+        .filter(&tail)
+        .unwrap();
+    assert_eq!(ex.as_str(), "/");
 }
 
 #[test]
