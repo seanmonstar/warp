@@ -39,8 +39,13 @@ async fn param() {
 
     let s = warp::path::param::<String>();
 
-    let req = warp::test::request().path("/warp");
-    assert_eq!(req.filter(&s).await.unwrap(), "warp");
+    let req = warp::test::request().path("/warp%20speed");
+    assert_eq!(req.filter(&s).await.unwrap(), "warp%20speed");
+
+    let ds = warp::path::param_decode::<String>();
+
+    let req = warp::test::request().path("/warp%20speed");
+    assert_eq!(req.filter(&ds).await.unwrap(), "warp speed");
 
     // u32 doesn't extract a non-int
     let req = warp::test::request().path("/warp");
@@ -223,9 +228,13 @@ async fn path_macro() {
     let p = path!(String / "bar");
     assert_eq!(req.filter(&p).await.unwrap(), "foo");
 
-    let req = warp::test::request().path("/foo/bar");
+    let req = warp::test::request().path("/foo/bar%20baz");
     let p = path!("foo" / String);
-    assert_eq!(req.filter(&p).await.unwrap(), "bar");
+    assert_eq!(req.filter(&p).await.unwrap(), "bar%20baz");
+
+    let req = warp::test::request().path("/foo/bar%20baz");
+    let p = path!("foo" / (decode String));
+    assert_eq!(req.filter(&p).await.unwrap(), "bar baz");
 
     // Requires path end
 

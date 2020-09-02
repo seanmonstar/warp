@@ -249,7 +249,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// This will try to parse a value from the current request path
 /// segment, and if successful, the value is returned as the `Filter`'s
-/// "extracted" value.
+/// "extracted" value. The segment is not URL decoded beforehand.
 ///
 /// If the value could not be parsed, rejects with a `404 Not Found`.
 ///
@@ -265,12 +265,33 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 /// ```
 pub fn param<T: FromStr + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
-    filter_segment(|seg| {
+    param_raw(|seg| T::from_str(seg).ok())
+}
+
+/// Extract a paramter from a path segment after URL decoding it.
+///
+/// This is the same as `param()` except that the segment is URL decoded.
+pub fn param_decode<T: FromStr + Send + 'static>(
+) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
+    param_raw(|seg| {
+        urlencoding::decode(seg)
+            .as_ref()
+            .ok()
+            .and_then(|decoded| T::from_str(decoded).ok())
+    })
+}
+
+fn param_raw<F, T>(f: F) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+where
+    F: Fn(&str) -> Option<T> + Copy,
+    T: Send + 'static,
+{
+    filter_segment(move |seg| {
         tracing::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg).map(one).map_err(|_| reject::not_found())
+        f(seg).map(one).ok_or_else(reject::not_found)
     })
 }
 
@@ -561,6 +582,9 @@ macro_rules! __internal_path {
 
     (@segment ..) => (
         compile_error!("'..' must be the last segment")
+    );
+    (@segment ( decode $param:ty )) => (
+        $crate::path::param_decode::<$param>()
     );
     (@segment $param:ty) => (
         $crate::path::param::<$param>()
