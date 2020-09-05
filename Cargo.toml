@@ -30,7 +30,7 @@ multipart = { version = "0.17", default-features = false, features = ["server"],
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
-serde_urlencoded = "0.6"
+serde_urlencoded = "0.7"
 tokio = { version = "0.2", features = ["fs", "stream", "sync", "time"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
