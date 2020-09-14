@@ -30,14 +30,14 @@ multipart = { version = "0.17", default-features = false, features = ["server"],
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
-serde_urlencoded = "0.6"
+serde_urlencoded = "0.7"
 tokio = { version = "0.2", features = ["fs", "stream", "sync", "time"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
 tower-service = "0.3"
 # tls is enabled by default, we don't want that yet
 tokio-tungstenite = { version = "0.11", default-features = false, optional = true }
-urlencoding = "1.0.0"
+percent-encoding = "2.1"
 pin-project = "0.4.17"
 tokio-rustls = { version = "0.14", optional = true }
 

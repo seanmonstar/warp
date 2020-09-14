@@ -20,9 +20,9 @@ use headers::{
 use http::StatusCode;
 use hyper::Body;
 use mime_guess;
+use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
-use urlencoding::decode;
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -107,11 +107,10 @@ fn path_from_tail(
 
 fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejection> {
     let mut buf = PathBuf::from(base.as_ref());
-    let p = match decode(tail) {
+    let p = match percent_decode_str(tail).decode_utf8() {
         Ok(p) => p,
         Err(err) => {
             tracing::debug!("dir: failed to decode route={:?}: {:?}", tail, err);
-            // FromUrlEncodingError doesn't implement StdError
             return Err(reject::not_found());
         }
     };
