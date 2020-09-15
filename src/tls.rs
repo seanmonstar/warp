@@ -50,6 +50,7 @@ impl std::error::Error for TlsConfigError {}
 pub(crate) struct TlsConfigBuilder {
     cert: Box<dyn Read + Send + Sync>,
     key: Box<dyn Read + Send + Sync>,
+    ocsp_resp: Vec<u8>,
 }
 
 impl std::fmt::Debug for TlsConfigBuilder {
@@ -64,6 +65,7 @@ impl TlsConfigBuilder {
         TlsConfigBuilder {
             key: Box::new(io::empty()),
             cert: Box::new(io::empty()),
+            ocsp_resp: Vec::new(),
         }
     }
 
@@ -94,6 +96,12 @@ impl TlsConfigBuilder {
     /// sets the Tls certificate via bytes slice
     pub(crate) fn cert(mut self, cert: &[u8]) -> Self {
         self.cert = Box::new(Cursor::new(Vec::from(cert)));
+        self
+    }
+
+    /// sets the DER-encoded OCSP response
+    pub(crate) fn ocsp_resp(mut self, ocsp_resp: &[u8]) -> Self {
+        self.ocsp_resp = Vec::from(ocsp_resp);
         self
     }
 
@@ -136,7 +144,7 @@ impl TlsConfigBuilder {
 
         let mut config = ServerConfig::new(NoClientAuth::new());
         config
-            .set_single_cert(cert, key)
+            .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(|err| TlsConfigError::InvalidKey(err))?;
         config.set_protocols(&["h2".into(), "http/1.1".into()]);
         Ok(config)
