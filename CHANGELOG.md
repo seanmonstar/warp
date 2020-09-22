@@ -1,3 +1,12 @@
+### v0.2.5 (August 31, 2020)
+
+- **Features**:
+  - Add `warp_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
+  - Add `warp::host` filters to deal with `Host`/`:authority` headers.
+  - Relax some lifetime bounds on `Server`.
+- **Fixes**:
+  - Fix panic when URI doesn't have a slash (for example, `CONNECT foo.bar`).
+
 ### v0.2.4 (July 20, 2020)
 
 - **Features**:

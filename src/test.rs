@@ -497,7 +497,12 @@ impl WsBuilder {
                 .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
                 .req;
 
-            let uri = format!("http://{}{}", addr, req.uri().path())
+            let query_string = match req.uri().query() {
+                Some(q) => format!("?{}", q),
+                None => String::from(""),
+            };
+
+            let uri = format!("http://{}{}{}", addr, req.uri().path(), query_string)
                 .parse()
                 .expect("addr + path is valid URI");
 

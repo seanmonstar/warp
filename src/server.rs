@@ -435,6 +435,11 @@ where
         self.with_tls(|tls| tls.cert(cert.as_ref()))
     }
 
+    /// Specify the DER-encoded OCSP response.
+    pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
+    }
+
     fn with_tls<Func>(self, func: Func) -> Self
     where
         Func: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
