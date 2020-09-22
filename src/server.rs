@@ -151,6 +151,21 @@ where
             .await;
     }
 
+    /// Run this `Server` forever on the current thread with a specific stream
+    /// of incoming connections.
+    ///
+    /// This can be ONLY used for TcpStream (which you can get peer_addr)
+    pub async fn run_incoming_v2<I>(self, incoming: I)
+    where
+        I: TryStream + Send,
+        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin + Transport,
+        I::Error: Into<Box<dyn StdError + Send + Sync>>,
+    {
+        self.run_incoming2(incoming.map_ok(crate::transport::LiftIoV2).into_stream())
+            .instrument(tracing::info_span!("Server::run_incoming"))
+            .await;
+    }
+
     async fn run_incoming2<I>(self, incoming: I)
     where
         I: TryStream + Send,
