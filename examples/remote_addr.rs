@@ -5,8 +5,8 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use warp::Transport;
 use warp::Filter;
+use warp::Transport;
 
 use futures::Stream;
 use tokio::io::AsyncRead;
@@ -83,9 +83,7 @@ impl Stream for MyIncoming {
 #[tokio::main]
 async fn main() {
     // Match any request and return hello world!
-    let routes = warp::addr::remote().map(|remote: Option<SocketAddr>| {
-        format!("{:?}", remote)
-    });
+    let routes = warp::addr::remote().map(|remote: Option<SocketAddr>| format!("{:?}", remote));
 
     let srv = warp::serve(routes);
 
