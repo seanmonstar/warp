@@ -418,7 +418,7 @@ impl Rejections {
                 res
             }
             Rejections::Custom(ref e) => {
-                log::error!(
+                tracing::error!(
                     "unhandled custom rejection, returning 500 response: {:?}",
                     e
                 );

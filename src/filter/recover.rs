@@ -3,7 +3,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{ready, TryFuture};
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Func, Internal};
 use crate::generic::Either;
@@ -50,7 +50,7 @@ where
     original_path_index: PathIndex,
 }
 
-#[pin_project]
+#[pin_project(project = StateProj)]
 enum State<T, F>
 where
     T: Filter,
@@ -84,17 +84,15 @@ where
         <F::Output as TryFuture>::Error,
     >;
 
-    #[project]
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             let pin = self.as_mut().project();
-            #[project]
             let (err, second) = match pin.state.project() {
-                State::First(first, second) => match ready!(first.try_poll(cx)) {
+                StateProj::First(first, second) => match ready!(first.try_poll(cx)) {
                     Ok(ex) => return Poll::Ready(Ok((Either::A(ex),))),
                     Err(err) => (err, second),
                 },
-                State::Second(second) => {
+                StateProj::Second(second) => {
                     let ex2 = match ready!(second.try_poll(cx)) {
                         Ok(ex2) => Ok((Either::B((ex2,)),)),
                         Err(e) => Err(e),
@@ -105,7 +103,7 @@ where
                     });
                     return Poll::Ready(ex2);
                 }
-                State::Done => panic!("polled after complete"),
+                StateProj::Done => panic!("polled after complete"),
             };
 
             pin.original_path_index.reset_path();

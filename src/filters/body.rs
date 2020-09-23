@@ -28,7 +28,7 @@ type BoxError = Box<dyn StdError + Send + Sync>;
 pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
         future::ready(route.take_body().ok_or_else(|| {
-            log::error!("request body already taken in previous filter");
+            tracing::error!("request body already taken in previous filter");
             reject::known(BodyConsumedMultipleTimes { _p: () })
         }))
     })
@@ -51,14 +51,14 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     crate::filters::header::header2()
         .map_err(crate::filter::Internal, |_| {
-            log::debug!("content-length missing");
+            tracing::debug!("content-length missing");
             reject::length_required()
         })
         .and_then(move |ContentLength(length)| {
             if length <= limit {
                 future::ok(())
             } else {
-                log::debug!("content-length: {} is over limit {}", length, limit);
+                tracing::debug!("content-length: {} is over limit {}", length, limit);
                 future::err(reject::payload_too_large())
             }
         })
@@ -106,7 +106,7 @@ pub fn stream(
 pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
     body().and_then(|body: hyper::Body| {
         hyper::body::to_bytes(body).map_err(|err| {
-            log::debug!("to_bytes error: {}", err);
+            tracing::debug!("to_bytes error: {}", err);
             reject::known(BodyReadError(err))
         })
     })
@@ -144,7 +144,7 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Copy {
     body().and_then(|body: ::hyper::Body| {
         hyper::body::aggregate(body).map_err(|err| {
-            log::debug!("aggregate error: {}", err);
+            tracing::debug!("aggregate error: {}", err);
             reject::known(BodyReadError(err))
         })
     })
@@ -175,7 +175,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         .and(aggregate())
         .and_then(|buf| async move {
             Json::decode(buf).map_err(|err| {
-                log::debug!("request json body error: {}", err);
+                tracing::debug!("request json body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err })
             })
         })
@@ -210,7 +210,7 @@ pub fn form<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         .and(aggregate())
         .and_then(|buf| async move {
             Form::decode(buf).map_err(|err| {
-                log::debug!("request form body error: {}", err);
+                tracing::debug!("request form body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err })
             })
         })
@@ -254,7 +254,7 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
     filter_fn(move |route| {
         let (type_, subtype) = D::MIME;
         if let Some(value) = route.headers().get(CONTENT_TYPE) {
-            log::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
+            tracing::trace!("is_content_type {}/{}? {:?}", type_, subtype, value);
             let ct = value
                 .to_str()
                 .ok()
@@ -263,7 +263,7 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
                 if ct.type_() == type_ && ct.subtype() == subtype {
                     future::ok(())
                 } else {
-                    log::debug!(
+                    tracing::debug!(
                         "content-type {:?} doesn't match {}/{}",
                         value,
                         type_,
@@ -272,15 +272,15 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
                     future::err(reject::unsupported_media_type())
                 }
             } else {
-                log::debug!("content-type {:?} couldn't be parsed", value);
+                tracing::debug!("content-type {:?} couldn't be parsed", value);
                 future::err(reject::unsupported_media_type())
             }
         } else if D::WITH_NO_CONTENT_TYPE {
             // Optimistically assume its correct!
-            log::trace!("no content-type header, assuming {}/{}", type_, subtype);
+            tracing::trace!("no content-type header, assuming {}/{}", type_, subtype);
             future::ok(())
         } else {
-            log::debug!("no content-type found");
+            tracing::debug!("no content-type found");
             future::err(reject::unsupported_media_type())
         }
     })
@@ -323,7 +323,11 @@ impl fmt::Display for BodyDeserializeError {
     }
 }
 
-impl StdError for BodyDeserializeError {}
+impl StdError for BodyDeserializeError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.cause.as_ref())
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);

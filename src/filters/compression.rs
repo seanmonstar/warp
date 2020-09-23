@@ -4,7 +4,10 @@
 
 use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
 use http::header::HeaderValue;
-use hyper::{header::CONTENT_ENCODING, Body};
+use hyper::{
+    header::{CONTENT_ENCODING, CONTENT_LENGTH},
+    Body,
+};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -58,6 +61,7 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::GZIP.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -83,6 +87,7 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::DEFLATE.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -108,6 +113,7 @@ pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::BR.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
