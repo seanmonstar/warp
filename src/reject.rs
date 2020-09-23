@@ -170,9 +170,9 @@ pub(crate) fn known<T: Into<Known>>(err: T) -> Rejection {
     Rejection::known(err.into())
 }
 
-/// Rejection of a request by a [`Filter`](::Filter).
+/// Rejection of a request by a [`Filter`](crate::Filter).
 ///
-/// See the [`reject`](index.html) documentation for more.
+/// See the [`reject`](module@crate::reject) documentation for more.
 pub struct Rejection {
     reason: Reason,
 }
@@ -251,6 +251,8 @@ enum_known! {
     LengthRequired(LengthRequired),
     PayloadTooLarge(PayloadTooLarge),
     UnsupportedMediaType(UnsupportedMediaType),
+    FileOpenError(crate::fs::FileOpenError),
+    FilePermissionError(crate::fs::FilePermissionError),
     BodyReadError(crate::body::BodyReadError),
     BodyDeserializeError(crate::body::BodyDeserializeError),
     CorsForbidden(crate::cors::CorsForbidden),
@@ -403,10 +405,10 @@ impl Rejections {
                 Known::LengthRequired(_) => StatusCode::LENGTH_REQUIRED,
                 Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
                 Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
-                Known::MissingExtension(_) | Known::BodyConsumedMultipleTimes(_) => {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
+                Known::FilePermissionError(_) | Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
+                Known::FileOpenError(_)
+                | Known::MissingExtension(_)
+                | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
@@ -425,7 +427,7 @@ impl Rejections {
                 res
             }
             Rejections::Custom(ref e) => {
-                log::error!(
+                tracing::error!(
                     "unhandled custom rejection, returning 500 response: {:?}",
                     e
                 );
@@ -513,6 +515,13 @@ pub struct MissingHeader {
     name: &'static str,
 }
 
+impl MissingHeader {
+    /// Retrieve the name of the header that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
 impl ::std::fmt::Display for MissingHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f, "Missing request header {:?}", self.name)
@@ -527,6 +536,13 @@ pub struct InvalidHeader {
     name: &'static str,
 }
 
+impl InvalidHeader {
+    /// Retrieve the name of the header that was invalid
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
 impl ::std::fmt::Display for InvalidHeader {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f, "Invalid request header {:?}", self.name)
@@ -539,6 +555,13 @@ impl StdError for InvalidHeader {}
 #[derive(Debug)]
 pub struct MissingCookie {
     name: &'static str,
+}
+
+impl MissingCookie {
+    /// Retrieve the name of the cookie that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
 }
 
 impl ::std::fmt::Display for MissingCookie {

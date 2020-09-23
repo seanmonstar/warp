@@ -1,6 +1,8 @@
 #![deny(warnings)]
 
-use futures::{FutureExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
+use serde_derive::Deserialize;
+use warp::ws::Message;
 use warp::Filter;
 
 #[tokio::test]
@@ -80,6 +82,59 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn send_ping() {
+    let _ = pretty_env_logger::try_init();
+
+    let filter = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|mut websocket| {
+            async move {
+                websocket.send(Message::ping("srv")).await.unwrap();
+                // assume the client will pong back
+                let msg = websocket.next().await.expect("item").expect("ok");
+                assert!(msg.is_pong());
+                assert_eq!(msg.as_bytes(), &b"srv"[..]);
+            }
+        })
+    });
+
+    let mut client = warp::test::ws().handshake(filter).await.expect("handshake");
+
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_ping());
+    assert_eq!(msg.as_bytes(), &b"srv"[..]);
+
+    client.recv_closed().await.expect("closed");
+}
+
+#[tokio::test]
+async fn echo_pings() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    client.send(Message::ping("clt")).await;
+
+    // tungstenite sends the PONG first
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // and then `ws_echo` sends us back the same PING
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_ping());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // and then our client would have sent *its* PONG
+    // and `ws_echo` would send *that* back too
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+}
+
+#[tokio::test]
 async fn closed() {
     let _ = pretty_env_logger::try_init();
 
@@ -115,12 +170,66 @@ async fn limit_message_size() {
     assert!(client.recv().await.is_err());
 }
 
+#[tokio::test]
+async fn limit_frame_size() {
+    let _ = pretty_env_logger::try_init();
+
+    let echo = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.max_frame_size(1024).on_upgrade(|websocket| {
+            // Just echo all messages back...
+            let (tx, rx) = websocket.split();
+            rx.forward(tx).map(|result| {
+                assert!(result.is_err());
+                assert_eq!(
+                    format!("{}", result.unwrap_err()).as_str(),
+                    "Space limit exceeded: Message length too big: 1025 > 1024"
+                );
+            })
+        })
+    });
+    let mut client = warp::test::ws().handshake(echo).await.expect("handshake");
+
+    client.send(warp::ws::Message::binary(vec![0; 1025])).await;
+    client.send_text("hello warp").await;
+    assert!(client.recv().await.is_err());
+}
+
+#[derive(Deserialize)]
+struct MyQuery {
+    hello: String,
+}
+
+#[tokio::test]
+async fn ws_with_query() {
+    let ws_filter = warp::path("my-ws")
+        .and(warp::query::<MyQuery>())
+        .and(warp::ws())
+        .map(|query: MyQuery, ws: warp::ws::Ws| {
+            assert_eq!(query.hello, "world");
+
+            ws.on_upgrade(|websocket| {
+                let (tx, rx) = websocket.split();
+                rx.inspect(|i| log::debug!("ws recv: {:?}", i))
+                    .forward(tx)
+                    .map(|_| ())
+            })
+        });
+
+    warp::test::ws()
+        .path("/my-ws?hello=world")
+        .handshake(ws_filter)
+        .await
+        .expect("handshake");
+}
+
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Copy {
     warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...
             let (tx, rx) = websocket.split();
-            rx.forward(tx).map(|_| ())
+            rx.inspect(|i| log::debug!("ws recv: {:?}", i))
+                .forward(tx)
+                .map(|_| ())
         })
     })
 }

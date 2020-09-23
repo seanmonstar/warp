@@ -179,7 +179,7 @@ where
     Exact(Opaque(p))
     /*
     segment(move |seg| {
-        log::trace!("{:?}?: {:?}", p, seg);
+        tracing::trace!("{:?}?: {:?}", p, seg);
         if seg == p {
             Ok(())
         } else {
@@ -209,7 +209,7 @@ where
         route::with(|route| {
             let p = self.0.as_ref();
             future::ready(with_segment(route, |seg| {
-                log::trace!("{:?}?: {:?}", p, seg);
+                tracing::trace!("{:?}?: {:?}", p, seg);
 
                 if seg == p {
                     Ok(())
@@ -266,7 +266,7 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 pub fn param<T: FromStr + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_segment(|seg| {
-        log::trace!("param?: {:?}", seg);
+        tracing::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
@@ -465,8 +465,8 @@ fn path_and_query(route: &Route) -> PathAndQuery {
     route
         .uri()
         .path_and_query()
-        .expect("server URIs should always have path_and_query")
-        .clone()
+        .cloned()
+        .unwrap_or_else(|| PathAndQuery::from_static(""))
 }
 
 /// Convenient way to chain multiple path filters together.
@@ -474,7 +474,7 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// Any number of either type identifiers or string expressions can be passed,
 /// each separated by a forward slash (`/`). Strings will be used to match
 /// path segments exactly, and type identifiers are used just like
-/// [`param`](filters::path::param) filters.
+/// [`param`](crate::path::param) filters.
 ///
 /// # Example
 ///

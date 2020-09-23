@@ -4,27 +4,8 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
 };
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use warp::{sse::ServerSentEvent, Filter};
-
-/// Our global unique user id counter.
-static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
-
-/// Message variants.
-enum Message {
-    UserId(usize),
-    Reply(String),
-}
-
-#[derive(Debug)]
-struct NotUtf8;
-impl warp::reject::Reject for NotUtf8 {}
-
-/// Our state of currently connected users.
-///
-/// - Key is their id
-/// - Value is a sender of `Message`
-type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 
 #[tokio::main]
 async fn main() {
@@ -41,13 +22,13 @@ async fn main() {
         .and(warp::post())
         .and(warp::path::param::<usize>())
         .and(warp::body::content_length_limit(500))
-        .and(warp::body::bytes().and_then(|body: bytes::Bytes| {
-            async move {
+        .and(
+            warp::body::bytes().and_then(|body: bytes::Bytes| async move {
                 std::str::from_utf8(&body)
                     .map(String::from)
                     .map_err(|_e| warp::reject::custom(NotUtf8))
-            }
-        }))
+            }),
+        )
         .and(users.clone())
         .map(|my_id, msg, users| {
             user_message(my_id, msg, &users);
@@ -73,6 +54,26 @@ async fn main() {
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
 
+/// Our global unique user id counter.
+static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
+
+/// Message variants.
+#[derive(Debug)]
+enum Message {
+    UserId(usize),
+    Reply(String),
+}
+
+#[derive(Debug)]
+struct NotUtf8;
+impl warp::reject::Reject for NotUtf8 {}
+
+/// Our state of currently connected users.
+///
+/// - Key is their id
+/// - Value is a sender of `Message`
+type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
+
 fn user_connected(
     users: Users,
 ) -> impl Stream<Item = Result<impl ServerSentEvent + Send + 'static, warp::Error>> + Send + 'static
@@ -86,32 +87,12 @@ fn user_connected(
     // to the event source...
     let (tx, rx) = mpsc::unbounded_channel();
 
-    match tx.send(Message::UserId(my_id)) {
-        Ok(()) => (),
-        Err(_disconnected) => {
-            // The tx is disconnected, our `user_disconnected` code
-            // should be happening in another task, nothing more to
-            // do here.
-        }
-    }
-
-    // Make an extra clone of users list to give to our disconnection handler...
-    let users2 = users.clone();
+    tx.send(Message::UserId(my_id))
+        // rx is right above, so this cannot fail
+        .unwrap();
 
     // Save the sender in our list of connected users.
     users.lock().unwrap().insert(my_id, tx);
-
-    // Create channel to track disconnecting the receiver side of events.
-    // This is little bit tricky.
-    let (mut dtx, mut drx) = oneshot::channel::<()>();
-
-    // When `drx` will dropped then `dtx` will be canceled.
-    // We can track it to make sure when the user leaves chat.
-    tokio::task::spawn(async move {
-        dtx.closed().await;
-        drx.close();
-        user_disconnected(my_id, &users2);
-    });
 
     // Convert messages into Server-Sent Events and return resulting stream.
     rx.map(|msg| match msg {
@@ -127,25 +108,15 @@ fn user_message(my_id: usize, msg: String, users: &Users) {
     //
     // We use `retain` instead of a for loop so that we can reap any user that
     // appears to have disconnected.
-    for (&uid, tx) in users.lock().unwrap().iter_mut() {
-        if my_id != uid {
-            match tx.send(Message::Reply(new_msg.clone())) {
-                Ok(()) => (),
-                Err(_disconnected) => {
-                    // The tx is disconnected, our `user_disconnected` code
-                    // should be happening in another task, nothing more to
-                    // do here.
-                }
-            }
+    users.lock().unwrap().retain(|uid, tx| {
+        if my_id == *uid {
+            // don't send to same user, but do retain
+            true
+        } else {
+            // If not `is_ok`, the SSE stream is gone, and so don't retain
+            tx.send(Message::Reply(new_msg.clone())).is_ok()
         }
-    }
-}
-
-fn user_disconnected(my_id: usize, users: &Users) {
-    eprintln!("good bye user: {}", my_id);
-
-    // Stream closed up, so remove from the user list
-    users.lock().unwrap().remove(&my_id);
+    });
 }
 
 static INDEX_HTML: &str = r#"

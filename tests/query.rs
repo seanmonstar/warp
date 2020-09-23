@@ -48,6 +48,22 @@ async fn empty_query_struct() {
 }
 
 #[tokio::test]
+async fn query_struct_no_values() {
+    let as_struct = warp::query::<MyArgs>();
+
+    let req = warp::test::request().path("/?foo&baz");
+
+    let extracted = req.filter(&as_struct).await.unwrap();
+    assert_eq!(
+        extracted,
+        MyArgs {
+            foo: Some("".into()),
+            baz: Some("".into())
+        }
+    );
+}
+
+#[tokio::test]
 async fn missing_query_struct() {
     let as_struct = warp::query::<MyArgs>();
 

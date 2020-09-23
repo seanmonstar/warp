@@ -30,6 +30,7 @@ use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
+pub use self::wrap::wrap_fn;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
 
 // A crate-private base trait, allowing the actual `filter` method to change
@@ -177,7 +178,7 @@ pub trait Filter: FilterBase {
     ///
     /// Even worse, the tuples would shuffle the types around depending on
     /// the exact invocation of `and`s. So, `unit.and(int).and(int)` would
-    /// result in a different extracted type from `unit.and(int.and(int)`,
+    /// result in a different extracted type from `unit.and(int.and(int))`,
     /// or from `int.and(unit).and(int)`. If you changed around the order
     /// of filters, while still having them be semantically equivalent, you'd
     /// need to update all your `map`s as well.

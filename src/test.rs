@@ -64,7 +64,7 @@
 //! #[test]
 //! fn test_math() {
 //! #    let math = || warp::any().map(warp::reply);
-//!     let filter = sum();
+//!     let filter = math();
 //!
 //!     let res = warp::test::request()
 //!         .path("/1/2")
@@ -126,7 +126,7 @@ pub fn ws() -> WsBuilder {
 
 /// A request builder for testing filters.
 ///
-/// See [module documentation](::test) for an overview.
+/// See [module documentation](crate::test) for an overview.
 #[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
@@ -136,7 +136,7 @@ pub struct RequestBuilder {
 
 /// A Websocket builder for testing filters.
 ///
-/// See [module documentation](::test) for an overview.
+/// See [module documentation](crate::test) for an overview.
 #[cfg(feature = "websocket")]
 #[must_use = "WsBuilder does nothing on its own"]
 #[derive(Debug)]
@@ -224,6 +224,22 @@ impl RequestBuilder {
             .map_err(|_| ())
             .expect("invalid header value");
         self.req.headers_mut().insert(name, value);
+        self
+    }
+
+    /// Set the remote address of this request
+    ///
+    /// Default is no remote address.
+    ///
+    /// # Example
+    /// ```
+    /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    ///
+    /// let req = warp::test::request()
+    ///     .remote_addr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080));
+    /// ```
+    pub fn remote_addr(mut self, addr: SocketAddr) -> Self {
+        self.remote_addr = Some(addr);
         self
     }
 
@@ -356,7 +372,7 @@ impl RequestBuilder {
                 let res = match result {
                     Ok(rep) => rep.into_response(),
                     Err(rej) => {
-                        log::debug!("rejected: {:?}", rej);
+                        tracing::debug!("rejected: {:?}", rej);
                         rej.into_response()
                     }
                 };
@@ -469,7 +485,7 @@ impl WsBuilder {
         let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
-            use tungstenite::protocol;
+            use tokio_tungstenite::tungstenite::protocol;
 
             let (addr, srv) = crate::serve(f).bind_ephemeral(([127, 0, 0, 1], 0));
 
@@ -481,7 +497,12 @@ impl WsBuilder {
                 .header("sec-websocket-key", "dGhlIHNhbXBsZSBub25jZQ==")
                 .req;
 
-            let uri = format!("http://{}{}", addr, req.uri().path())
+            let query_string = match req.uri().query() {
+                Some(q) => format!("?{}", q),
+                None => String::from(""),
+            };
+
+            let uri = format!("http://{}{}{}", addr, req.uri().path(), query_string)
                 .parse()
                 .expect("addr + path is valid URI");
 
@@ -509,7 +530,8 @@ impl WsBuilder {
                 upgraded,
                 protocol::Role::Client,
                 Default::default(),
-            );
+            )
+            .await;
 
             let (tx, rx) = ws.split();
             let write = wr_rx.map(Ok).forward(tx).map(|_| ());

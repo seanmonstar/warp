@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
@@ -20,9 +20,9 @@ use headers::{
 use http::StatusCode;
 use hyper::Body;
 use mime_guess;
+use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncRead;
-use urlencoding::decode;
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -48,7 +48,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
     let path = Arc::new(path.into());
     crate::any()
         .map(move || {
-            log::trace!("file: {:?}", path);
+            tracing::trace!("file: {:?}", path);
             ArcPath(path.clone())
         })
         .and(conditionals())
@@ -89,41 +89,38 @@ fn path_from_tail(
     base: Arc<PathBuf>,
 ) -> impl FilterClone<Extract = One<ArcPath>, Error = Rejection> {
     crate::path::tail().and_then(move |tail: crate::path::Tail| {
-        future::ready(sanitize_path(base.as_ref(), tail.as_str())).and_then(|mut buf| {
-            async {
-                let is_dir = tokio::fs::metadata(buf.clone())
-                    .await
-                    .map(|m| m.is_dir())
-                    .unwrap_or(false);
+        future::ready(sanitize_path(base.as_ref(), tail.as_str())).and_then(|mut buf| async {
+            let is_dir = tokio::fs::metadata(buf.clone())
+                .await
+                .map(|m| m.is_dir())
+                .unwrap_or(false);
 
-                if is_dir {
-                    log::debug!("dir: appending index.html to directory path");
-                    buf.push("index.html");
-                }
-                log::trace!("dir: {:?}", buf);
-                Ok(ArcPath(Arc::new(buf)))
+            if is_dir {
+                tracing::debug!("dir: appending index.html to directory path");
+                buf.push("index.html");
             }
+            tracing::trace!("dir: {:?}", buf);
+            Ok(ArcPath(Arc::new(buf)))
         })
     })
 }
 
 fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejection> {
     let mut buf = PathBuf::from(base.as_ref());
-    let p = match decode(tail) {
+    let p = match percent_decode_str(tail).decode_utf8() {
         Ok(p) => p,
         Err(err) => {
-            log::debug!("dir: failed to decode route={:?}: {:?}", tail, err);
-            // FromUrlEncodingError doesn't implement StdError
+            tracing::debug!("dir: failed to decode route={:?}: {:?}", tail, err);
             return Err(reject::not_found());
         }
     };
-    log::trace!("dir? base={:?}, route={:?}", base.as_ref(), p);
+    tracing::trace!("dir? base={:?}, route={:?}", base.as_ref(), p);
     for seg in p.split('/') {
         if seg.starts_with("..") {
-            log::warn!("dir: rejecting segment starting with '..'");
+            tracing::warn!("dir: rejecting segment starting with '..'");
             return Err(reject::not_found());
         } else if seg.contains('\\') {
-            log::warn!("dir: rejecting segment containing with backslash (\\)");
+            tracing::warn!("dir: rejecting segment containing with backslash (\\)");
             return Err(reject::not_found());
         } else {
             buf.push(seg);
@@ -152,7 +149,7 @@ impl Conditionals {
                 .map(|time| since.precondition_passes(time.into()))
                 .unwrap_or(false);
 
-            log::trace!(
+            tracing::trace!(
                 "if-unmodified-since? {:?} vs {:?} = {}",
                 since,
                 last_modified,
@@ -166,7 +163,7 @@ impl Conditionals {
         }
 
         if let Some(since) = self.if_modified_since {
-            log::trace!(
+            tracing::trace!(
                 "if-modified-since? header = {:?}, file = {:?}",
                 since,
                 last_modified
@@ -183,7 +180,7 @@ impl Conditionals {
         }
 
         if let Some(if_range) = self.if_range {
-            log::trace!("if-range? {:?} vs {:?}", if_range, last_modified);
+            tracing::trace!("if-range? {:?} vs {:?}", if_range, last_modified);
             let can_range = !if_range.is_modified(None, last_modified.as_ref());
 
             if !can_range {
@@ -214,6 +211,32 @@ fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible
 #[derive(Debug)]
 pub struct File {
     resp: Response,
+    path: ArcPath,
+}
+
+impl File {
+    /// Extract the `&Path` of the file this `Response` delivers.
+    ///
+    /// # Example
+    ///
+    /// The example below changes the Content-Type response header for every file called `video.mp4`.
+    ///
+    /// ```
+    /// use warp::{Filter, reply::Reply};
+    ///
+    /// let route = warp::path("static")
+    ///     .and(warp::fs::dir("/www/static"))
+    ///     .map(|reply: warp::filters::fs::File| {
+    ///         if reply.path().ends_with("video.mp4") {
+    ///             warp::reply::with_header(reply, "Content-Type", "video/mp4").into_response()
+    ///         } else {
+    ///             reply.into_response()
+    ///         }
+    ///     });
+    /// ```
+    pub fn path(&self) -> &Path {
+        self.path.as_ref()
+    }
 }
 
 // Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
@@ -241,16 +264,20 @@ fn file_reply(
         Err(err) => {
             let rej = match err.kind() {
                 io::ErrorKind::NotFound => {
-                    log::debug!("file not found: {:?}", path.as_ref().display());
+                    tracing::debug!("file not found: {:?}", path.as_ref().display());
                     reject::not_found()
                 }
+                io::ErrorKind::PermissionDenied => {
+                    tracing::warn!("file permission denied: {:?}", path.as_ref().display());
+                    reject::known(FilePermissionError { _p: () })
+                }
                 _ => {
-                    log::error!(
+                    tracing::error!(
                         "file open error (path={:?}): {} ",
                         path.as_ref().display(),
                         err
                     );
-                    reject::not_found()
+                    reject::known(FileOpenError { _p: () })
                 }
             };
             Either::Right(future::err(rej))
@@ -262,7 +289,7 @@ async fn file_metadata(f: TkFile) -> Result<(TkFile, Metadata), Rejection> {
     match f.metadata().await {
         Ok(meta) => Ok((f, meta)),
         Err(err) => {
-            log::debug!("file metadata error: {}", err);
+            tracing::debug!("file metadata error: {}", err);
             Err(reject::not_found())
         }
     }
@@ -321,7 +348,7 @@ fn file_conditional(
             }
         };
 
-        File { resp }
+        File { resp, path }
     })
 }
 
@@ -354,7 +381,7 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
             if start < end && end <= max_len {
                 Ok((start, end))
             } else {
-                log::trace!("unsatisfiable byte range: {}-{}/{}", start, end, max_len);
+                tracing::trace!("unsatisfiable byte range: {}-{}/{}", start, end, max_len);
                 Err(BadRange)
             }
         })
@@ -390,19 +417,18 @@ fn file_stream(
                 if len == 0 {
                     return Poll::Ready(None);
                 }
-                if buf.remaining_mut() < buf_size {
-                    buf.reserve(buf_size);
-                }
+                reserve_at_least(&mut buf, buf_size);
+
                 let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
                     Ok(n) => n as u64,
                     Err(err) => {
-                        log::debug!("file read error: {}", err);
+                        tracing::debug!("file read error: {}", err);
                         return Poll::Ready(Some(Err(err)));
                     }
                 };
 
                 if n == 0 {
-                    log::debug!("file read found EOF before expected length");
+                    tracing::debug!("file read found EOF before expected length");
                     return Poll::Ready(None);
                 }
 
@@ -420,6 +446,14 @@ fn file_stream(
         .flatten()
 }
 
+fn reserve_at_least(buf: &mut BytesMut, cap: usize) {
+    if buf.capacity() - buf.len() < cap {
+        buf.reserve(cap);
+    }
+}
+
+const DEFAULT_READ_BUF_SIZE: usize = 8_192;
+
 fn optimal_buf_size(metadata: &Metadata) -> usize {
     let block_size = get_block_size(metadata);
 
@@ -433,17 +467,30 @@ fn get_block_size(metadata: &Metadata) -> usize {
     use std::os::unix::fs::MetadataExt;
     //TODO: blksize() returns u64, should handle bad cast...
     //(really, a block size bigger than 4gb?)
-    metadata.blksize() as usize
+
+    // Use device blocksize unless it's really small.
+    cmp::max(metadata.blksize() as usize, DEFAULT_READ_BUF_SIZE)
 }
 
 #[cfg(not(unix))]
 fn get_block_size(_metadata: &Metadata) -> usize {
-    8_192
+    DEFAULT_READ_BUF_SIZE
+}
+
+// ===== Rejections =====
+
+unit_error! {
+    pub(crate) FileOpenError: "file open error"
+}
+
+unit_error! {
+    pub(crate) FilePermissionError: "file perimission error"
 }
 
 #[cfg(test)]
 mod tests {
     use super::sanitize_path;
+    use bytes::BytesMut;
 
     #[test]
     fn test_sanitize_path() {
@@ -462,5 +509,18 @@ mod tests {
         sanitize_path(base, "/../foo.html").expect_err("dot dot");
 
         sanitize_path(base, "/C:\\/foo.html").expect_err("C:\\");
+    }
+
+    #[test]
+    fn test_reserve_at_least() {
+        let mut buf = BytesMut::new();
+        let cap = 8_192;
+
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), 0);
+
+        super::reserve_at_least(&mut buf, cap);
+        assert_eq!(buf.len(), 0);
+        assert_eq!(buf.capacity(), cap);
     }
 }

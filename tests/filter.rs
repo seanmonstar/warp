@@ -149,11 +149,9 @@ async fn unify() {
 #[should_panic]
 #[tokio::test]
 async fn nested() {
-    let f = warp::any().and_then(|| {
-        async {
-            let p = warp::path::param::<u32>();
-            warp::test::request().filter(&p).await
-        }
+    let f = warp::any().and_then(|| async {
+        let p = warp::path::param::<u32>();
+        warp::test::request().filter(&p).await
     });
 
     let _ = warp::test::request().filter(&f).await;

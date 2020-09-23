@@ -1,3 +1,51 @@
+### v0.2.5 (August 31, 2020)
+
+- **Features**:
+  - Add `warp_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
+  - Add `warp::host` filters to deal with `Host`/`:authority` headers.
+  - Relax some lifetime bounds on `Server`.
+- **Fixes**:
+  - Fix panic when URI doesn't have a slash (for example, `CONNECT foo.bar`).
+
+### v0.2.4 (July 20, 2020)
+
+- **Features**:
+  - Add `tracing` internals in place of `log` (log is still emitted for backwards compatibility).
+  - Add `warp::trace` module set of filters to customize `tracing` dianostics.
+  - Add `path` method to `warp::fs::File` reply.
+  - Add `source` implementation for `BodyDeserializeError`.
+  - Make `warp::ws::MissingConnectionUpgrade` rejection public.
+
+### v0.2.3 (May 19, 2020)
+
+- **Features**:
+  - Add `warp::compression` filters, which will compress response bodies.
+  - Add `warp::header::value()` filter to get a request `HeaderValue`.
+  - Add `request_headers` method to `warp::log::Info`.
+  - Add `max_frame_size` to `warp::ws::Ws` builder.
+  - Add `remote_addr` to `warp::test::RequestBuilder`.
+  - Add `try_bind_with_graceful_shutdown` to `warp::Server` builder.
+  - Add `serve_incoming_with_graceful_shutdown` to `warp::Server` builder.
+- **Fixes**:
+  - Fix `warp::addr::remote` when used with `Server::tls`.
+  - Fix panic in `warp::path::{peek, tail, full}` filters when the request URI is in authority-form or asterisk-form.
+
+### v0.2.2 (March 3, 2020)
+
+- **Features**:
+  - Implement `Reply` for all `Box<T>` where `T: Reply`.
+  - Add `name` methods to `MissingHeader`, `InvalidHeader`, and `MissingCookie` rejections.
+  - Add `warp::ext::optional()` filter that optionally retrieves an extension from the request.
+- **Fixes**:
+  - Fix the sending of pings when a user sends a `ws::Message::ping()`.
+
+### v0.2.1 (January 23, 2020)
+
+- **Features**:
+  - Add `close` and `close_with` constructors to `warp::ws::Message`.
+- **Fixes**:
+  - Fix `warp::fs` filters using a very small read buffer.
+
 ## v0.2.0 (January 16, 2020)
 
 - **Features**:

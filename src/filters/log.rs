@@ -77,7 +77,7 @@ where
     Log { func }
 }
 
-/// Decorates a [`Filter`](::Filter) to log requests and responses.
+/// Decorates a [`Filter`](crate::Filter) to log requests and responses.
 #[derive(Clone, Copy, Debug)]
 pub struct Log<F> {
     func: F,
@@ -161,6 +161,11 @@ impl<'a> Info<'a> {
             .headers()
             .get(header::HOST)
             .and_then(|v| v.to_str().ok())
+    }
+
+    /// Access the full headers of the request
+    pub fn request_headers(&self) -> &http::HeaderMap {
+        self.route.headers()
     }
 }
 

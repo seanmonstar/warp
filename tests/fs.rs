@@ -14,8 +14,14 @@ async fn file() {
 
     let contents = fs::read("README.md").expect("fs::read README.md");
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
-    assert_eq!(res.headers()["content-type"], "text/x-markdown");
     assert_eq!(res.headers()["accept-ranges"], "bytes");
+
+    let ct = &res.headers()["content-type"];
+    assert!(
+        ct == "text/x-markdown" || ct == "text/markdown",
+        "content-type is not markdown: {:?}",
+        ct,
+    );
 
     assert_eq!(res.body(), &*contents);
 }
@@ -37,6 +43,9 @@ async fn dir() {
     assert_eq!(res.headers()["accept-ranges"], "bytes");
 
     assert_eq!(res.body(), &*contents);
+
+    let malformed_req = warp::test::request().path("todos.rs");
+    assert_eq!(malformed_req.reply(&file).await.status(), 404);
 }
 
 #[tokio::test]
