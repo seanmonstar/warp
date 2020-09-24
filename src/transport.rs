@@ -21,6 +21,7 @@ impl Transport for AddrStream {
 
 /// LiftIo to support `Transport`
 /// default always return None for `ws::addr::remote`
+#[allow(missing_debug_implementations)]
 pub struct LiftIo<T>(pub T);
 
 impl<T: AsyncRead + Unpin> AsyncRead for LiftIo<T> {
