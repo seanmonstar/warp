@@ -93,5 +93,5 @@ async fn main() {
 
     let my = MyIncoming { listen };
 
-    srv.run_incoming_v2(my).await;
+    srv.run_incoming(my).await;
 }
