@@ -535,6 +535,9 @@ macro_rules! path {
 #[macro_export]
 // not public API
 macro_rules! __internal_path {
+    (@start) => (
+        $crate::path::end()
+    );
     (@start ..) => ({
         compile_error!("'..' cannot be the only segment")
     });
