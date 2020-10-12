@@ -541,15 +541,22 @@ macro_rules! __internal_path {
     (@start ..) => ({
         compile_error!("'..' cannot be the only segment")
     });
+
+    (@start $first:tt) => ({
+        $crate::Filter::and(
+            $crate::__internal_path!(@segment $first),
+            $crate::path::end()
+        )
+    });
     (@start $first:tt $(/ $tail:tt)*) => ({
-        $crate::__internal_path!(@munch $crate::any(); [$first] [$(/ $tail)*])
+        $crate::__internal_path!(@munch $crate::__internal_path!(@segment $first); [$(/ $tail)*])
     });
 
-    (@munch $sum:expr; [$cur:tt] [/ $next:tt $(/ $tail:tt)*]) => ({
-        $crate::__internal_path!(@munch $crate::Filter::and($sum, $crate::__internal_path!(@segment $cur)); [$next] [$(/ $tail)*])
-    });
-    (@munch $sum:expr; [$cur:tt] []) => ({
+    (@munch $sum:expr; [/ $cur: tt]) => ({
         $crate::__internal_path!(@last $sum; $cur)
+    });
+    (@munch $sum:expr; [/ $cur:tt $(/ $tail:tt)*]) => ({
+        $crate::__internal_path!(@munch $crate::Filter::and($sum, $crate::__internal_path!(@segment $cur)); [$(/ $tail)*])
     });
 
     (@last $sum:expr; ..) => (
