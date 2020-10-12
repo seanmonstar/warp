@@ -170,11 +170,6 @@ where
 {
     let s = p.as_ref();
     assert!(!s.is_empty(), "exact path segments should not be empty");
-    assert!(
-        !s.contains('/'),
-        "exact path segments should not contain a slash: {:?}",
-        s
-    );
 
     Exact(Opaque(p))
     /*
@@ -208,14 +203,17 @@ where
     fn filter(&self, _: Internal) -> Self::Future {
         route::with(|route| {
             let p = self.0.as_ref();
-            future::ready(with_segment(route, |seg| {
+            future::ready(with_segments(route, |seg| {
                 tracing::trace!("{:?}?: {:?}", p, seg);
 
-                if seg == p {
-                    Ok(())
-                } else {
-                    Err(reject::not_found())
-                }
+                (
+                    p.len(),
+                    if seg.starts_with(p) {
+                        Ok(())
+                    } else {
+                        Err(reject::not_found())
+                    },
+                )
             }))
         })
     }
@@ -453,6 +451,17 @@ where
     ret
 }
 
+fn with_segments<F, U>(route: &mut Route, func: F) -> Result<U, Rejection>
+where
+    F: Fn(&str) -> (usize, Result<U, Rejection>),
+{
+    let (idx, ret) = func(route.path());
+    if ret.is_ok() {
+        route.set_unmatched_path(idx);
+    }
+    ret
+}
+
 fn segment(route: &Route) -> &str {
     route
         .path()
@@ -542,32 +551,79 @@ macro_rules! __internal_path {
         compile_error!("'..' cannot be the only segment")
     });
 
-    (@start $first:tt) => ({
-        $crate::Filter::and(
-            $crate::__internal_path!(@segment $first),
-            $crate::path::end()
-        )
-    });
     (@start $first:tt $(/ $tail:tt)*) => ({
-        $crate::__internal_path!(@munch $crate::__internal_path!(@segment $first); [$(/ $tail)*])
+        $crate::__internal_path!(@munch_concat [] [] [$first] $(/ $tail)*)
     });
 
-    (@munch $sum:expr; [/ $cur: tt]) => ({
-        $crate::__internal_path!(@last $sum; $cur)
+    // Found a token, forward to munch_concat to see how we concatenate it in the filter
+    (@munch [$($groups: expr),*] [$($literals: literal)*] / $first:tt $(/ $tail:tt)*) => ({
+        $crate::__internal_path!(@munch_concat [$($groups),*] [$($literals)*] [$first] $(/ $tail)*)
     });
-    (@munch $sum:expr; [/ $cur:tt $(/ $tail:tt)*]) => ({
-        $crate::__internal_path!(@munch $crate::Filter::and($sum, $crate::__internal_path!(@segment $cur)); [$(/ $tail)*])
+    // Join the trailing literals
+    (@munch [$($groups: expr),*] [$($literals: literal)+]) => ({
+        $crate::__internal_path!(@join [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)])
+    });
+    (@munch [$($groups: expr),*] []) => ({
+        $crate::__internal_path!(@join [$($groups),*])
     });
 
-    (@last $sum:expr; ..) => (
-        $sum
-    );
-    (@last $sum:expr; $end:tt) => (
-        $crate::Filter::and(
-            $crate::Filter::and($sum, $crate::__internal_path!(@segment $end)),
-            $crate::path::end()
+    // When we find a type, concat the current literal group, then continue
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [$cur:ty] $(/ $tail:tt)*) => ({
+        $crate::__internal_path!(@munch
+            [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*), $crate::path::param::<$cur>() ]
+            []
+            $(/ $tail)*
         )
-    );
+    });
+
+    // No literals to join
+    (@munch_concat [$($groups: expr),*] [] [$cur:ty] $(/ $tail:tt)*) => ({
+        $crate::__internal_path!(@munch
+            [$($groups,)* $crate::__internal_path!(@segment $cur) ]
+            []
+            $(/ $tail)*
+        )
+    });
+
+    // Add a literal to the current group
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:literal] $(/ $tail:tt)*) => ({
+        $crate::__internal_path!(@munch
+            [$($groups),*]
+            [$($literals)* $cur]
+            $(/ $tail)*
+        )
+    });
+
+    // Handle .. at the end
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [..]) => ({
+        $crate::__internal_path!(@join
+            [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)] ..
+        )
+    });
+    (@munch_concat [$($groups: expr),*] [] [..]) => ({
+        $crate::__internal_path!(@join
+            [$($groups),*] ..
+        )
+    });
+
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:tt] $(/ $tail:tt)*) => ({
+        $crate::__internal_path!($cur)
+    });
+
+    (@join [$first: expr $(, $groups:expr)*]) => ({
+        let filter = $first;
+        $(
+            let filter = $crate::Filter::and(filter, $groups);
+        )*
+        $crate::Filter::and(filter, $crate::path::end())
+    });
+    (@join [$first: expr $(, $groups:expr)*] ..) => ({
+        let filter = $first;
+        $(
+            let filter = $crate::Filter::and(filter, $groups);
+        )*
+        filter
+    });
 
     (@segment ..) => (
         compile_error!("'..' must be the last segment")
@@ -577,12 +633,12 @@ macro_rules! __internal_path {
     );
     // Constructs a unique ZST so the &'static str pointer doesn't need to
     // be carried around.
-    (@segment $s:literal) => ({
+    (@str_segment $first: literal $($rest:literal)*) => ({
         #[derive(Clone, Copy)]
         struct __StaticPath;
         impl ::std::convert::AsRef<str> for __StaticPath {
             fn as_ref(&self) -> &str {
-                static S: &str = $s;
+                static S: &str = concat!($first $(, "/", $rest)*);
                 S
             }
         }
