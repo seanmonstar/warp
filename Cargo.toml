@@ -38,7 +38,7 @@ tower-service = "0.3"
 # tls is enabled by default, we don't want that yet
 tokio-tungstenite = { version = "0.11", default-features = false, optional = true }
 percent-encoding = "2.1"
-pin-project = "0.4.17"
+pin-project = "1.0"
 tokio-rustls = { version = "0.14", optional = true }
 
 [dev-dependencies]
