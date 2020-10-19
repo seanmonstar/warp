@@ -17,7 +17,7 @@ use crate::filter::{Filter, WrapSealed};
 use crate::reject::{CombineRejection, Rejection};
 use crate::reply::Reply;
 
-use self::internal::{CorsFilter, IntoOrigin, Seconds};
+use self::internal::{wildcard_header, CorsFilter, IntoOrigin, Seconds};
 
 /// Create a wrapping filter that exposes [CORS][] behavior for a wrapped
 /// filter.
@@ -422,7 +422,7 @@ impl Configured {
 
     fn is_origin_allowed(&self, origin: &HeaderValue) -> bool {
         if let Some(ref allowed) = self.cors.origins {
-            allowed.contains(origin)
+            allowed.contains(origin) || allowed.contains(&wildcard_header())
         } else {
             true
         }
@@ -462,7 +462,7 @@ mod internal {
     use http::header;
     use pin_project::pin_project;
 
-    use super::{Configured, CorsForbidden, Validated};
+    use super::{Configured, CorsForbidden, HeaderValue, Validated};
     use crate::filter::{Filter, FilterBase, Internal, One};
     use crate::generic::Either;
     use crate::reject::{CombineRejection, Rejection};
@@ -652,5 +652,12 @@ mod internal {
                 Origin::Wildcard => WILDCARD_ORIGIN.to_string(),
             }
         }
+    }
+
+    pub fn wildcard_header() -> HeaderValue {
+        WILDCARD_ORIGIN
+            .to_string()
+            .parse()
+            .expect("Asterisk is always a valid HeaderValue")
     }
 }
