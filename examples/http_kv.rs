@@ -4,7 +4,7 @@ use std::env;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use warp::{http::StatusCode, Filter, Rejection, Reply};
+use warp::{http::Response, http::StatusCode, Filter, Rejection, Reply};
 
 // Use simple map as an in memory KV store
 type Map = Arc<Mutex<HashMap<String, Value>>>;
@@ -78,6 +78,11 @@ async fn get_handler(key: String, map: Map) -> Result<Box<dyn Reply>, Rejection>
 async fn delete_handler(key: String, map: Map) -> Result<Box<dyn Reply>, Rejection> {
     match map.lock().await.remove(key.as_str()) {
         Some(value) => Ok(Box::new(warp::reply::json(&value).into_response())),
-        None => Ok(Box::new(StatusCode::NOT_FOUND)),
+        None => Ok(Box::new(
+            Response::builder()
+                .status(404)
+                .body("nothing deleted")
+                .unwrap(),
+        )),
     }
 }
