@@ -231,6 +231,26 @@ pub trait Reply: BoxedReply + Send {
     /// [`Response`]: type.Response.html
     fn into_response(self) -> Response;
 
+    /// Convert the given value into a [`WithStatus`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::{Filter, Reply};
+    ///
+    /// let routes = warp::any()
+    ///     .map(|| "hello".with_status(warp::http::StatusCode::OK));
+    /// ```
+    fn with_status(self, status: StatusCode) -> WithStatus<Self>
+    where
+        Self: Sized,
+    {
+        WithStatus {
+            reply: self,
+            status,
+        }
+    }
+
     /*
     TODO: Currently unsure about having trait methods here, as it
     requires returning an exact type, which I'd rather not commit to.
@@ -298,23 +318,6 @@ impl<T: Reply + ?Sized> Reply for Box<T> {
 
 fn _assert_object_safe() {
     fn _assert(_: &dyn Reply) {}
-}
-
-/// Wrap an `impl Reply` to change its `StatusCode`.
-///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::any()
-///     .map(warp::reply)
-///     .map(|reply| {
-///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
-///     });
-/// ```
-pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
-    WithStatus { reply, status }
 }
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
