@@ -238,8 +238,17 @@ pub trait Reply: BoxedReply + Send {
     /// ```
     /// use warp::{Filter, Reply};
     ///
-    /// let routes = warp::any()
-    ///     .map(|| "hello".with_status(warp::http::StatusCode::OK));
+    /// #[tokio::main]
+    /// # async fn main() {
+    /// let filter = warp::any()
+    ///     .map(|| "hello".with_status(warp::http::StatusCode::CREATED));
+    ///
+    /// # let res = warp::test::request()
+    /// #        .path("/whatever")
+    /// #        .reply(&filter)
+    /// #        .await;
+    /// #    assert_eq!(res.status(), 201);
+    /// # }
     /// ```
     fn with_status(self, status: StatusCode) -> WithStatus<Self>
     where
@@ -497,9 +506,8 @@ mod sealed {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn json_serde_error() {
