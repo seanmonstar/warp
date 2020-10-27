@@ -6,7 +6,7 @@
 use http::{header, StatusCode};
 
 use self::sealed::AsLocation;
-use crate::reply::{self, Reply};
+use crate::reply::Reply;
 
 /// A simple `301` redirect to a different location.
 ///
@@ -21,11 +21,7 @@ use crate::reply::{self, Reply};
 ///     });
 /// ```
 pub fn redirect(uri: impl AsLocation) -> impl Reply {
-    reply::with_header(
-        StatusCode::MOVED_PERMANENTLY,
-        header::LOCATION,
-        uri.header_value(),
-    )
+    StatusCode::MOVED_PERMANENTLY.with_header(header::LOCATION, uri.header_value())
 }
 
 /// A simple `307` temporary redirect to a different location.
@@ -41,11 +37,7 @@ pub fn redirect(uri: impl AsLocation) -> impl Reply {
 ///     });
 /// ```
 pub fn temporary(uri: impl AsLocation) -> impl Reply {
-    reply::with_header(
-        StatusCode::TEMPORARY_REDIRECT,
-        header::LOCATION,
-        uri.header_value(),
-    )
+    StatusCode::TEMPORARY_REDIRECT.with_header(header::LOCATION, uri.header_value())
 }
 
 mod sealed {
@@ -55,6 +47,7 @@ mod sealed {
     // These sealed traits are to allow adding possibly new impls so other
     // arguments could be accepted, like maybe just `warp::redirect("/v2")`.
     pub trait AsLocation: Sealed {}
+
     pub trait Sealed {
         fn header_value(self) -> HeaderValue;
     }

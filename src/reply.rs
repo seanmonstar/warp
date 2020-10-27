@@ -269,7 +269,26 @@ pub trait Reply: BoxedReply + Send {
         <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
         Self: Sized,
     {
-        with_header(self, name, value)
+        let header = match <HeaderName as TryFrom<K>>::try_from(name) {
+            Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
+                Ok(value) => Some((name, value)),
+                Err(err) => {
+                    let err = err.into();
+                    tracing::error!("with_header value error: {}", err);
+                    None
+                }
+            },
+            Err(err) => {
+                let err = err.into();
+                tracing::error!("with_header name error: {}", err);
+                None
+            }
+        };
+
+        WithHeader {
+            header,
+            reply: self,
+        }
     }
 }
 
@@ -285,28 +304,11 @@ fn _assert_object_safe() {
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
 ///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::any()
-///     .map(warp::reply)
-///     .map(|reply| {
-///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
-///     });
-/// ```
-pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
-    WithStatus { reply, status }
-}
-
-/// Wrap an `impl Reply` to change its `StatusCode`.
-///
 /// Returned by `warp::reply::with_status`.
 #[derive(Debug)]
 pub struct WithStatus<T> {
-    reply: T,
     status: StatusCode,
+    reply: T,
 }
 
 impl<T: Reply> Reply for WithStatus<T> {
@@ -315,45 +317,6 @@ impl<T: Reply> Reply for WithStatus<T> {
         *res.status_mut() = self.status;
         res
     }
-}
-
-/// Wrap an `impl Reply` to add a header when rendering.
-///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::any()
-///     .map(warp::reply)
-///     .map(|reply| {
-///         warp::reply::with_header(reply, "server", "warp")
-///     });
-/// ```
-pub fn with_header<T: Reply, K, V>(reply: T, name: K, value: V) -> WithHeader<T>
-where
-    HeaderName: TryFrom<K>,
-    <HeaderName as TryFrom<K>>::Error: Into<http::Error>,
-    HeaderValue: TryFrom<V>,
-    <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
-{
-    let header = match <HeaderName as TryFrom<K>>::try_from(name) {
-        Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
-            Ok(value) => Some((name, value)),
-            Err(err) => {
-                let err = err.into();
-                tracing::error!("with_header value error: {}", err);
-                None
-            }
-        },
-        Err(err) => {
-            let err = err.into();
-            tracing::error!("with_header name error: {}", err);
-            None
-        }
-    };
-
-    WithHeader { header, reply }
 }
 
 /// Wraps an `impl Reply` and adds a header when rendering.
