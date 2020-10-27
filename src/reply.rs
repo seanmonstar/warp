@@ -251,63 +251,26 @@ pub trait Reply: BoxedReply + Send {
         }
     }
 
-    /*
-    TODO: Currently unsure about having trait methods here, as it
-    requires returning an exact type, which I'd rather not commit to.
-    Additionally, it doesn't work great with `Box<Reply>`.
-
-    A possible alternative is to have wrappers, like
-
-    - `WithStatus<R: Reply>(StatusCode, R)`
-
-
-    /// Change the status code of this `Reply`.
-    fn with_status(self, status: StatusCode) -> Reply_
-    where
-        Self: Sized,
-    {
-        let mut res = self.into_response();
-        *res.status_mut() = status;
-        Reply_(res)
-    }
-
-    /// Add a header to this `Reply`.
+    /// Wrap an `impl Reply` to add a header when rendering.
     ///
     /// # Example
     ///
-    /// ```rust
-    /// use warp::Reply;
-    ///
-    /// let reply = warp::reply()
-    ///     .with_header("x-foo", "bar");
     /// ```
-    fn with_header<K, V>(self, name: K, value: V) -> Reply_
+    /// use warp::{Filter, Reply};
+    ///
+    /// let route = warp::any()
+    ///     .map(|| "hello".with_header("server", "warp"));
+    /// ```
+    fn with_header<K, V>(self, name: K, value: V) -> WithHeader<Self>
     where
-        Self: Sized,
         HeaderName: TryFrom<K>,
+        <HeaderName as TryFrom<K>>::Error: Into<http::Error>,
         HeaderValue: TryFrom<V>,
+        <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
+        Self: Sized,
     {
-        match <HeaderName as TryFrom<K>>::try_from(name) {
-            Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
-                Ok(value) => {
-                    let mut res = self.into_response();
-                    res.headers_mut().append(name, value);
-                    Reply_(res)
-                },
-                Err(err) => {
-                    tracing::error!("with_header value error: {}", err.into());
-                    Reply_(::reject::server_error()
-                        .into_response())
-                }
-            },
-            Err(err) => {
-                tracing::error!("with_header name error: {}", err.into());
-                Reply_(::reject::server_error()
-                    .into_response())
-            }
-        }
+        with_header(self, name, value)
     }
-    */
 }
 
 impl<T: Reply + ?Sized> Reply for Box<T> {
@@ -318,6 +281,23 @@ impl<T: Reply + ?Sized> Reply for Box<T> {
 
 fn _assert_object_safe() {
     fn _assert(_: &dyn Reply) {}
+}
+
+/// Wrap an `impl Reply` to change its `StatusCode`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .map(|reply| {
+///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
+///     });
+/// ```
+pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
+    WithStatus { reply, status }
 }
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
