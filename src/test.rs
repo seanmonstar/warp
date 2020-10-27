@@ -29,13 +29,23 @@
 //! }
 //! ```
 //!
-//! We can test some requests against the `sum` filter like this:
+//! We can test some requests against the `sum` filter like this (by tag your async test function with `#[tokio::test]`):
 //!
 //! ```
 //! # use warp::Filter;
-//! #[tokio::test]
+//! # #[tokio::main]
+//! # async fn main() {
+//! #   test_sum().await;
+//! # }
+//! #
+//! # fn sum() -> impl Filter<Extract = (u32,), Error = warp::Rejection> + Copy {
+//! #     warp::path::param()
+//! #         .and(warp::path::param())
+//! #         .map(|x: u32, y: u32| {
+//! #             x + y
+//! #         })
+//! # }
 //! async fn test_sum() {
-//! #    let sum = || warp::any().map(|| 3);
 //!     let filter = sum();
 //!
 //!     // Execute `sum` and get the `Extract` back.
@@ -50,7 +60,7 @@
 //!     assert!(
 //!         !warp::test::request()
 //!             .path("/1/-5")
-//!             .matches(&filter)
+//!             .matches(&filter).await
 //!     );
 //! }
 //! ```
@@ -62,20 +72,25 @@
 //!
 //! ```
 //! # use warp::Filter;
-//! #[test]
-//! fn test_math() {
-//! #    let math = || warp::any().map(warp::reply);
+//! # #[tokio::main]
+//! # async fn main() {
+//! #   test_math().await;
+//! # }
+//! async fn test_math() {
+//! #    let math = || warp::post().map(|| "Sum is 3");
 //!     let filter = math();
 //!
 //!     let res = warp::test::request()
 //!         .path("/1/2")
-//!         .reply(&filter);
+//!         .reply(&filter)
+//!         .await;
 //!     assert_eq!(res.status(), 405, "GET is not allowed");
 //!
 //!     let res = warp::test::request()
 //!         .method("POST")
 //!         .path("/1/2")
-//!         .reply(&filter);
+//!         .reply(&filter)
+//!         .await;
 //!     assert_eq!(res.status(), 200);
 //!     assert_eq!(res.body(), "Sum is 3");
 //! }
@@ -702,5 +717,39 @@ mod inner {
         T14,
         T15,
         T16
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate as warp;
+    use warp::Filter;
+    use warp::Reply;
+
+    #[tokio::test]
+    async fn example_test() {
+        let filter = warp::post()
+            .and(warp::path::param::<u32>())
+            .and(warp::path::param::<u32>())
+            .map(|x: u32, y: u32| x + y)
+            // As we have Reply trait implemented for String, so turn u32 here to String so we can have some extra methods
+            .map(|reply: u32| {
+                reply
+                    .to_string()
+                    .with_status(warp::http::StatusCode::CREATED)
+            });
+
+        // Execute `sum` and get the `Extract` back.
+        let response = warp::test::request()
+            .method("POST")
+            .path("/1/2")
+            .filter(&filter)
+            .await
+            .unwrap();
+        assert_eq!(response.get_status(), &warp::http::StatusCode::CREATED);
+        assert_eq!(response.get_reply(), "3");
+
+        // Or simply test if a request matches (doesn't reject).
+        assert!(!warp::test::request().path("/1/-5").matches(&filter).await);
     }
 }

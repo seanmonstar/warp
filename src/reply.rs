@@ -267,8 +267,17 @@ pub trait Reply: BoxedReply + Send {
     /// ```
     /// use warp::{Filter, Reply};
     ///
-    /// let route = warp::any()
+    /// #[tokio::main]
+    /// # async fn main() {
+    /// let filter = warp::any()
     ///     .map(|| "hello".with_header("server", "warp"));
+    /// #
+    /// # let res = warp::test::request()
+    /// #        .path("/whatever")
+    /// #        .reply(&filter)
+    /// #        .await;
+    /// #    assert_eq!(res.headers().get("server").unwrap(), "warp");
+    /// # }
     /// ```
     fn with_header<K, V>(self, name: K, value: V) -> WithHeader<Self>
     where
@@ -328,6 +337,18 @@ impl<T: Reply> Reply for WithStatus<T> {
     }
 }
 
+impl<T> WithStatus<T> {
+    /// Get a reference of internal reply
+    pub fn get_reply(&self) -> &T {
+        return &self.reply;
+    }
+
+    /// Get a reference of internal status code
+    pub fn get_status(&self) -> &StatusCode {
+        return &self.status;
+    }
+}
+
 /// Wraps an `impl Reply` and adds a header when rendering.
 ///
 /// Returned by `warp::reply::with_header`.
@@ -344,6 +365,18 @@ impl<T: Reply> Reply for WithHeader<T> {
             res.headers_mut().insert(name, value);
         }
         res
+    }
+}
+
+impl<T> WithHeader<T> {
+    /// Get a reference of internal reply
+    pub fn get_reply(&self) -> &T {
+        return &self.reply;
+    }
+
+    /// Get a reference of internal header
+    pub fn get_header(&self) -> &Option<(HeaderName, HeaderValue)> {
+        return &self.header;
     }
 }
 
