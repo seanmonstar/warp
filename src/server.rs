@@ -131,7 +131,6 @@ where
     pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("Server::run", ?addr);
-        tracing::info!(parent: &span, "listening on http://{}", addr);
 
         fut.instrument(span).await;
     }
