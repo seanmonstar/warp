@@ -11,17 +11,29 @@ use crate::reject::{self, Rejection};
 /// # Example
 ///
 /// ```
+/// use warp::Filter;
+///
+/// let route_1 = warp::path!("something").map(|| "Hello, world!".to_string());
+/// let route_2 = warp::path!("something2").map(|| "Hello, world again!".to_string());
+/// let route_3 = warp::path!("something3").map(|| "Hello, world again again!".to_string());
+/// 
 /// let routes = warp::none()
 ///     .or(route_1)
 ///     .or(route_2)
-///     .or(route_3)
+///     .or(route_3);
 /// ```
 ///
 /// looks nicer than the following because the routes are lined up
 /// ```
+/// use warp::Filter;
+///
+/// let route_1 = warp::path!("something").map(|| "Hello, world!".to_string());
+/// let route_2 = warp::path!("something2").map(|| "Hello, world again!".to_string());
+/// let route_3 = warp::path!("something3").map(|| "Hello, world again again!".to_string());
+///
 /// let routes = route_1
 ///     .or(route_2)
-///     .or(route_3)
+///     .or(route_3);
 /// ```
 pub fn none() -> impl Filter<Extract = (), Error = Rejection> + Copy {
     // always reject with not found
