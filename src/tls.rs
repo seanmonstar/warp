@@ -13,7 +13,9 @@ use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 
 use crate::transport::Transport;
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig, TLSError};
+use tokio_rustls::rustls::{
+    AllowAnyAnonymousOrAuthenticatedClient, NoClientAuth, RootCertStore, ServerConfig, TLSError,
+};
 
 /// Represents errors that can occur building the TlsConfig
 #[derive(Debug)]
@@ -51,6 +53,7 @@ pub(crate) struct TlsConfigBuilder {
     cert: Box<dyn Read + Send + Sync>,
     key: Box<dyn Read + Send + Sync>,
     ocsp_resp: Vec<u8>,
+    client_verif_cert_store: Option<RootCertStore>,
 }
 
 impl std::fmt::Debug for TlsConfigBuilder {
@@ -66,6 +69,7 @@ impl TlsConfigBuilder {
             key: Box::new(io::empty()),
             cert: Box::new(io::empty()),
             ocsp_resp: Vec::new(),
+            client_verif_cert_store: None,
         }
     }
 
@@ -105,6 +109,12 @@ impl TlsConfigBuilder {
         self
     }
 
+    /// activate client certificate verifier using provided `RootCertStore`
+    pub(crate) fn with_client_cert_verif(mut self, cert_store: RootCertStore) -> Self {
+        self.client_verif_cert_store = Some(cert_store);
+        self
+    }
+
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
         let cert = tokio_rustls::rustls::internal::pemfile::certs(&mut cert_rdr)
@@ -141,8 +151,10 @@ impl TlsConfigBuilder {
                 }
             }
         };
-
-        let mut config = ServerConfig::new(NoClientAuth::new());
+        let mut config = match self.client_verif_cert_store {
+            Some(store) => ServerConfig::new(AllowAnyAnonymousOrAuthenticatedClient::new(store)),
+            None => ServerConfig::new(NoClientAuth::new()),
+        };
         config
             .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(|err| TlsConfigError::InvalidKey(err))?;

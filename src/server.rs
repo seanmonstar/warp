@@ -440,6 +440,11 @@ where
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
     }
 
+    /// activate client certificate verifier using provided `RootCertStore`
+    pub fn with_client_cert_verif(self, cert_store: tokio_rustls::rustls::RootCertStore) -> Self {
+        self.with_tls(|tls| tls.with_client_cert_verif(cert_store))
+    }
+
     fn with_tls<Func>(self, func: Func) -> Self
     where
         Func: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
