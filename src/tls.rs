@@ -13,7 +13,10 @@ use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 
 use crate::transport::Transport;
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig, TLSError};
+use tokio_rustls::rustls::{
+    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth,
+    RootCertStore, ServerConfig, TLSError,
+};
 
 /// Represents errors that can occur building the TlsConfig
 #[derive(Debug)]
@@ -46,10 +49,21 @@ impl std::fmt::Display for TlsConfigError {
 
 impl std::error::Error for TlsConfigError {}
 
+/// Tls client authentication configuration.
+pub(crate) enum TlsClientAuth {
+    /// No client auth.
+    Off,
+    /// Allow any anonymous or authenticated client.
+    Optional(Box<dyn Read + Send + Sync>),
+    /// Allow any authenticated client.
+    Required(Box<dyn Read + Send + Sync>),
+}
+
 /// Builder to set the configuration for the Tls server.
 pub(crate) struct TlsConfigBuilder {
     cert: Box<dyn Read + Send + Sync>,
     key: Box<dyn Read + Send + Sync>,
+    root: TlsClientAuth,
     ocsp_resp: Vec<u8>,
 }
 
@@ -65,6 +79,7 @@ impl TlsConfigBuilder {
         TlsConfigBuilder {
             key: Box::new(io::empty()),
             cert: Box::new(io::empty()),
+            root: TlsClientAuth::Off,
             ocsp_resp: Vec::new(),
         }
     }
@@ -96,6 +111,43 @@ impl TlsConfigBuilder {
     /// sets the Tls certificate via bytes slice
     pub(crate) fn cert(mut self, cert: &[u8]) -> Self {
         self.cert = Box::new(Cursor::new(Vec::from(cert)));
+        self
+    }
+
+    /// Sets the trusted anchors for Tls client authentication via file path.
+    ///
+    /// If client authentication against the trusted anchors is `required`, then allow
+    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
+    ///
+    /// If no trusted anchors are given via `root_path` or `root`, then no client
+    /// authentication will be done.
+    pub(crate) fn root_path(mut self, path: impl AsRef<Path>, required: bool) -> Self {
+        let file = Box::new(LazyFile {
+            path: path.as_ref().into(),
+            file: None,
+        });
+        if required {
+            self.root = TlsClientAuth::Required(file);
+        } else {
+            self.root = TlsClientAuth::Optional(file);
+        }
+        self
+    }
+
+    /// Sets the trusted anchors for Tls client authentication via bytes slice.
+    ///
+    /// If client authentication against the trusted anchors is `required`, then allow
+    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
+    ///
+    /// If no trusted anchors are given via `root_path` or `root`, then no client
+    /// authentication will be done.
+    pub(crate) fn root(mut self, root: &[u8], required: bool) -> Self {
+        let cursor = Box::new(Cursor::new(Vec::from(root)));
+        if required {
+            self.root = TlsClientAuth::Required(cursor);
+        } else {
+            self.root = TlsClientAuth::Optional(cursor);
+        }
         self
     }
 
@@ -142,7 +194,25 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::new(NoClientAuth::new());
+        fn read_root(root: Box<dyn Read + Send + Sync>) -> Result<RootCertStore, TlsConfigError> {
+            let mut reader = BufReader::new(root);
+            let mut store = RootCertStore::empty();
+            if let Ok((0, _)) | Err(()) = store.add_pem_file(&mut reader) {
+                Err(TlsConfigError::CertParseError)
+            } else {
+                Ok(store)
+            }
+        }
+
+        let client_auth = match self.root {
+            TlsClientAuth::Off => NoClientAuth::new(),
+            TlsClientAuth::Optional(root) => {
+                AllowAnyAnonymousOrAuthenticatedClient::new(read_root(root)?)
+            }
+            TlsClientAuth::Required(root) => AllowAnyAuthenticatedClient::new(read_root(root)?),
+        };
+
+        let mut config = ServerConfig::new(client_auth);
         config
             .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(|err| TlsConfigError::InvalidKey(err))?;

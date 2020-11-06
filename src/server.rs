@@ -416,26 +416,68 @@ where
     // TLS config methods
 
     /// Specify the file path to read the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.key_path(path))
     }
 
     /// Specify the file path to read the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.cert_path(path))
     }
 
+    /// Specify the file path to read the trusted anchors for client authentication.
+    ///
+    /// If client authentication against the trusted anchors is `required`, then allow
+    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
+    ///
+    /// If no trusted anchors are given via [`root_path`] or [`root`], then client
+    /// authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    ///
+    /// [`root_path`]: #method.root_path
+    /// [`root`]: #method.root
+    pub fn root_path(self, path: impl AsRef<Path>, required: bool) -> Self {
+        self.with_tls(|tls| tls.root_path(path, required))
+    }
+
     /// Specify the in-memory contents of the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key(self, key: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.key(key.as_ref()))
     }
 
     /// Specify the in-memory contents of the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert(self, cert: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.cert(cert.as_ref()))
     }
 
+    /// Specify the in-memory contents of the trusted anchors for client authentication.
+    ///
+    /// If client authentication against the trusted anchors is `required`, then allow
+    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
+    ///
+    /// If no trusted anchors are given via [`root_path`] or [`root`], then client
+    /// authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    ///
+    /// [`root_path`]: #method.root_path
+    /// [`root`]: #method.root
+    pub fn root(self, root: impl AsRef<[u8]>, required: bool) -> Self {
+        self.with_tls(|tls| tls.root(root.as_ref(), required))
+    }
+
     /// Specify the DER-encoded OCSP response.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
     }
