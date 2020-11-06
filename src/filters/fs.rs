@@ -22,7 +22,7 @@ use hyper::Body;
 use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead, AsyncSeek, ReadBuf};
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -399,7 +399,7 @@ fn file_stream(
 
     let seek = async move {
         if start != 0 {
-            file.seek(SeekFrom::Start(start)).await?;
+            AsyncSeek::start_seek(Pin::new(&mut file), SeekFrom::Start(start))?;
         }
         Ok(file)
     };
@@ -419,8 +419,9 @@ fn file_stream(
                 }
                 reserve_at_least(&mut buf, buf_size);
 
-                let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
-                    Ok(n) => n as u64,
+                let mut read_buf = ReadBuf::new(&mut buf);
+                let n = match ready!(Pin::new(&mut f).poll_read(cx, &mut read_buf)) {
+                    Ok(_n) => read_buf.filled().len() as u64,
                     Err(err) => {
                         tracing::debug!("file read error: {}", err);
                         return Poll::Ready(Some(Err(err)));
