@@ -47,7 +47,7 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "3.0.0"
-tokio = { version = "0.3", features = ["macros"] }
+tokio = { version = "0.3", features = ["macros", "rt-multi-thread"] }
 listenfd = "0.3"
 
 [features]
@@ -78,7 +78,7 @@ required-features = ["compression"]
 
 [[example]]
 name = "unix_socket"
-required-features = ["tokio/uds"]
+required-features = ["tokio/net"]
 
 [[example]]
 name = "websockets"

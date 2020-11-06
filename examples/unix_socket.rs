@@ -6,8 +6,7 @@ use tokio::net::UnixListener;
 async fn main() {
     pretty_env_logger::init();
 
-    let mut listener = UnixListener::bind("/tmp/warp.sock").unwrap();
-    let incoming = listener.incoming();
+    let incoming = UnixListener::bind("/tmp/warp.sock").unwrap();
     warp::serve(warp::fs::dir("examples/dir"))
         .run_incoming(incoming)
         .await;
