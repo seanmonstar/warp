@@ -22,7 +22,7 @@ bytes = "0.5"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
 http = "0.2"
-hyper = { git = "https://github.com/hawkw/hyper", branch = "eliza/bump-tokio", features = ["stream"] }
+hyper = { git = "https://github.com/hyperium/hyper", features = ["stream"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
