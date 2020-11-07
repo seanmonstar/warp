@@ -40,6 +40,7 @@ tokio-tungstenite = { version = "0.12", default-features = false, optional = tru
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.20", optional = true }
+tokio-util = { git = "https://github.com/tokio-rs/tokio/", features = ["io"] }
 
 [dev-dependencies]
 pretty_env_logger = "0.4"

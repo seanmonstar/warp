@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 
-use bytes::{Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
@@ -23,6 +23,7 @@ use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
 use tokio::io::{AsyncRead, AsyncSeekExt, ReadBuf};
+use tokio_util::io::poll_read_buf;
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -419,9 +420,8 @@ fn file_stream(
                 }
                 reserve_at_least(&mut buf, buf_size);
 
-                let mut read_buf = ReadBuf::new(&mut buf);
-                let n = match ready!(Pin::new(&mut f).poll_read(cx, &mut read_buf)) {
-                    Ok(_n) => read_buf.filled().len() as u64,
+                let n = match ready!(poll_read_buf(Pin::new(&mut f), cx, &mut buf)) {
+                    Ok(n) => n as u64,
                     Err(err) => {
                         tracing::debug!("file read error: {}", err);
                         return Poll::Ready(Some(Err(err)));
