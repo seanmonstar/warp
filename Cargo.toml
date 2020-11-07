@@ -1,17 +1,17 @@
 [package]
-name = "warp" 
+name = "warp"
 version = "0.2.5" # don't forget to update html_root_url
-description = "serve the web at warp speeds" 
-authors = ["Sean McArthur <sean@seanmonstar.com>"] 
-license = "MIT" 
-readme = "README.md" 
-documentation = "https://docs.rs/warp" 
-repository = "https://github.com/seanmonstar/warp" 
-categories = ["web-programming::http-server"] 
-keywords = ["warp", "server", "http", "hyper"] 
-autotests = true 
-autoexamples = true 
-edition = "2018" 
+description = "serve the web at warp speeds"
+authors = ["Sean McArthur <sean@seanmonstar.com>"]
+license = "MIT"
+readme = "README.md"
+documentation = "https://docs.rs/warp"
+repository = "https://github.com/seanmonstar/warp"
+categories = ["web-programming::http-server"]
+keywords = ["warp", "server", "http", "hyper"]
+autotests = true
+autoexamples = true
+edition = "2018"
 
 [package.metadata.docs.rs]
 all-features = true
