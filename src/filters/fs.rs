@@ -22,7 +22,7 @@ use hyper::Body;
 use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
-use tokio::io::{AsyncRead, AsyncSeek, ReadBuf};
+use tokio::io::{AsyncRead, AsyncSeekExt, ReadBuf};
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -399,7 +399,7 @@ fn file_stream(
 
     let seek = async move {
         if start != 0 {
-            AsyncSeek::start_seek(Pin::new(&mut file), SeekFrom::Start(start))?;
+            file.seek(SeekFrom::Start(start)).await?;
         }
         Ok(file)
     };
