@@ -73,7 +73,7 @@ async fn main() {
         times.map(|output| format!("(This route has moved to /math/:u16/times/:u16) {}", output));
 
     // It turns out, using `or` is how you combine everything together into
-    // a single API. (We also actually haven't been enforcing the that the
+    // a single API. (We also actually haven't been enforcing that the
     // method is GET, so we'll do that too!)
     //
     // GET /hi

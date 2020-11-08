@@ -45,7 +45,7 @@ pub struct Part {
     data: Option<Vec<u8>>,
 }
 
-/// Create a `Filter` to extact a `multipart/form-data` body from a request.
+/// Create a `Filter` to extract a `multipart/form-data` body from a request.
 ///
 /// The extracted `FormData` type is a `Stream` of `Part`s, and each `Part`
 /// in turn is a `Stream` of bytes.
