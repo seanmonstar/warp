@@ -429,20 +429,24 @@ where
         self.with_tls(|tls| tls.cert_path(path))
     }
 
-    /// Specify the file path to read the trusted anchors for client authentication.
+    /// Specify the file path to read the trust anchor for optional client authentication.
     ///
-    /// If client authentication against the trusted anchors is `required`, then allow
-    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
-    ///
-    /// If no trusted anchors are given via [`root_path`] or [`root`], then client
-    /// authentication is disabled by default.
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
     ///
     /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional_path(path))
+    }
+
+    /// Specify the file path to read the trust anchor for required client authentication.
     ///
-    /// [`root_path`]: #method.root_path
-    /// [`root`]: #method.root
-    pub fn root_path(self, path: impl AsRef<Path>, required: bool) -> Self {
-        self.with_tls(|tls| tls.root_path(path, required))
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required_path(path))
     }
 
     /// Specify the in-memory contents of the private key.
@@ -459,20 +463,24 @@ where
         self.with_tls(|tls| tls.cert(cert.as_ref()))
     }
 
-    /// Specify the in-memory contents of the trusted anchors for client authentication.
+    /// Specify the in-memory contents of the trust anchor for optional client authentication.
     ///
-    /// If client authentication against the trusted anchors is `required`, then allow
-    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
-    ///
-    /// If no trusted anchors are given via [`root_path`] or [`root`], then client
-    /// authentication is disabled by default.
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
     ///
     /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional(trust_anchor.as_ref()))
+    }
+
+    /// Specify the in-memory contents of the trust anchor for required client authentication.
     ///
-    /// [`root_path`]: #method.root_path
-    /// [`root`]: #method.root
-    pub fn root(self, root: impl AsRef<[u8]>, required: bool) -> Self {
-        self.with_tls(|tls| tls.root(root.as_ref(), required))
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required(trust_anchor.as_ref()))
     }
 
     /// Specify the DER-encoded OCSP response.

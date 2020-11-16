@@ -63,7 +63,7 @@ pub(crate) enum TlsClientAuth {
 pub(crate) struct TlsConfigBuilder {
     cert: Box<dyn Read + Send + Sync>,
     key: Box<dyn Read + Send + Sync>,
-    root: TlsClientAuth,
+    client_auth: TlsClientAuth,
     ocsp_resp: Vec<u8>,
 }
 
@@ -79,7 +79,7 @@ impl TlsConfigBuilder {
         TlsConfigBuilder {
             key: Box::new(io::empty()),
             cert: Box::new(io::empty()),
-            root: TlsClientAuth::Off,
+            client_auth: TlsClientAuth::Off,
             ocsp_resp: Vec::new(),
         }
     }
@@ -114,40 +114,49 @@ impl TlsConfigBuilder {
         self
     }
 
-    /// Sets the trusted anchors for Tls client authentication via file path.
+    /// Sets the trust anchor for optional Tls client authentication via file path.
     ///
-    /// If client authentication against the trusted anchors is `required`, then allow
-    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
-    ///
-    /// If no trusted anchors are given via `root_path` or `root`, then no client
-    /// authentication will be done.
-    pub(crate) fn root_path(mut self, path: impl AsRef<Path>, required: bool) -> Self {
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    pub(crate) fn client_auth_optional_path(mut self, path: impl AsRef<Path>) -> Self {
         let file = Box::new(LazyFile {
             path: path.as_ref().into(),
             file: None,
         });
-        if required {
-            self.root = TlsClientAuth::Required(file);
-        } else {
-            self.root = TlsClientAuth::Optional(file);
-        }
+        self.client_auth = TlsClientAuth::Optional(file);
         self
     }
 
-    /// Sets the trusted anchors for Tls client authentication via bytes slice.
+    /// Sets the trust anchor for optional Tls client authentication via bytes slice.
     ///
-    /// If client authentication against the trusted anchors is `required`, then allow
-    /// only authenticated clients, otherwise allow anonymous or authenticated clients.
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    pub(crate) fn client_auth_optional(mut self, trust_anchor: &[u8]) -> Self {
+        let cursor = Box::new(Cursor::new(Vec::from(trust_anchor)));
+        self.client_auth = TlsClientAuth::Optional(cursor);
+        self
+    }
+
+    /// Sets the trust anchor for required Tls client authentication via file path.
     ///
-    /// If no trusted anchors are given via `root_path` or `root`, then no client
-    /// authentication will be done.
-    pub(crate) fn root(mut self, root: &[u8], required: bool) -> Self {
-        let cursor = Box::new(Cursor::new(Vec::from(root)));
-        if required {
-            self.root = TlsClientAuth::Required(cursor);
-        } else {
-            self.root = TlsClientAuth::Optional(cursor);
-        }
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    pub(crate) fn client_auth_required_path(mut self, path: impl AsRef<Path>) -> Self {
+        let file = Box::new(LazyFile {
+            path: path.as_ref().into(),
+            file: None,
+        });
+        self.client_auth = TlsClientAuth::Required(file);
+        self
+    }
+
+    /// Sets the trust anchor for required Tls client authentication via bytes slice.
+    ///
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    pub(crate) fn client_auth_required(mut self, trust_anchor: &[u8]) -> Self {
+        let cursor = Box::new(Cursor::new(Vec::from(trust_anchor)));
+        self.client_auth = TlsClientAuth::Required(cursor);
         self
     }
 
@@ -194,8 +203,10 @@ impl TlsConfigBuilder {
             }
         };
 
-        fn read_root(root: Box<dyn Read + Send + Sync>) -> Result<RootCertStore, TlsConfigError> {
-            let mut reader = BufReader::new(root);
+        fn read_trust_anchor(
+            trust_anchor: Box<dyn Read + Send + Sync>,
+        ) -> Result<RootCertStore, TlsConfigError> {
+            let mut reader = BufReader::new(trust_anchor);
             let mut store = RootCertStore::empty();
             if let Ok((0, _)) | Err(()) = store.add_pem_file(&mut reader) {
                 Err(TlsConfigError::CertParseError)
@@ -204,12 +215,14 @@ impl TlsConfigBuilder {
             }
         }
 
-        let client_auth = match self.root {
+        let client_auth = match self.client_auth {
             TlsClientAuth::Off => NoClientAuth::new(),
-            TlsClientAuth::Optional(root) => {
-                AllowAnyAnonymousOrAuthenticatedClient::new(read_root(root)?)
+            TlsClientAuth::Optional(trust_anchor) => {
+                AllowAnyAnonymousOrAuthenticatedClient::new(read_trust_anchor(trust_anchor)?)
             }
-            TlsClientAuth::Required(root) => AllowAnyAuthenticatedClient::new(read_root(root)?),
+            TlsClientAuth::Required(trust_anchor) => {
+                AllowAnyAuthenticatedClient::new(read_trust_anchor(trust_anchor)?)
+            }
         };
 
         let mut config = ServerConfig::new(client_auth);
