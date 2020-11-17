@@ -79,6 +79,12 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
     known(MissingCookie { name })
 }
 
+// 401 Unauthorized
+#[inline]
+pub(crate) fn unauthorized(realm: &'static str) -> Rejection {
+    Rejection::unauthorized(Box::new(realm.to_string()))
+}
+
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
@@ -184,6 +190,7 @@ enum Reason {
 
 enum Rejections {
     Known(Known),
+    Unauthorized(Box<dyn Cause>),
     Custom(Box<dyn Cause>),
     Combined(Box<Rejections>, Box<Rejections>),
 }
@@ -272,6 +279,12 @@ impl Rejection {
     fn custom(other: Box<dyn Cause>) -> Self {
         Rejection {
             reason: Reason::Other(Box::new(Rejections::Custom(other))),
+        }
+    }
+
+    fn unauthorized(other: Box<dyn Cause>) -> Self {
+        Rejection {
+            reason: Reason::Other(Box::new(Rejections::Unauthorized(other))),
         }
     }
 
@@ -376,6 +389,7 @@ impl fmt::Debug for Reason {
             Reason::Other(ref other) => match **other {
                 Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
                 Rejections::Custom(ref e) => fmt::Debug::fmt(e, f),
+                Rejections::Unauthorized(ref e) => fmt::Debug::fmt(e, f),
                 Rejections::Combined(ref a, ref b) => {
                     let mut list = f.debug_list();
                     a.debug_list(&mut list);
@@ -410,6 +424,7 @@ impl Rejections {
                 | Known::MissingExtension(_)
                 | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
+            Rejections::Unauthorized(..) => StatusCode::UNAUTHORIZED,
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
         }
@@ -417,6 +432,21 @@ impl Rejections {
 
     fn into_response(&self) -> crate::reply::Response {
         match *self {
+            Rejections::Unauthorized(ref e) => {
+                let body = format!("Please Authorize for: {:?}", e);
+                let mut res = http::Response::new(Body::from(body));
+                *res.status_mut() = self.status();
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
+                let realm = e.downcast_ref::<String>().expect("realm must be string");
+                res.headers_mut().insert(
+                    "www-authenticate",
+                    HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str()).unwrap(),
+                );
+                res
+            }
             Rejections::Known(ref e) => {
                 let mut res = http::Response::new(Body::from(e.to_string()));
                 *res.status_mut() = self.status();
@@ -447,6 +477,7 @@ impl Rejections {
     fn find<T: 'static>(&self) -> Option<&T> {
         match *self {
             Rejections::Known(ref e) => e.inner_as_any().downcast_ref(),
+            Rejections::Unauthorized(ref e) => e.downcast_ref(),
             Rejections::Custom(ref e) => e.downcast_ref(),
             Rejections::Combined(ref a, ref b) => a.find().or_else(|| b.find()),
         }
@@ -455,6 +486,9 @@ impl Rejections {
     fn debug_list(&self, f: &mut fmt::DebugList<'_, '_>) {
         match *self {
             Rejections::Known(ref e) => {
+                f.entry(e);
+            }
+            Rejections::Unauthorized(ref e) => {
                 f.entry(e);
             }
             Rejections::Custom(ref e) => {
@@ -507,6 +541,11 @@ unit_error! {
 unit_error! {
     /// The request's content-type is not supported
     pub UnsupportedMediaType: "The request's content-type is not supported"
+}
+
+unit_error! {
+    /// Unauthorized request
+    pub Unauthorized: "Unauthorized request"
 }
 
 /// Missing request header
