@@ -134,10 +134,7 @@ where
     fn into_response(self) -> Response {
         let on_upgrade = self.on_upgrade;
         let config = self.ws.config;
-        let fut = self
-            .ws
-            .body
-            .on_upgrade()
+        let fut = hyper::upgrade::on(Response::new(self.ws.body))
             .and_then(move |upgraded| {
                 tracing::trace!("websocket upgrade complete");
                 WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)

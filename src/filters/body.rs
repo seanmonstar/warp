@@ -7,7 +7,7 @@ use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{buf::BufExt, Buf, Bytes};
+use bytes::{Buf, Bytes};
 use futures::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;

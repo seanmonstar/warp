@@ -5,12 +5,13 @@ use std::convert::Infallible;
 use std::fs::Metadata;
 use std::future::Future;
 use std::io;
+use std::mem::MaybeUninit;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Poll;
+use std::task::{Context, Poll};
 
-use bytes::{Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use futures::future::Either;
 use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
@@ -22,7 +23,7 @@ use hyper::Body;
 use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead, AsyncSeekExt, ReadBuf};
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -419,7 +420,7 @@ fn file_stream(
                 }
                 reserve_at_least(&mut buf, buf_size);
 
-                let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
+                let n = match ready!(poll_read_buf(Pin::new(&mut f), cx, &mut buf)) {
                     Ok(n) => n as u64,
                     Err(err) => {
                         tracing::debug!("file read error: {}", err);
@@ -523,4 +524,34 @@ mod tests {
         assert_eq!(buf.len(), 0);
         assert_eq!(buf.capacity(), cap);
     }
+}
+
+fn poll_read_buf<T: AsyncRead, B: BufMut>(
+    io: Pin<&mut T>,
+    cx: &mut Context<'_>,
+    buf: &mut B,
+) -> Poll<io::Result<usize>> {
+    if !buf.has_remaining_mut() {
+        return Poll::Ready(Ok(0));
+    }
+
+    let n = {
+        let dst = buf.bytes_mut();
+        let dst = unsafe { &mut *(dst as *mut _ as *mut [MaybeUninit<u8>]) };
+        let mut buf = ReadBuf::uninit(dst);
+        let ptr = buf.filled().as_ptr();
+        ready!(io.poll_read(cx, &mut buf)?);
+
+        // Ensure the pointer does not change from under us
+        assert_eq!(ptr, buf.filled().as_ptr());
+        buf.filled().len()
+    };
+
+    // Safety: This is guaranteed to be the number of initialized (and read)
+    // bytes due to the invariants provided by `ReadBuf::filled`.
+    unsafe {
+        buf.advance_mut(n);
+    }
+
+    Poll::Ready(Ok(n))
 }

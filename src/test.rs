@@ -515,7 +515,7 @@ impl WsBuilder {
             let upgrade = ::hyper::Client::builder()
                 .build(AddrConnect(addr))
                 .request(req)
-                .and_then(|res| res.into_body().on_upgrade());
+                .and_then(|res| hyper::upgrade::on(res));
 
             let upgraded = match upgrade.await {
                 Ok(up) => {
