@@ -51,6 +51,7 @@ pub fn provide<T>(data: T) -> Provider<T> {
 
 #[doc(hidden)]
 #[allow(missing_debug_implementations)]
+#[derive(Clone)]
 pub struct Provider<T> {
     data: T,
 }
@@ -78,6 +79,7 @@ mod internal {
     use crate::reply::Reply;
 
     #[allow(missing_debug_implementations)]
+    #[derive(Clone)]
     pub struct DataProvider<T, F> {
         pub(super) data: T,
         pub(super) next: F,
