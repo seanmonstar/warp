@@ -45,8 +45,8 @@ jobs:
             benches: true
           - build: tls
             features: "--features tls"
-          - build: uds
-            features: "--features tokio/uds"
+          - build: net
+            features: "--features tokio/net"
           - build: no-default-features
             features: "--no-default-features"
           - build: compression
