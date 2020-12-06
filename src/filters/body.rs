@@ -172,7 +172,7 @@ pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Co
 /// ```
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type::<Json>()
-        .and(aggregate())
+        .and(bytes())
         .and_then(|buf| async move {
             Json::decode(buf).map_err(|err| {
                 tracing::debug!("request json body error: {}", err);
@@ -232,7 +232,7 @@ impl Decode for Json {
     const WITH_NO_CONTENT_TYPE: bool = true;
 
     fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
-        serde_json::from_reader(buf.reader()).map_err(Into::into)
+        serde_json::from_slice(buf.bytes()).map_err(Into::into)
     }
 }
 
