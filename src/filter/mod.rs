@@ -16,7 +16,7 @@ use std::pin::Pin;
 
 use futures::{future, TryFuture, TryFutureExt};
 
-pub(crate) use crate::generic::{one, Combine, Either, Func, HList, One, Tuple};
+pub(crate) use crate::generic::{one, Combine, Either, Func, One, Tuple};
 use crate::reject::{CombineRejection, IsReject, Rejection};
 use crate::route::{self, Route};
 
