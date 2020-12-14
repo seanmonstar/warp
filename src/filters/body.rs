@@ -201,7 +201,8 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 ///         "Got a MsgPack body!"
 ///     });
 /// ```
-pub fn msgpack<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+pub fn msgpack<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy
+{
     is_content_type::<MsgPack>()
         .and(bytes())
         .and_then(|buf| async move {

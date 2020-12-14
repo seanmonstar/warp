@@ -191,8 +191,10 @@ impl Reply for MsgPack {
         match self.inner {
             Ok(body) => {
                 let mut res = Response::new(body.into());
-                res.headers_mut()
-                    .insert(CONTENT_TYPE, HeaderValue::from_static("application/msgpack"));
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("application/msgpack"),
+                );
                 res
             }
             Err(()) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
