@@ -181,6 +181,37 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
         })
 }
 
+/// Returns a `Filter` that matches any request and extracts a `Future` of a
+/// MsgPack-decoded body.
+///
+/// # Warning
+///
+/// This does not have a default size limit, it would be wise to use one to
+/// prevent a overly large request from using too much memory.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+/// use warp::Filter;
+///
+/// let route = warp::body::content_length_limit(1024 * 32)
+///     .and(warp::body::msgpack())
+///     .map(|simple_map: HashMap<String, String>| {
+///         "Got a MsgPack body!"
+///     });
+/// ```
+pub fn msgpack<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
+    is_content_type::<MsgPack>()
+        .and(bytes())
+        .and_then(|buf| async move {
+            MsgPack::decode(buf).map_err(|err| {
+                tracing::debug!("request json body error: {}", err);
+                reject::known(BodyDeserializeError { cause: err })
+            })
+        })
+}
+
 /// Returns a `Filter` that matches any request and extracts a
 /// `Future` of a form encoded body.
 ///
@@ -233,6 +264,17 @@ impl Decode for Json {
 
     fn decode<B: Buf, T: DeserializeOwned>(mut buf: B) -> Result<T, BoxError> {
         serde_json::from_slice(&buf.to_bytes()).map_err(Into::into)
+    }
+}
+
+struct MsgPack;
+
+impl Decode for MsgPack {
+    const MIME: (mime::Name<'static>, mime::Name<'static>) = (mime::APPLICATION, mime::MSGPACK);
+    const WITH_NO_CONTENT_TYPE: bool = true;
+
+    fn decode<B: Buf, T: DeserializeOwned>(mut buf: B) -> Result<T, BoxError> {
+        rmp_serde::from_read_ref(&buf.to_bytes()).map_err(Into::into)
     }
 }
 
