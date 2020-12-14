@@ -206,7 +206,7 @@ pub fn msgpack<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Erro
         .and(bytes())
         .and_then(|buf| async move {
             MsgPack::decode(buf).map_err(|err| {
-                tracing::debug!("request json body error: {}", err);
+                tracing::debug!("request msgpack body error: {}", err);
                 reject::known(BodyDeserializeError { cause: err })
             })
         })
