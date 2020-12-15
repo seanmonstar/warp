@@ -168,6 +168,7 @@ impl StdError for ReplyJsonError {}
 /// If a type fails to be serialized into MsgPack, the error is logged at the
 /// `error` level, and the returned `impl Reply` will be an empty
 /// `500 Internal Server Error` response.
+#[cfg(feature = "msgpack")]
 pub fn msgpack<T>(val: &T) -> MsgPack
 where
     T: Serialize,
@@ -180,11 +181,13 @@ where
 }
 
 /// A MsgPack formatted reply.
+#[cfg(feature = "msgpack")]
 #[allow(missing_debug_implementations)]
 pub struct MsgPack {
     inner: Result<Vec<u8>, ()>,
 }
 
+#[cfg(feature = "msgpack")]
 impl Reply for MsgPack {
     #[inline]
     fn into_response(self) -> Response {
@@ -202,15 +205,18 @@ impl Reply for MsgPack {
     }
 }
 
+#[cfg(feature = "msgpack")]
 #[derive(Debug)]
 pub(crate) struct ReplyMsgPackError;
 
+#[cfg(feature = "msgpack")]
 impl fmt::Display for ReplyMsgPackError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str("warp::reply::msgpack() failed")
     }
 }
 
+#[cfg(feature = "msgpack")]
 impl StdError for ReplyMsgPackError {}
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.

@@ -35,7 +35,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls, no-default-features, compression]
+        build: [stable, beta, nightly, tls, no-default-features, compression, msgpack]
 
         include:
           - build: beta
@@ -51,6 +51,8 @@ jobs:
             features: "--no-default-features"
           - build: compression
             features: "--features compression"
+          - build: msgpack
+            features: "--features msgpack"
 
 
     steps:

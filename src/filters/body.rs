@@ -201,6 +201,7 @@ pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error =
 ///         "Got a MsgPack body!"
 ///     });
 /// ```
+#[cfg(feature = "msgpack")]
 pub fn msgpack<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy
 {
     is_content_type::<MsgPack>()
@@ -268,8 +269,10 @@ impl Decode for Json {
     }
 }
 
+#[cfg(feature = "msgpack")]
 struct MsgPack;
 
+#[cfg(feature = "msgpack")]
 impl Decode for MsgPack {
     const MIME: (mime::Name<'static>, mime::Name<'static>) = (mime::APPLICATION, mime::MSGPACK);
     const WITH_NO_CONTENT_TYPE: bool = true;

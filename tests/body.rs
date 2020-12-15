@@ -76,6 +76,26 @@ async fn json() {
     assert_eq!(vec, &[3, 2, 1], "matches content-type");
 }
 
+#[cfg(feature = "msgpack")]
+#[tokio::test]
+async fn msgpack() {
+    let _ = pretty_env_logger::try_init();
+
+    let msgpack = warp::body::msgpack::<Vec<i32>>();
+
+    let req = warp::test::request().body([0xDD, 0x00, 0x00, 0x00, 0x03, 0x01, 0x02, 0x03]);
+
+    let vec = req.filter(&msgpack).await.unwrap();
+    assert_eq!(vec, &[1, 2, 3]);
+
+    let req = warp::test::request()
+        .header("content-type", "application/msgpack")
+        .body([0xDD, 0x00, 0x00, 0x00, 0x03, 0x03, 0x02, 0x01]);
+
+    let vec = req.filter(&msgpack).await.unwrap();
+    assert_eq!(vec, &[3, 2, 1], "matches content-type");
+}
+
 #[tokio::test]
 async fn json_rejects_bad_content_type() {
     let _ = pretty_env_logger::try_init();
@@ -110,6 +130,13 @@ async fn json_invalid() {
 fn json_size_of() {
     let json = warp::body::json::<Vec<i32>>();
     assert_eq!(std::mem::size_of_val(&json), 0);
+}
+
+#[cfg(feature = "msgpack")]
+#[test]
+fn msgpack_size_of() {
+    let msgpack = warp::body::msgpack::<Vec<i32>>();
+    assert_eq!(std::mem::size_of_val(&msgpack), 0);
 }
 
 #[tokio::test]
