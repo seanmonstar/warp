@@ -3,6 +3,7 @@ use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
 use warp::{sse::ServerSentEvent, Filter};
+use async_stream::stream;
 
 // create server-sent event
 fn sse_counter(counter: u64) -> Result<impl ServerSentEvent, Infallible> {
@@ -16,7 +17,13 @@ async fn main() {
     let routes = warp::path("ticks").and(warp::get()).map(|| {
         let mut counter: u64 = 0;
         // create server event source
-        let event_stream = interval(Duration::from_secs(1)).map(move |_| {
+        let mut interval = interval(Duration::from_secs(1));
+        let stream = stream! {
+            while let item = interval.tick().await {
+                yield item;
+            }
+        };
+        let event_stream = stream.map(move |_| {
             counter += 1;
             sse_counter(counter)
         });
