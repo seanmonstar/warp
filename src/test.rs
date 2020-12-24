@@ -33,8 +33,8 @@
 //!
 //! ```
 //! # use warp::Filter;
-//! #[test]
-//! fn test_sum() {
+//! #[tokio::test]
+//! async fn test_sum() {
 //! #    let sum = || warp::any().map(|| 3);
 //!     let filter = sum();
 //!
@@ -42,6 +42,7 @@
 //!     let value = warp::test::request()
 //!         .path("/1/2")
 //!         .filter(&filter)
+//!         .await
 //!         .unwrap();
 //!     assert_eq!(value, 3);
 //!

@@ -26,7 +26,20 @@ pub trait Tuple: Sized {
     type HList: HList<Tuple = Self>;
 
     fn hlist(self) -> Self::HList;
+
+    #[inline]
+    fn combine<T>(self, other: T) -> CombinedTuples<Self, T>
+    where
+        Self: Sized,
+        T: Tuple,
+        Self::HList: Combine<T::HList>,
+    {
+        self.hlist().combine(other.hlist()).flatten()
+    }
 }
+
+pub type CombinedTuples<T, U> =
+    <<<T as Tuple>::HList as Combine<<U as Tuple>::HList>>::Output as HList>::Tuple;
 
 // Combines Product together.
 pub trait Combine<T: HList> {
