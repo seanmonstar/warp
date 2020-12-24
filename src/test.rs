@@ -91,7 +91,6 @@ use std::pin::Pin;
 use std::task::{self, Poll};
 
 use bytes::Bytes;
-#[cfg(feature = "websocket")]
 use futures::{future, FutureExt, TryFutureExt, StreamExt};
 use http::{
     header::{HeaderName, HeaderValue},
