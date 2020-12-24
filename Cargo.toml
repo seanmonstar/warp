@@ -40,6 +40,7 @@ tokio-tungstenite = { git = "https://github.com/aknuds1/tokio-tungstenite.git", 
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.22", optional = true }
+async-stream = "0.3"
 
 [dev-dependencies]
 pretty_env_logger = "0.4"

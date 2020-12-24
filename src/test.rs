@@ -92,8 +92,7 @@ use std::task::{self, Poll};
 
 use bytes::Bytes;
 #[cfg(feature = "websocket")]
-use futures::StreamExt;
-use futures::{future, FutureExt, TryFutureExt};
+use futures::{future, FutureExt, TryFutureExt, StreamExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
@@ -101,7 +100,9 @@ use http::{
 use serde::Serialize;
 use serde_json;
 #[cfg(feature = "websocket")]
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{oneshot};
+use tokio::sync::mpsc::{self, UnboundedSender};
+use async_stream::stream;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -405,6 +406,17 @@ impl RequestBuilder {
     }
 }
 
+pub fn unbounded_channel_stream<T: Unpin>() -> (UnboundedSender<T>, impl StreamExt<Item = T>) {
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    let stream = stream! {
+        while let Some(item) = rx.recv().await {
+            yield item;
+        }
+    };
+
+    (tx, stream)
+}
+
 #[cfg(feature = "websocket")]
 impl WsBuilder {
     /// Sets the request path of this builder.
@@ -482,7 +494,7 @@ impl WsBuilder {
         F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
-        let (wr_tx, wr_rx) = mpsc::unbounded_channel();
+        let (wr_tx, wr_rx) = unbounded_channel_stream();
         let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
@@ -576,9 +588,9 @@ impl WsClient {
     /// Receive a websocket message from the server.
     pub async fn recv(&mut self) -> Result<crate::filters::ws::Message, WsError> {
         self.rx
-            .next()
+            .recv()
             .await
-            .map(|unbounded_result| unbounded_result.map_err(WsError::new))
+            .map(|result| result.map_err(WsError::new))
             .unwrap_or_else(|| {
                 // websocket is closed
                 Err(WsError::new("closed"))
@@ -588,7 +600,7 @@ impl WsClient {
     /// Assert the server has closed the connection.
     pub async fn recv_closed(&mut self) -> Result<(), WsError> {
         self.rx
-            .next()
+            .recv()
             .await
             .map(|result| match result {
                 Ok(msg) => Err(WsError::new(format!("received message: {:?}", msg))),
