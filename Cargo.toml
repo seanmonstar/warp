@@ -17,7 +17,7 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { git = "https://github.com/aknuds1/async-compression", rev = "3b987d825e9ff2a50c05b9f51345170d621df23f", features = ["brotli", "deflate", "gzip", "stream", "tokio-1"], optional = true }
+async-compression = { version = "0.3.7", features = ["brotli", "deflate", "gzip", "tokio"], optional = true }
 bytes = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
@@ -32,6 +32,7 @@ serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
 tokio = { version = "1.0", features = ["fs", "sync", "time"] }
+tokio-util = { version = "0.6", features = ["io"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
 tower-service = "0.3"
