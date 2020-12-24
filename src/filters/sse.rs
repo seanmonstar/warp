@@ -484,6 +484,7 @@ struct SseKeepAlive<S> {
     event_stream: S,
     comment_text: Cow<'static, str>,
     max_interval: Duration,
+    #[pin]
     alive_timer: Sleep,
 }
 
