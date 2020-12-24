@@ -17,12 +17,12 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { git = "https://github.com/aknuds1/async-compression", rev = "e4d903b8ff9972f056f714c61bd9d0f3321a4463", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
-bytes = "0.6"
+async-compression = { git = "https://github.com/aknuds1/async-compression", rev = "3b987d825e9ff2a50c05b9f51345170d621df23f", features = ["brotli", "deflate", "gzip", "stream", "tokio-1"], optional = true }
+bytes = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
 http = "0.2"
-hyper = { git = "https://github.com/hyperium/hyper.git", rev = "1ba2a141a6f8736446ff4a0111df347c0dc66f6c", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -31,7 +31,7 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
-tokio = { version = "0.3", features = ["fs", "stream", "sync", "time"] }
+tokio = { version = "1.0", features = ["fs", "sync", "time"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
 tower-service = "0.3"
@@ -39,7 +39,7 @@ tower-service = "0.3"
 tokio-tungstenite = { version = "0.12", default-features = false, optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-tokio-rustls = { version = "0.21", optional = true }
+tokio-rustls = { version = "0.22", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
@@ -47,7 +47,7 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "3.0.0"
-tokio = { version = "0.3", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 listenfd = "0.3"
 
 [features]
