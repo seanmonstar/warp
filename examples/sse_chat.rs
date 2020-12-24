@@ -6,6 +6,7 @@ use std::sync::{
 };
 use tokio::sync::mpsc;
 use warp::{sse::ServerSentEvent, Filter};
+use warp::test;
 
 #[tokio::main]
 async fn main() {
@@ -85,7 +86,7 @@ fn user_connected(
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the event source...
-    let (tx, rx) = mpsc::unbounded_channel();
+    let (tx, rx) = test::unbounded_channel_stream();
 
     tx.send(Message::UserId(my_id))
         // rx is right above, so this cannot fail

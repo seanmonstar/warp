@@ -405,7 +405,8 @@ impl RequestBuilder {
     }
 }
 
-fn unbounded_channel_stream<T: Unpin>() -> (UnboundedSender<T>, impl StreamExt<Item = T>) {
+/// Get an unbounded channel with a stream for the reader.
+pub fn unbounded_channel_stream<T: Unpin>() -> (UnboundedSender<T>, impl StreamExt<Item = T>) {
     let (tx, mut rx) = mpsc::unbounded_channel();
     let stream = stream! {
         while let Some(item) = rx.recv().await {

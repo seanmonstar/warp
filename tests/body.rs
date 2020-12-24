@@ -1,6 +1,5 @@
 #![deny(warnings)]
 
-use bytes::Buf;
 use futures::TryStreamExt;
 use warp::Filter;
 
