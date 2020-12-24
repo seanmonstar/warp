@@ -36,7 +36,7 @@ tracing = { version = "0.1", default-features = false, features = ["log", "std"]
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
 tower-service = "0.3"
 # tls is enabled by default, we don't want that yet
-tokio-tungstenite = { version = "0.12", default-features = false, optional = true }
+tokio-tungstenite = { git = "https://github.com/aknuds1/tokio-tungstenite.git", rev = "d26098f65c1b7549a5d176853513bf4c869ef2aa", default-features = false, optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.22", optional = true }
