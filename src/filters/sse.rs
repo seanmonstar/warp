@@ -531,6 +531,7 @@ where
 /// use futures::StreamExt;
 /// use tokio::time::interval;
 /// use warp::{Filter, Stream, sse::ServerSentEvent};
+/// use async_stream::stream;
 ///
 /// // create server-sent event
 /// fn sse_counter(counter: u64) ->  Result<impl ServerSentEvent, Infallible> {
@@ -542,7 +543,13 @@ where
 ///         .and(warp::get())
 ///         .map(|| {
 ///             let mut counter: u64 = 0;
-///             let event_stream = interval(Duration::from_secs(15)).map(move |_| {
+///             let mut interval = interval(Duration::from_secs(15));
+///             let stream = stream! {
+///                 while let item = interval.tick().await {
+///                     yield item;
+///                 }
+///             };
+///             let event_stream = stream.map(move |_| {
 ///                 counter += 1;
 ///                 sse_counter(counter)
 ///             });
