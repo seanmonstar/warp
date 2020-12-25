@@ -7,12 +7,13 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use super::{body, header};
-use crate::filter::{Filter, One};
+use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
 use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
+use hyper::upgrade::OnUpgrade;
 use tokio_tungstenite::{
     tungstenite::protocol::{self, WebSocketConfig},
     WebSocketStream,
@@ -58,11 +59,15 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
         .and(body::body())
-        .map(move |key: SecWebsocketKey, body: ::hyper::Body| Ws {
-            body,
-            config: None,
-            key,
-        })
+        .and(on_upgrade())
+        .map(
+            move |key: SecWebsocketKey, body: ::hyper::Body, on_upgrade: Option<OnUpgrade>| Ws {
+                body,
+                config: None,
+                key,
+                on_upgrade,
+            },
+        )
 }
 
 /// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
@@ -70,6 +75,7 @@ pub struct Ws {
     body: ::hyper::Body,
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
+    on_upgrade: Option<OnUpgrade>,
 }
 
 impl Ws {
@@ -134,7 +140,11 @@ where
     fn into_response(self) -> Response {
         let on_upgrade = self.on_upgrade;
         let config = self.ws.config;
-        let fut = hyper::upgrade::on(Response::new(self.ws.body))
+        let mut resp = Response::new(self.ws.body);
+        if let Some(on_upgrade) = self.ws.on_upgrade {
+            resp.extensions_mut().insert(on_upgrade);
+        }
+        let fut = hyper::upgrade::on(resp)
             .and_then(move |upgraded| {
                 tracing::trace!("websocket upgrade complete");
                 WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
@@ -158,6 +168,11 @@ where
 
         res
     }
+}
+
+// Extracts OnUpgrade state from the route.
+fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection> + Copy {
+    filter_fn_one(|route| future::ready(Ok(route.extensions_mut().remove::<OnUpgrade>())))
 }
 
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.

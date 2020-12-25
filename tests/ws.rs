@@ -222,6 +222,7 @@ async fn ws_with_query() {
         .expect("handshake");
 }
 
+// Websocket filter that echoes all messages back.
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Copy {
     warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {

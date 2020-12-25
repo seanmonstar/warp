@@ -463,7 +463,7 @@ impl WsBuilder {
         }
     }
 
-    /// Execute this Websocket request against te provided filter.
+    /// Execute this Websocket request against the provided filter.
     ///
     /// If the handshake succeeds, returns a `WsClient`.
     ///
