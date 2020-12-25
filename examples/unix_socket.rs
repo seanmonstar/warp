@@ -1,21 +1,19 @@
 #![deny(warnings)]
 
-use async_stream::try_stream;
-use std::io;
-use tokio::net::{unix::SocketAddr, UnixListener, UnixStream};
+use async_stream::stream;
+use tokio::net::UnixListener;
 
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
 
     let listener = UnixListener::bind("/tmp/warp.sock").unwrap();
-    let stream = try_stream! {
-        let rslt: io::Result<(UnixStream, SocketAddr)> = listener.accept().await;
-        while let (socket, _) = listener.accept().await? {
-            yield socket;
+    let incoming = stream! {
+        while let item = listener.accept().await {
+            yield item.map(|item| item.0);
         }
     };
     warp::serve(warp::fs::dir("examples/dir"))
-        .run_incoming(stream)
+        .run_incoming(incoming)
         .await;
 }

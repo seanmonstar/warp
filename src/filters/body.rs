@@ -131,8 +131,8 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 /// fn full_body(mut body: impl Buf) {
 ///     // It could have several non-contiguous slices of memory...
 ///     while body.has_remaining() {
-///         println!("slice = {:?}", body.bytes());
-///         let cnt = body.bytes().len();
+///         println!("slice = {:?}", body.chunk());
+///         let cnt = body.chunk().len();
 ///         body.advance(cnt);
 ///     }
 /// }
