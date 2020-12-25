@@ -1,9 +1,9 @@
+use async_stream::stream;
 use futures::StreamExt;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
 use warp::{sse::ServerSentEvent, Filter};
-use async_stream::stream;
 
 // create server-sent event
 fn sse_counter(counter: u64) -> Result<impl ServerSentEvent, Infallible> {

@@ -7,9 +7,9 @@ use std::sync::{
 
 use futures::{FutureExt, StreamExt};
 use tokio::sync::{mpsc, RwLock};
+use warp::test;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
-use warp::test;
 
 /// Our global unique user id counter.
 static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);

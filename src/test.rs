@@ -90,18 +90,18 @@ use std::pin::Pin;
 #[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
+use async_stream::stream;
 use bytes::Bytes;
-use futures::{future, FutureExt, TryFutureExt, StreamExt};
+use futures::{future, FutureExt, StreamExt, TryFutureExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
 };
 use serde::Serialize;
 use serde_json;
-#[cfg(feature = "websocket")]
-use tokio::sync::{oneshot};
 use tokio::sync::mpsc::{self, UnboundedSender};
-use async_stream::stream;
+#[cfg(feature = "websocket")]
+use tokio::sync::oneshot;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;

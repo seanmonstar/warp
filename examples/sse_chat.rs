@@ -5,8 +5,8 @@ use std::sync::{
     Arc, Mutex,
 };
 use tokio::sync::mpsc;
-use warp::{sse::ServerSentEvent, Filter};
 use warp::test;
+use warp::{sse::ServerSentEvent, Filter};
 
 #[tokio::main]
 async fn main() {
