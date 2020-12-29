@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use headers::{
     AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlExposeHeaders, HeaderMapExt,
+    Origin,
 };
 use http::{
     self,
@@ -17,7 +18,7 @@ use crate::filter::{Filter, WrapSealed};
 use crate::reject::{CombineRejection, Rejection};
 use crate::reply::Reply;
 
-use self::internal::{CorsFilter, IntoOrigin, Seconds};
+use self::internal::{CorsFilter, Seconds};
 
 /// Create a wrapping filter that exposes [CORS][] behavior for a wrapped
 /// filter.
@@ -204,7 +205,7 @@ impl Builder {
     /// # Panics
     ///
     /// Panics if the provided argument is not a valid `Origin`.
-    pub fn allow_origin(self, origin: impl IntoOrigin) -> Self {
+    pub fn allow_origin(self, origin: impl TryIntoOrigin) -> Self {
         self.allow_origins(Some(origin))
     }
 
@@ -216,11 +217,11 @@ impl Builder {
     pub fn allow_origins<I>(mut self, origins: I) -> Self
     where
         I: IntoIterator,
-        I::Item: IntoOrigin,
+        I::Item: TryIntoOrigin,
     {
         let iter = origins
             .into_iter()
-            .map(IntoOrigin::into_origin)
+            .map(|i| i.try_into_origin().expect("not a valid Origin value"))
             .map(|origin| {
                 origin
                     .to_string()
@@ -452,6 +453,48 @@ impl Configured {
     }
 }
 
+#[derive(Debug)]
+/// An error occured while trying to convert a value into an `Origin`.
+pub enum TryIntoOriginError {
+    /// Origin is missing a scheme (`http` or `https`).
+    MissingScheme,
+    /// Not a valid origin URL.
+    InvalidOrigin,
+}
+
+impl ::std::fmt::Display for TryIntoOriginError {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match self {
+            TryIntoOriginError::MissingScheme => write!(f, "missing scheme"),
+            TryIntoOriginError::InvalidOrigin => write!(f, "invalid origin"),
+        }
+    }
+}
+
+impl StdError for TryIntoOriginError {}
+
+/// Try to convert the value into an `Origin`.
+pub trait TryIntoOrigin {
+    /// Try to convert the value into an `Origin`.
+    fn try_into_origin(self) -> Result<Origin, TryIntoOriginError>;
+}
+
+impl<'a> TryIntoOrigin for &'a str {
+    fn try_into_origin(self) -> Result<Origin, TryIntoOriginError> {
+        let mut parts = self.splitn(2, "://");
+        let scheme = parts.next().ok_or(TryIntoOriginError::MissingScheme)?;
+        let rest = parts.next().ok_or(TryIntoOriginError::MissingScheme)?;
+
+        Origin::try_from_parts(scheme, rest, None).map_err(|_| TryIntoOriginError::InvalidOrigin)
+    }
+}
+
+impl TryIntoOrigin for Origin {
+    fn try_into_origin(self) -> Result<Origin, TryIntoOriginError> {
+        Ok(self)
+    }
+}
+
 mod internal {
     use std::future::Future;
     use std::pin::Pin;
@@ -459,7 +502,6 @@ mod internal {
     use std::task::{Context, Poll};
 
     use futures::{future, ready, TryFuture};
-    use headers::Origin;
     use http::header;
     use pin_project::pin_project;
 
@@ -606,20 +648,6 @@ mod internal {
     impl Seconds for ::std::time::Duration {
         fn seconds(self) -> u64 {
             self.as_secs()
-        }
-    }
-
-    pub trait IntoOrigin {
-        fn into_origin(self) -> Origin;
-    }
-
-    impl<'a> IntoOrigin for &'a str {
-        fn into_origin(self) -> Origin {
-            let mut parts = self.splitn(2, "://");
-            let scheme = parts.next().expect("missing scheme");
-            let rest = parts.next().expect("missing scheme");
-
-            Origin::try_from_parts(scheme, rest, None).expect("invalid Origin")
         }
     }
 }
