@@ -2,7 +2,7 @@
 
 #[tokio::test]
 async fn cookie() {
-    let foo = warp::cookie("foo");
+    let foo = warp::cookie::<String>("foo");
 
     let req = warp::test::request().header("cookie", "foo=bar");
     assert_eq!(req.filter(&foo).await.unwrap(), "bar");
@@ -19,7 +19,7 @@ async fn cookie() {
 
 #[tokio::test]
 async fn optional() {
-    let foo = warp::cookie::optional("foo");
+    let foo = warp::cookie::optional::<String>("foo");
 
     let req = warp::test::request().header("cookie", "foo=bar");
     assert_eq!(req.filter(&foo).await.unwrap().unwrap(), "bar");
@@ -38,7 +38,7 @@ async fn optional() {
 async fn missing() {
     let _ = pretty_env_logger::try_init();
 
-    let cookie = warp::cookie("foo");
+    let cookie = warp::cookie::<String>("foo");
 
     let res = warp::test::request()
         .header("cookie", "not=here")

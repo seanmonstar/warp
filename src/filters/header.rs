@@ -164,7 +164,7 @@ pub fn exact(
 ///
 /// ```
 /// // Require `connection: keep-alive` header to be set.
-/// let keep_alive = warp::header::exact("connection", "keep-alive");
+/// let keep_alive = warp::header::exact_ignore_case("connection", "keep-alive");
 /// ```
 pub fn exact_ignore_case(
     name: &'static str,

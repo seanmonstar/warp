@@ -116,6 +116,8 @@ impl Builder {
 
     /// Adds a header to the list of allowed request headers.
     ///
+    /// **Note**: These should match the values the browser sends via `Access-Control-Request-Headers`, e.g. `content-type`.
+    ///
     /// # Panics
     ///
     /// Panics if the provided argument is not a valid `http::header::HeaderName`.
@@ -132,6 +134,8 @@ impl Builder {
     }
 
     /// Adds multiple headers to the list of allowed request headers.
+    ///
+    /// **Note**: These should match the values the browser sends via `Access-Control-Request-Headers`, e.g.`content-type`.
     ///
     /// # Panics
     ///
@@ -188,7 +192,7 @@ impl Builder {
     ///
     /// # Warning
     ///
-    /// This can allow websites you didn't instead to access this resource,
+    /// This can allow websites you didn't intend to access this resource,
     /// it is usually better to set an explicit list.
     pub fn allow_any_origin(mut self) -> Self {
         self.origins = None;

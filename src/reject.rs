@@ -127,6 +127,8 @@ fn __reject_custom_compilefail() {}
 
 /// A marker trait to ensure proper types are used for custom rejections.
 ///
+/// Can be converted into Rejection.
+///
 /// # Example
 ///
 /// ```
@@ -314,6 +316,13 @@ impl Rejection {
         } else {
             false
         }
+    }
+}
+
+impl<T: Reject> From<T> for Rejection {
+    #[inline]
+    fn from(err: T) -> Rejection {
+        custom(err)
     }
 }
 

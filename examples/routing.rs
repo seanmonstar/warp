@@ -9,6 +9,9 @@ async fn main() {
     // We'll start simple, and gradually show how you combine these powers
     // into super powers!
 
+    // GET /
+    let hello_world = warp::path::end().map(|| "Hello, World at root!");
+
     // GET /hi
     let hi = warp::path("hi").map(|| "Hello, World!");
 
@@ -73,16 +76,25 @@ async fn main() {
         times.map(|output| format!("(This route has moved to /math/:u16/times/:u16) {}", output));
 
     // It turns out, using `or` is how you combine everything together into
-    // a single API. (We also actually haven't been enforcing the that the
+    // a single API. (We also actually haven't been enforcing that the
     // method is GET, so we'll do that too!)
     //
+    // GET /
     // GET /hi
     // GET /hello/from/warp
     // GET /bye/:string
     // GET /math/sum/:u32/:u32
     // GET /math/:u16/times/:u16
 
-    let routes = warp::get().and(hi.or(hello_from_warp).or(bye).or(math).or(sum).or(times));
+    let routes = warp::get().and(
+        hello_world
+            .or(hi)
+            .or(hello_from_warp)
+            .or(bye)
+            .or(math)
+            .or(sum)
+            .or(times),
+    );
 
     // Note that composing filters for many routes may increase compile times (because it uses a lot of generics).
     // If you wish to use dynamic dispatch instead and speed up compile times while

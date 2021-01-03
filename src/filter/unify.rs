@@ -43,11 +43,8 @@ where
 
     #[inline]
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let unified = match ready!(self.project().inner.try_poll(cx)) {
-            Ok((Either::A(a),)) => Ok(a),
-            Ok((Either::B(b),)) => Ok(b),
-            Err(err) => Err(err),
-        };
-        Poll::Ready(unified)
+        Poll::Ready(match ready!(self.project().inner.try_poll(cx))? {
+            (Either::A(x),) | (Either::B(x),) => Ok(x),
+        })
     }
 }

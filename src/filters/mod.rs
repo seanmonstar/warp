@@ -13,6 +13,7 @@ pub mod cors;
 pub mod ext;
 pub mod fs;
 pub mod header;
+pub mod host;
 pub mod log;
 pub mod method;
 #[cfg(feature = "multipart")]

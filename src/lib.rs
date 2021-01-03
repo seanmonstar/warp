@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/warp/0.2.4")]
+#![doc(html_root_url = "https://docs.rs/warp/0.2.5")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![cfg_attr(test, deny(warnings))]
@@ -132,6 +132,7 @@ pub use self::filters::{
     header,
     // header() function
     header::header,
+    host,
     log,
     // log() function
     log::log,
@@ -148,6 +149,7 @@ pub use self::filters::{
     trace::trace,
 };
 // ws() function
+pub use self::filter::wrap_fn;
 #[cfg(feature = "websocket")]
 #[doc(hidden)]
 pub use self::filters::ws::ws;
