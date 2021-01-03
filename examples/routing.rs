@@ -10,7 +10,7 @@ async fn main() {
     // into super powers!
 
     // GET /
-    let hello_wold = warp::path::end().map(|| "Hello, World at root!");
+    let hello_world = warp::path::end().map(|| "Hello, World at root!");
 
     // GET /hi
     let hi = warp::path("hi").map(|| "Hello, World!");
@@ -87,7 +87,7 @@ async fn main() {
     // GET /math/:u16/times/:u16
 
     let routes = warp::get().and(
-        hello_wold
+        hello_world
             .or(hi)
             .or(hello_from_warp)
             .or(bye)
