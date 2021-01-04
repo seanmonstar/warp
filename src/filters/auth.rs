@@ -6,7 +6,7 @@ pub use headers::{
 };
 use futures::future;
 
-use crate::filter::{Filter, One};
+use crate::filter::Filter;
 use crate::reject::Rejection;
 
 use super::header;
@@ -27,7 +27,7 @@ use super::header;
 ///         println!("authorization header = {:?}", auth_header);
 ///     });
 /// ```
-pub fn basic(realm: &str) -> impl Filter<Extract = (Authorization<Basic>,), Error = Rejection> {
+pub fn basic(_realm: &str) -> impl Filter<Extract = (Authorization<Basic>,), Error = Rejection> {
     header::header2()
         //.and_then(move |auth_header: Authorization<Basic>| future::ok(auth_header))
         .or_else(|_| {
