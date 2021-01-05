@@ -83,8 +83,8 @@ pub struct Event {
 impl Event {
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn data<T: Display>(mut self, data: Option<T>) -> Event {
-        self.data = data.map(|d| DataType::Text(d.to_string()));
+    pub fn data<T: Into<String>>(mut self, data: Option<T>) -> Event {
+        self.data = data.map(|d| DataType::Text(d.into()));
         self
     }
 
@@ -100,15 +100,15 @@ impl Event {
 
     /// Set Server-sent event comment
     /// Comment field (":<comment-text>")
-    pub fn comment<T: Display>(mut self, comment: Option<T>) -> Event {
-        self.comment = comment.map(|c| c.to_string());
+    pub fn comment<T: Into<String>>(mut self, comment: Option<T>) -> Event {
+        self.comment = comment.map(Into::into);
         self
     }
 
     /// Set Server-sent event event
     /// Event name field ("event:<event-name>")
-    pub fn event<T: Display>(mut self, event: Option<T>) -> Event {
-        self.event = event.map(|e| e.to_string());
+    pub fn event<T: Into<String>>(mut self, event: Option<T>) -> Event {
+        self.event = event.map(Into::into);
         self
     }
 
@@ -121,8 +121,8 @@ impl Event {
 
     /// Set Server-sent event id
     /// Identifier field ("id:<identifier>")
-    pub fn id<T: Display>(mut self, id: Option<T>) -> Event {
-        self.id = id.map(|e| e.to_string());
+    pub fn id<T: Into<String>>(mut self, id: Option<T>) -> Event {
+        self.id = id.map(Into::into);
         self
     }
 }
