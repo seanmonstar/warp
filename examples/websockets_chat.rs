@@ -7,7 +7,7 @@ use std::sync::{
 
 use futures::{FutureExt, StreamExt};
 use tokio::sync::{mpsc, RwLock};
-use warp::test;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -59,7 +59,8 @@ async fn user_connected(ws: WebSocket, users: Users) {
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the websocket...
-    let (tx, rx) = test::unbounded_channel_stream();
+    let (tx, rx) = mpsc::unbounded_channel();
+    let rx = UnboundedReceiverStream::new(rx);
     tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
         if let Err(e) = result {
             eprintln!("websocket send error: {}", e);
