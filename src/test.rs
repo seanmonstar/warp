@@ -90,18 +90,20 @@ use std::pin::Pin;
 #[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
-use async_stream::stream;
 use bytes::Bytes;
-use futures::{future, FutureExt, StreamExt, TryFutureExt};
+#[cfg(feature = "websocket")]
+use futures::StreamExt;
+use futures::{future, FutureExt, TryFutureExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
 };
 use serde::Serialize;
 use serde_json;
-use tokio::sync::mpsc::{self, UnboundedSender};
 #[cfg(feature = "websocket")]
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
+#[cfg(feature = "websocket")]
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -405,18 +407,6 @@ impl RequestBuilder {
     }
 }
 
-/// Get an unbounded channel with a stream for the reader.
-pub fn unbounded_channel_stream<T: Unpin>() -> (UnboundedSender<T>, impl StreamExt<Item = T>) {
-    let (tx, mut rx) = mpsc::unbounded_channel();
-    let stream = stream! {
-        while let Some(item) = rx.recv().await {
-            yield item;
-        }
-    };
-
-    (tx, stream)
-}
-
 #[cfg(feature = "websocket")]
 impl WsBuilder {
     /// Sets the request path of this builder.
@@ -494,7 +484,8 @@ impl WsBuilder {
         F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
-        let (wr_tx, wr_rx) = unbounded_channel_stream();
+        let (wr_tx, wr_rx) = mpsc::unbounded_channel();
+        let wr_rx = UnboundedReceiverStream::new(wr_rx);
         let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {

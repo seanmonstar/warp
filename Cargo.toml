@@ -18,7 +18,6 @@ all-features = true
 
 [dependencies]
 async-compression = { version = "0.3.7", features = ["brotli", "deflate", "gzip", "tokio"], optional = true }
-async-stream = "0.3"
 bytes = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
@@ -33,6 +32,7 @@ serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
 tokio = { version = "1.0", features = ["fs", "sync", "time"] }
+tokio-stream = "0.1.1"
 tokio-util = { version = "0.6", features = ["io"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
@@ -50,6 +50,7 @@ tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "3.0.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio-stream = { version = "0.1.1", features = ["net"] }
 listenfd = "0.3"
 
 [features]

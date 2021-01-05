@@ -5,7 +5,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use tokio::sync::mpsc;
-use warp::test;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::{sse::ServerSentEvent, Filter};
 
 #[tokio::main]
@@ -86,7 +86,8 @@ fn user_connected(
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the event source...
-    let (tx, rx) = test::unbounded_channel_stream();
+    let (tx, rx) = mpsc::unbounded_channel();
+    let rx = UnboundedReceiverStream::new(rx);
 
     tx.send(Message::UserId(my_id))
         // rx is right above, so this cannot fail
