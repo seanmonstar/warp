@@ -386,7 +386,7 @@ impl<T: Reply> Reply for WithHeader<T> {
     fn into_response(self) -> Response {
         let mut res = self.reply.into_response();
         if let Some((name, value)) = self.header {
-            res.headers_mut().insert(name, value);
+            res.headers_mut().append(name, value);
         }
         res
     }
