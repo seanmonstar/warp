@@ -6,7 +6,7 @@ use warp::{sse::Event, Filter};
 
 // create server-sent event
 fn sse_counter(counter: u64) -> Result<Event, Infallible> {
-    Ok(warp::sse::Event::default().data(Some(counter)))
+    Ok(warp::sse::Event::default().data(counter.to_string()))
 }
 
 #[tokio::main]

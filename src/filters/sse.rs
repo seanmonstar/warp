@@ -11,16 +11,16 @@
 //!
 //! fn sse_events() -> impl Stream<Item = Result<Event, Infallible>> {
 //!     iter(vec![
-//!         Ok(Event::default().data(Some("unnamed event"))),
+//!         Ok(Event::default().data("unnamed event")),
 //!         Ok(
-//!             Event::default().event(Some("chat"))
-//!             .data(Some("chat message"))
+//!             Event::default().event("chat")
+//!             .data("chat message")
 //!         ),
 //!         Ok(
-//!             Event::default().id(Some(13))
-//!             .event(Some("chat"))
-//!             .data(Some("other chat message\nwith next line"))
-//!             .retry(Some(Duration::from_millis(5000)))
+//!             Event::default().id(13.to_string())
+//!             .event("chat")
+//!             .data("other chat message\nwith next line")
+//!             .retry(Duration::from_millis(5000))
 //!         )
 //!     ])
 //! }
@@ -83,46 +83,43 @@ pub struct Event {
 impl Event {
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn data<T: Into<String>>(mut self, data: Option<T>) -> Event {
-        self.data = data.map(|d| DataType::Text(d.into()));
+    pub fn data<T: Into<String>>(mut self, data: T) -> Event {
+        self.data = Some(DataType::Text(data.into()));
         self
     }
 
     /// Set Server-sent event data
     /// data field(s) ("data:<content>")
-    pub fn json_data<T: Serialize>(mut self, data: Option<T>) -> Result<Event, Error> {
-        self.data = match data {
-            Some(data) => Some(DataType::Json(serde_json::to_string(&data)?)),
-            None => None,
-        };
+    pub fn json_data<T: Serialize>(mut self, data: T) -> Result<Event, Error> {
+        self.data = Some(DataType::Json(serde_json::to_string(&data)?));
         Ok(self)
     }
 
     /// Set Server-sent event comment
     /// Comment field (":<comment-text>")
-    pub fn comment<T: Into<String>>(mut self, comment: Option<T>) -> Event {
-        self.comment = comment.map(Into::into);
+    pub fn comment<T: Into<String>>(mut self, comment: T) -> Event {
+        self.comment = Some(comment.into());
         self
     }
 
     /// Set Server-sent event event
     /// Event name field ("event:<event-name>")
-    pub fn event<T: Into<String>>(mut self, event: Option<T>) -> Event {
-        self.event = event.map(Into::into);
+    pub fn event<T: Into<String>>(mut self, event: T) -> Event {
+        self.event = Some(event.into());
         self
     }
 
     /// Set Server-sent event retry
     /// Retry timeout field ("retry:<timeout>")
-    pub fn retry(mut self, duration: Option<Duration>) -> Event {
-        self.retry = duration;
+    pub fn retry(mut self, duration: Duration) -> Event {
+        self.retry = Some(duration.into());
         self
     }
 
     /// Set Server-sent event id
     /// Identifier field ("id:<identifier>")
-    pub fn id<T: Into<String>>(mut self, id: Option<T>) -> Event {
-        self.id = id.map(Into::into);
+    pub fn id<T: Into<String>>(mut self, id: T) -> Event {
+        self.id = Some(id.into());
         self
     }
 }
@@ -263,21 +260,21 @@ where
 /// fn event_stream() -> impl Stream<Item = Result<Event, Infallible>> {
 ///         iter(vec![
 ///             // Unnamed event with data only
-///             Ok(Event::default().data(Some("payload"))),
+///             Ok(Event::default().data("payload")),
 ///             // Named event with ID and retry timeout
 ///             Ok(
-///                 Event::default().data(Some("other message\nwith next line"))
-///                 .event(Some("chat"))
-///                 .id(Some(1))
-///                 .retry(Some(Duration::from_millis(15000)))
+///                 Event::default().data("other message\nwith next line")
+///                 .event("chat")
+///                 .id(1.to_string())
+///                 .retry(Duration::from_millis(15000))
 ///             ),
 ///             // Event with JSON data
 ///             Ok(
-///                 Event::default().id(Some(2))
-///                 .json_data(Some(Msg {
+///                 Event::default().id(2.to_string())
+///                 .json_data(Msg {
 ///                     from: 2,
 ///                     text: "hello".into(),
-///                 })).unwrap(),
+///                 }).unwrap(),
 ///             )
 ///         ])
 /// }
@@ -428,7 +425,7 @@ struct SseKeepAlive<S> {
 ///
 /// // create server-sent event
 /// fn sse_counter(counter: u64) ->  Result<Event, Infallible> {
-///     Ok(Event::default().data(Some(counter)))
+///     Ok(Event::default().data(counter.to_string()))
 /// }
 ///
 /// fn main() {
@@ -475,7 +472,7 @@ where
                     pin.alive_timer
                         .reset(tokio::time::Instant::now() + *pin.max_interval);
                     let comment_str = pin.comment_text.clone();
-                    let event = Event::default().comment(Some(comment_str));
+                    let event = Event::default().comment(comment_str);
                     Poll::Ready(Some(Ok(event)))
                 }
             },
