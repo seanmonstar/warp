@@ -8,7 +8,7 @@ use hyper::{
     header::{CONTENT_ENCODING, CONTENT_LENGTH},
     Body,
 };
-use tokio_util::io::{StreamReader, ReaderStream};
+use tokio_util::io::{ReaderStream, StreamReader};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -57,9 +57,9 @@ pub struct Compression<F> {
 /// ```
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(
-            GzipEncoder::new(StreamReader::new(props.body)),
-        ));
+        let body = Body::wrap_stream(ReaderStream::new(GzipEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
@@ -85,9 +85,9 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 /// ```
 pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(
-            DeflateEncoder::new(StreamReader::new(props.body)),
-        ));
+        let body = Body::wrap_stream(ReaderStream::new(DeflateEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
@@ -113,9 +113,9 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 /// ```
 pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(
-            BrotliEncoder::new(StreamReader::new(props.body)),
-        ));
+        let body = Body::wrap_stream(ReaderStream::new(BrotliEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
