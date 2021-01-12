@@ -88,7 +88,7 @@ async fn close_frame() {
     let route = warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|mut websocket| async move {
             let msg = websocket.next().await.expect("item").expect("ok");
-            let _ = msg.close_frame().expect("ok").expect("close frame");
+            let _ = msg.close_frame().expect("close frame");
         })
     });
 

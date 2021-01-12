@@ -325,17 +325,11 @@ impl Message {
     }
 
     /// Try to get the close frame (close code and reason)
-    pub fn close_frame(&self) -> Result<Option<(u16, &str)>, ()> {
-        if let protocol::Message::Close(ref close_frame) = self.inner {
-            let code_and_reason = if let Some(close_frame) = close_frame {
-                Some((close_frame.code.into(), close_frame.reason.as_ref()))
-            } else {
-                None
-            };
-
-            Ok(code_and_reason)
+    pub fn close_frame(&self) -> Option<(u16, &str)> {
+        if let protocol::Message::Close(Some(ref close_frame)) = self.inner {
+            Some((close_frame.code.into(), close_frame.reason.as_ref()))
         } else {
-            Err(())
+            None
         }
     }
 
