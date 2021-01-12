@@ -26,6 +26,10 @@ async fn path() {
     assert!(foo_bar_req().matches(&foo).await);
     assert!(!foo_bar_req().matches(&bar).await);
     assert!(foo_bar_req().matches(&foo_bar).await);
+
+    let req = warp::test::request().path("/foobar");
+    let p = warp::path!("foo" / ..);
+    assert!(!req.matches(&p).await);
 }
 
 #[tokio::test]

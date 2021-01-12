@@ -223,7 +223,9 @@ where
 
                 (
                     p.len(),
-                    if seg.starts_with(p) {
+                    if seg.starts_with(p)
+                        && (p.len() == seg.len() || seg[p.len()..].starts_with('/'))
+                    {
                         Ok(())
                     } else {
                         Err(reject::not_found())
