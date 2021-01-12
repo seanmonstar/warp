@@ -6,7 +6,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::{body, header};
+use super::header;
 use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
@@ -58,11 +58,9 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         //.and(header::exact2(Upgrade::websocket()))
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
-        .and(body::body())
         .and(on_upgrade())
         .map(
-            move |key: SecWebsocketKey, body: ::hyper::Body, on_upgrade: Option<OnUpgrade>| Ws {
-                body,
+            move |key: SecWebsocketKey, on_upgrade: Option<OnUpgrade>| Ws {
                 config: None,
                 key,
                 on_upgrade,
@@ -72,7 +70,6 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
 
 /// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
 pub struct Ws {
-    body: ::hyper::Body,
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
     on_upgrade: Option<OnUpgrade>,
@@ -138,24 +135,24 @@ where
     U: Future<Output = ()> + Send + 'static,
 {
     fn into_response(self) -> Response {
-        let on_upgrade = self.on_upgrade;
-        let config = self.ws.config;
-        let mut resp = Response::new(self.ws.body);
         if let Some(on_upgrade) = self.ws.on_upgrade {
-            resp.extensions_mut().insert(on_upgrade);
+            let on_upgrade_cb = self.on_upgrade;
+            let config = self.ws.config;
+            let fut = on_upgrade
+                .and_then(move |upgraded| {
+                    tracing::trace!("websocket upgrade complete");
+                    WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
+                })
+                .and_then(move |socket| on_upgrade_cb(socket).map(Ok))
+                .map(|result| {
+                    if let Err(err) = result {
+                        tracing::debug!("ws upgrade error: {}", err);
+                    }
+                });
+            ::tokio::task::spawn(fut);
+        } else {
+            tracing::debug!("ws couldn't be upgraded since no upgrade state was present");
         }
-        let fut = hyper::upgrade::on(resp)
-            .and_then(move |upgraded| {
-                tracing::trace!("websocket upgrade complete");
-                WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
-            })
-            .and_then(move |socket| on_upgrade(socket).map(Ok))
-            .map(|result| {
-                if let Err(err) = result {
-                    tracing::debug!("ws upgrade error: {}", err);
-                }
-            });
-        ::tokio::task::spawn(fut);
 
         let mut res = http::Response::default();
 
