@@ -3,11 +3,11 @@ use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
 use tokio_stream::wrappers::IntervalStream;
-use warp::{sse::ServerSentEvent, Filter};
+use warp::{sse::Event, Filter};
 
 // create server-sent event
-fn sse_counter(counter: u64) -> Result<impl ServerSentEvent, Infallible> {
-    Ok(warp::sse::data(counter))
+fn sse_counter(counter: u64) -> Result<Event, Infallible> {
+    Ok(warp::sse::Event::default().data(counter.to_string()))
 }
 
 #[tokio::main]

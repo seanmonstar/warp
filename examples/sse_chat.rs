@@ -6,7 +6,7 @@ use std::sync::{
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use warp::{sse::ServerSentEvent, Filter};
+use warp::{sse::Event, Filter};
 
 #[tokio::main]
 async fn main() {
@@ -75,10 +75,7 @@ impl warp::reject::Reject for NotUtf8 {}
 /// - Value is a sender of `Message`
 type Users = Arc<Mutex<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 
-fn user_connected(
-    users: Users,
-) -> impl Stream<Item = Result<impl ServerSentEvent + Send + 'static, warp::Error>> + Send + 'static
-{
+fn user_connected(users: Users) -> impl Stream<Item = Result<Event, warp::Error>> + Send + 'static {
     // Use a counter to assign a new unique ID for this user.
     let my_id = NEXT_USER_ID.fetch_add(1, Ordering::Relaxed);
 
@@ -98,8 +95,8 @@ fn user_connected(
 
     // Convert messages into Server-Sent Events and return resulting stream.
     rx.map(|msg| match msg {
-        Message::UserId(my_id) => Ok((warp::sse::event("user"), warp::sse::data(my_id)).into_a()),
-        Message::Reply(reply) => Ok(warp::sse::data(reply).into_b()),
+        Message::UserId(my_id) => Ok(Event::default().event("user").data(my_id.to_string())),
+        Message::Reply(reply) => Ok(Event::default().data(reply)),
     })
 }
 
