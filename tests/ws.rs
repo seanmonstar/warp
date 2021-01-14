@@ -82,6 +82,21 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn close_frame() {
+    let _ = pretty_env_logger::try_init();
+
+    let route = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|mut websocket| async move {
+            let msg = websocket.next().await.expect("item").expect("ok");
+            let _ = msg.close_frame().expect("close frame");
+        })
+    });
+
+    let client = warp::test::ws().handshake(route).await.expect("handshake");
+    drop(client);
+}
+
+#[tokio::test]
 async fn send_ping() {
     let _ = pretty_env_logger::try_init();
 

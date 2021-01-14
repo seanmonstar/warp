@@ -324,6 +324,15 @@ impl Message {
         self.inner.is_pong()
     }
 
+    /// Try to get the close frame (close code and reason)
+    pub fn close_frame(&self) -> Option<(u16, &str)> {
+        if let protocol::Message::Close(Some(ref close_frame)) = self.inner {
+            Some((close_frame.code.into(), close_frame.reason.as_ref()))
+        } else {
+            None
+        }
+    }
+
     /// Try to get a reference to the string text, if this is a Text message.
     pub fn to_str(&self) -> Result<&str, ()> {
         match self.inner {
