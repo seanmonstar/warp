@@ -54,7 +54,7 @@ use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use pin_project::pin_project;
 use serde_json::{self, Error};
-use tokio::time::{self, Delay};
+use tokio::time::{self, Sleep};
 
 use self::sealed::SseError;
 use super::header;
@@ -386,7 +386,7 @@ impl KeepAlive {
         S: TryStream<Ok = Event> + Send + 'static,
         S::Error: StdError + Send + Sync + 'static,
     {
-        let alive_timer = time::delay_for(self.max_interval);
+        let alive_timer = time::sleep(self.max_interval);
         SseKeepAlive {
             event_stream,
             comment_text: self.comment_text,
@@ -403,7 +403,8 @@ struct SseKeepAlive<S> {
     event_stream: S,
     comment_text: Cow<'static, str>,
     max_interval: Duration,
-    alive_timer: Delay,
+    #[pin]
+    alive_timer: Sleep,
 }
 
 /// Keeps event source connection alive when no events sent over a some time.
@@ -421,6 +422,7 @@ struct SseKeepAlive<S> {
 /// use std::convert::Infallible;
 /// use futures::StreamExt;
 /// use tokio::time::interval;
+/// use tokio_stream::wrappers::IntervalStream;
 /// use warp::{Filter, Stream, sse::Event};
 ///
 /// // create server-sent event
@@ -433,7 +435,9 @@ struct SseKeepAlive<S> {
 ///         .and(warp::get())
 ///         .map(|| {
 ///             let mut counter: u64 = 0;
-///             let event_stream = interval(Duration::from_secs(15)).map(move |_| {
+///             let interval = interval(Duration::from_secs(15));
+///             let stream = IntervalStream::new(interval);
+///             let event_stream = stream.map(move |_| {
 ///                 counter += 1;
 ///                 sse_counter(counter)
 ///             });

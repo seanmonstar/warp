@@ -2,6 +2,7 @@ use futures::StreamExt;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
+use tokio_stream::wrappers::IntervalStream;
 use warp::{sse::Event, Filter};
 
 // create server-sent event
@@ -16,7 +17,9 @@ async fn main() {
     let routes = warp::path("ticks").and(warp::get()).map(|| {
         let mut counter: u64 = 0;
         // create server event source
-        let event_stream = interval(Duration::from_secs(1)).map(move |_| {
+        let interval = interval(Duration::from_secs(1));
+        let stream = IntervalStream::new(interval);
+        let event_stream = stream.map(move |_| {
             counter += 1;
             sse_counter(counter)
         });
