@@ -102,6 +102,8 @@ use serde::Serialize;
 use serde_json;
 #[cfg(feature = "websocket")]
 use tokio::sync::{mpsc, oneshot};
+#[cfg(feature = "websocket")]
+use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -451,7 +453,7 @@ impl WsBuilder {
         }
     }
 
-    /// Execute this Websocket request against te provided filter.
+    /// Execute this Websocket request against the provided filter.
     ///
     /// If the handshake succeeds, returns a `WsClient`.
     ///
@@ -483,6 +485,7 @@ impl WsBuilder {
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
         let (wr_tx, wr_rx) = mpsc::unbounded_channel();
+        let wr_rx = UnboundedReceiverStream::new(wr_rx);
         let (rd_tx, rd_rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
@@ -515,7 +518,7 @@ impl WsBuilder {
             let upgrade = ::hyper::Client::builder()
                 .build(AddrConnect(addr))
                 .request(req)
-                .and_then(|res| res.into_body().on_upgrade());
+                .and_then(|res| hyper::upgrade::on(res));
 
             let upgraded = match upgrade.await {
                 Ok(up) => {
@@ -576,9 +579,9 @@ impl WsClient {
     /// Receive a websocket message from the server.
     pub async fn recv(&mut self) -> Result<crate::filters::ws::Message, WsError> {
         self.rx
-            .next()
+            .recv()
             .await
-            .map(|unbounded_result| unbounded_result.map_err(WsError::new))
+            .map(|result| result.map_err(WsError::new))
             .unwrap_or_else(|| {
                 // websocket is closed
                 Err(WsError::new("closed"))
@@ -588,7 +591,7 @@ impl WsClient {
     /// Assert the server has closed the connection.
     pub async fn recv_closed(&mut self) -> Result<(), WsError> {
         self.rx
-            .next()
+            .recv()
             .await
             .map(|result| match result {
                 Ok(msg) => Err(WsError::new(format!("received message: {:?}", msg))),

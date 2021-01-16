@@ -6,13 +6,14 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::{body, header};
-use crate::filter::{Filter, One};
+use super::header;
+use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
 use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
+use hyper::upgrade::OnUpgrade;
 use tokio_tungstenite::{
     tungstenite::protocol::{self, WebSocketConfig},
     WebSocketStream,
@@ -57,19 +58,21 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         //.and(header::exact2(Upgrade::websocket()))
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
-        .and(body::body())
-        .map(move |key: SecWebsocketKey, body: ::hyper::Body| Ws {
-            body,
-            config: None,
-            key,
-        })
+        .and(on_upgrade())
+        .map(
+            move |key: SecWebsocketKey, on_upgrade: Option<OnUpgrade>| Ws {
+                config: None,
+                key,
+                on_upgrade,
+            },
+        )
 }
 
 /// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
 pub struct Ws {
-    body: ::hyper::Body,
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
+    on_upgrade: Option<OnUpgrade>,
 }
 
 impl Ws {
@@ -132,23 +135,24 @@ where
     U: Future<Output = ()> + Send + 'static,
 {
     fn into_response(self) -> Response {
-        let on_upgrade = self.on_upgrade;
-        let config = self.ws.config;
-        let fut = self
-            .ws
-            .body
-            .on_upgrade()
-            .and_then(move |upgraded| {
-                tracing::trace!("websocket upgrade complete");
-                WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
-            })
-            .and_then(move |socket| on_upgrade(socket).map(Ok))
-            .map(|result| {
-                if let Err(err) = result {
-                    tracing::debug!("ws upgrade error: {}", err);
-                }
-            });
-        ::tokio::task::spawn(fut);
+        if let Some(on_upgrade) = self.ws.on_upgrade {
+            let on_upgrade_cb = self.on_upgrade;
+            let config = self.ws.config;
+            let fut = on_upgrade
+                .and_then(move |upgraded| {
+                    tracing::trace!("websocket upgrade complete");
+                    WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
+                })
+                .and_then(move |socket| on_upgrade_cb(socket).map(Ok))
+                .map(|result| {
+                    if let Err(err) = result {
+                        tracing::debug!("ws upgrade error: {}", err);
+                    }
+                });
+            ::tokio::task::spawn(fut);
+        } else {
+            tracing::debug!("ws couldn't be upgraded since no upgrade state was present");
+        }
 
         let mut res = http::Response::default();
 
@@ -161,6 +165,11 @@ where
 
         res
     }
+}
+
+// Extracts OnUpgrade state from the route.
+fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection> + Copy {
+    filter_fn_one(|route| future::ready(Ok(route.extensions_mut().remove::<OnUpgrade>())))
 }
 
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
@@ -322,6 +331,15 @@ impl Message {
     /// Returns true if this message is a Pong message.
     pub fn is_pong(&self) -> bool {
         self.inner.is_pong()
+    }
+
+    /// Try to get the close frame (close code and reason)
+    pub fn close_frame(&self) -> Option<(u16, &str)> {
+        if let protocol::Message::Close(Some(ref close_frame)) = self.inner {
+            Some((close_frame.code.into(), close_frame.reason.as_ref()))
+        } else {
+            None
+        }
     }
 
     /// Try to get a reference to the string text, if this is a Text message.

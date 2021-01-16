@@ -4,7 +4,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use hyper::server::conn::AddrStream;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 /// impl Transport for your custom `Incoming`
 /// to ensure `ws::addr::remote` return meaningful value
@@ -28,8 +28,8 @@ impl<T: AsyncRead + Unpin> AsyncRead for LiftIo<T> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<io::Result<usize>> {
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
     }
 }
