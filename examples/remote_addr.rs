@@ -9,9 +9,8 @@ use warp::Filter;
 use warp::Transport;
 
 use futures::Stream;
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, TcpStream};
-use tokio::prelude::AsyncWrite;
 
 pub struct MyS {
     stream: TcpStream,
