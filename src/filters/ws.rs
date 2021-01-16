@@ -358,10 +358,19 @@ impl Message {
     }
 
     /// Try to get a reference to the string text, if this is a Text message.
+    #[deprecated(since = "0.3.0", note = "Use the as_text instead")]
     pub fn to_str(&self) -> Result<&str, ()> {
         match self.inner {
             protocol::Message::Text(ref s) => Ok(s),
             _ => Err(()),
+        }
+    }
+
+    /// Try to get a reference to the string text, if this is a Text message.
+    pub fn as_text(&self) -> Option<&str> {
+        match self.inner {
+            protocol::Message::Text(ref s) => Some(s),
+            _ => None,
         }
     }
 
