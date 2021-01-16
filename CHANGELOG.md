@@ -1,3 +1,18 @@
+## v0.3.0 (January 19, 2021)
+
+- **Features**:
+  - Add TLS client authentication support.
+  - Add TLS OCSP stapling support.
+  - Add `From<Reject>` for `Rejection`.
+  - Add `close_frame` accessor to `ws::Message`.
+- **Changes**:
+  - Update to Tokio v1.
+  - Update to Bytes v1.
+  - Update to hyper v0.14.
+  - Rework `sse` filter to be more like `ws`, with a single `Event` type and builder.
+  - Change `cookie` filter to extract a generic `FromStr` value.
+
+
 ### v0.2.5 (August 31, 2020)
 
 - **Features**:
