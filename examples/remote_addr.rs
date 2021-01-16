@@ -9,7 +9,7 @@ use warp::Filter;
 use warp::Transport;
 
 use futures::Stream;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 
 pub struct MyS {
@@ -29,8 +29,8 @@ impl AsyncRead for MyS {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<Result<usize, std::io::Error>> {
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         let ptr = self.get_mut();
         Pin::new(&mut ptr.stream).poll_read(cx, buf)
     }
@@ -66,14 +66,11 @@ impl Stream for MyIncoming {
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let ptr = self.get_mut();
-        match Pin::new(&mut ptr.listen).poll_next(cx) {
+        match Pin::new(&mut ptr.listen).poll_accept(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(o) => match o {
-                Some(item) => match item {
-                    Ok(o) => Poll::Ready(Some(Ok(MyS { stream: o }))),
-                    Err(e) => Poll::Ready(Some(Err(e))),
-                },
-                None => Poll::Ready(None),
+                Ok(item) => Poll::Ready(Some(Ok(MyS { stream: item.0 }))),
+                Err(e) => Poll::Ready(Some(Err(e))),
             },
         }
     }
