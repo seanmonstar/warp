@@ -82,6 +82,21 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn close_frame() {
+    let _ = pretty_env_logger::try_init();
+
+    let route = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|mut websocket| async move {
+            let msg = websocket.next().await.expect("item").expect("ok");
+            let _ = msg.close_frame().expect("close frame");
+        })
+    });
+
+    let client = warp::test::ws().handshake(route).await.expect("handshake");
+    drop(client);
+}
+
+#[tokio::test]
 async fn send_ping() {
     let _ = pretty_env_logger::try_init();
 
@@ -222,6 +237,7 @@ async fn ws_with_query() {
         .expect("handshake");
 }
 
+// Websocket filter that echoes all messages back.
 fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Copy {
     warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
