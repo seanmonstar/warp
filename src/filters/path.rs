@@ -218,20 +218,18 @@ where
     fn filter(&self, _: Internal) -> Self::Future {
         route::with(|route| {
             let p = self.0.as_ref();
-            future::ready(with_segments(route, |seg| {
-                tracing::trace!("{:?}?: {:?}", p, seg);
+            let seg = route.path();
 
-                (
-                    p.len(),
-                    if seg.starts_with(p)
-                        && (p.len() == seg.len() || seg[p.len()..].starts_with('/'))
-                    {
-                        Ok(())
-                    } else {
-                        Err(reject::not_found())
-                    },
-                )
-            }))
+            tracing::trace!("{:?}?: {:?}", p, seg);
+
+            future::ready(
+                if seg.starts_with(p) && (p.len() == seg.len() || seg[p.len()..].starts_with('/')) {
+                    route.set_unmatched_path(p.len());
+                    Ok(())
+                } else {
+                    Err(reject::not_found())
+                },
+            )
         })
     }
 }
@@ -463,17 +461,6 @@ where
     let ret = func(seg);
     if ret.is_ok() {
         let idx = seg.len();
-        route.set_unmatched_path(idx);
-    }
-    ret
-}
-
-fn with_segments<F, U>(route: &mut Route, func: F) -> Result<U, Rejection>
-where
-    F: Fn(&str) -> (usize, Result<U, Rejection>),
-{
-    let (idx, ret) = func(route.path());
-    if ret.is_ok() {
         route.set_unmatched_path(idx);
     }
     ret
