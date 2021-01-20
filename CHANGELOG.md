@@ -16,7 +16,7 @@
 ### v0.2.5 (August 31, 2020)
 
 - **Features**:
-  - Add `warp_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
+  - Add `wrap_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
   - Add `warp::host` filters to deal with `Host`/`:authority` headers.
   - Relax some lifetime bounds on `Server`.
 - **Fixes**:
