@@ -36,8 +36,8 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 Add warp and Tokio to your dependencies:
 
 ```toml
-tokio = { version = "0.2", features = ["full"] }
-warp = "0.2"
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
 ```
 
 And then get started in your `main.rs`:
