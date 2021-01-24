@@ -40,6 +40,10 @@ Hooray! `warp` also includes built-in support for WebSockets
 
 - [`autoreload.rs`](./autoreload.rs) - Change some code and watch the server reload automatically!
 
+### Benchmarking
+
+- [`benchmark.rs`](./benchmark.rs) - Run this example for benchmarking using tools like [`wrk`](https://github.com/wg/wrk), [`ab`](https://httpd.apache.org/docs/current/programs/ab.html), [`jmeter`](https://jmeter.apache.org/) etc.
+
 ### Debugging
 
 - [`tracing.rs`](./tracing.rs) - Warp has built-in support for rich diagnostics with [`tracing`](https://docs.rs/tracing)!
