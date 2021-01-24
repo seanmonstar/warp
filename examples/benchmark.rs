@@ -1,5 +1,4 @@
 #![deny(warnings)]
-use num_cpus;
 use warp::Filter;
 
 const BODY: &str = r#"<!DOCTYPE html>
@@ -16,7 +15,6 @@ const BODY: &str = r#"<!DOCTYPE html>
 fn main() -> std::io::Result<()> {
     let route = warp::any().map(move || BODY);
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(num_cpus::get())
         .enable_all()
         .build()?
         .block_on(async {
