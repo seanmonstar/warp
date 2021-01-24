@@ -20,7 +20,11 @@ Welcome to the examples! These show off `warp`'s functionality and explain how t
 - [`dir.rs`](./dir.rs) - Or a whole directory of files
 - [`handlebars_template.rs`](./handlebars_template.rs) - Using Handlebars to fill in an HTML template
 
-### Websockets
+### Compression
+
+- [`compression.rs`] - Serving compressed content through [HTTP compression](https://en.wikipedia.org/wiki/HTTP_compression)
+
+### WebSockets
 
 Hooray! `warp` also includes built-in support for WebSockets
 
@@ -36,7 +40,7 @@ Hooray! `warp` also includes built-in support for WebSockets
 
 - [`tls.rs`](./tls.rs) - can i haz security?
 
-### Autoreloading
+### AutoReloading
 
 - [`autoreload.rs`](./autoreload.rs) - Change some code and watch the server reload automatically!
 
