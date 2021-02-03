@@ -31,6 +31,25 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 - One of the fastest HTTP implementations
 - Tested and **correct**
 
+## Getting Started
+
+To get started, run `examples/hello.rs` with:
+
+```bash
+> cargo run --example hello
+```
+
+This will start a simple "hello world" service running on your localhost port 3030. 
+
+Open another terminal and run:
+
+```bash
+> curl http://localhost:3030/hi
+Hello, World!%
+```
+
+ Congratulations, you have just run your first Warp service!
+
 ## Example
 
 Add warp and Tokio to your dependencies:
