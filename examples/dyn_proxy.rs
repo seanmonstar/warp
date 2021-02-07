@@ -17,16 +17,23 @@ async fn proxy_request(
 ) -> Result<Response<Body>, Rejection> {
     let request = build_request(&method, &path, &headers, body);
     let client = Client::new();
-    let response = client.request(request).await.unwrap();
-    let response_status = response.status();
-    let response_headers = response.headers().clone();
-    let response_body = response.into_body();
 
-    let mut response = Response::new(response_body);
-    *response.status_mut() = response_status;
-    *response.headers_mut() = response_headers;
+    if let Ok(proxy_response) = client.request(request).await {
+        let proxy_status = proxy_response.status();
+        let proxy_headers = proxy_response.headers().clone();
+        let proxy_body = proxy_response.into_body();
 
-    Ok(response)
+        let mut response = Response::new(proxy_body);
+        *response.status_mut() = proxy_status;
+        *response.headers_mut() = proxy_headers;
+
+        Ok(response)
+    } else {
+        Ok(Response::builder()
+            .status(503)
+            .body("server unavailable".into())
+            .unwrap())
+    }
 }
 
 fn build_request(
