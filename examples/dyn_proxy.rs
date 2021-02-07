@@ -19,12 +19,14 @@ async fn proxy_request(
     let client = Client::new();
     let response = client.request(request).await.unwrap();
     let response_status = response.status();
+    let response_headers = response.headers().clone();
     let response_body = response.into_body();
 
-    Ok(Response::builder()
-        .status(response_status)
-        .body(response_body)
-        .unwrap())
+    let mut response = Response::new(response_body);
+    *response.status_mut() = response_status;
+    *response.headers_mut() = response_headers;
+
+    Ok(response)
 }
 
 fn build_request(
@@ -54,6 +56,6 @@ async fn main() {
 
     println!("Proxy server to {} running.", PROXY_TARGET);
     println!("Example request:");
-    println!("curl -X GET http://localhost:3030/ip");
+    println!("curl -i -X GET http://localhost:3030/ip");
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
