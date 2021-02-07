@@ -15,7 +15,7 @@ async fn proxy_request(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response<Body>, Rejection> {
-    let request = build_request(&method, &path, &headers, body);
+    let request = build_request(method, path, headers, body);
     let client = Client::new();
 
     if let Ok(proxy_response) = client.request(request).await {
@@ -31,26 +31,19 @@ async fn proxy_request(
     } else {
         Ok(Response::builder()
             .status(503)
-            .body("server unavailable".into())
+            .body("proxy server unavailable".into())
             .unwrap())
     }
 }
 
-fn build_request(
-    method: &Method,
-    path: &FullPath,
-    headers: &HeaderMap,
-    body: Bytes,
-) -> Request<Body> {
+fn build_request(method: Method, path: FullPath, headers: HeaderMap, body: Bytes) -> Request<Body> {
     let uri = format!("{}/{}", PROXY_TARGET, path.as_str());
 
-    let mut request = Request::builder().method(method.as_str()).uri(uri);
-
-    for (key, value) in headers {
-        request = request.header(key, value);
-    }
-
-    request.body(Body::from(body)).unwrap()
+    let mut request = Request::new(Body::from(body));
+    *request.method_mut() = method;
+    *request.uri_mut() = uri.parse().unwrap();
+    *request.headers_mut() = headers;
+    request
 }
 
 #[tokio::main]
