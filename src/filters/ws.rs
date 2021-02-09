@@ -291,6 +291,17 @@ impl Message {
         }
     }
 
+    /// Construct a new Pong `Message`.
+    ///
+    /// Note that one rarely needs to manually construct a Pong message because the underlying tungstenite socket
+    /// automatically responds to the Ping messages it receives. Manual construction might still be useful in some cases
+    /// like in tests or to send unidirectional heartbeats.
+    pub fn pong<V: Into<Vec<u8>>>(v: V) -> Message {
+        Message {
+            inner: protocol::Message::Pong(v.into()),
+        }
+    }
+
     /// Construct the default Close `Message`.
     pub fn close() -> Message {
         Message {
