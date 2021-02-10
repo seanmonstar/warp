@@ -427,6 +427,23 @@ where
     }
 }
 
+impl<T> Reply for Result<T, std::convert::Infallible>
+where
+    T: Reply + Send,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        match self {
+            Ok(t) => t.into_response(),
+            Err(e) => {
+                // Maybe panic?
+                tracing::error!("Infallible Error: {:?}", e);
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    }
+}
+
 fn text_plain<T: Into<Body>>(body: T) -> Response {
     let mut response = ::http::Response::new(body.into());
     response.headers_mut().insert(
