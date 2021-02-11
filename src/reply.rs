@@ -435,7 +435,7 @@ where
     fn into_response(self) -> Response {
         match self {
             Ok(t) => t.into_response(),
-            Err(e) => match e {}
+            Err(e) => match e {},
         }
     }
 }
