@@ -435,11 +435,7 @@ where
     fn into_response(self) -> Response {
         match self {
             Ok(t) => t.into_response(),
-            Err(e) => {
-                // Maybe panic?
-                tracing::error!("Infallible Error: {:?}", e);
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
+            Err(e) => match e {}
         }
     }
 }
