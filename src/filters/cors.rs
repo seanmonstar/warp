@@ -383,7 +383,7 @@ impl Configured {
                         .to_str()
                         .map_err(|_| Forbidden::HeaderNotAllowed)?;
                     for header in headers.split(',') {
-                        if !self.is_header_allowed(header) {
+                        if !self.is_header_allowed(header.trim()) {
                             return Err(Forbidden::HeaderNotAllowed);
                         }
                     }

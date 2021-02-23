@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.2.5" # don't forget to update html_root_url
+version = "0.3.0" # don't forget to update html_root_url
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
@@ -17,12 +17,12 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { version = "0.3.1", features = ["brotli", "deflate", "gzip", "stream"], optional = true }
-bytes = "0.5"
+async-compression = { version = "0.3.7", features = ["brotli", "deflate", "gzip", "tokio"], optional = true }
+bytes = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
 http = "0.2"
-hyper = { version = "0.13", features = ["stream"] }
+hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -31,15 +31,17 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
-tokio = { version = "0.2", features = ["fs", "stream", "sync", "time"] }
+tokio = { version = "1.0", features = ["fs", "sync", "time"] }
+tokio-stream = "0.1.1"
+tokio-util = { version = "0.6", features = ["io"] }
 tracing = { version = "0.1", default-features = false, features = ["log", "std"] }
 tracing-futures = { version = "0.2", default-features = false, features = ["std-future"] }
 tower-service = "0.3"
 # tls is enabled by default, we don't want that yet
-tokio-tungstenite = { version = "0.11", default-features = false, optional = true }
+tokio-tungstenite = { version = "0.13", default-features = false, optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-tokio-rustls = { version = "0.14", optional = true }
+tokio-rustls = { version = "0.22", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
@@ -47,7 +49,8 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "3.0.0"
-tokio = { version = "0.2", features = ["macros"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio-stream = { version = "0.1.1", features = ["net"] }
 listenfd = "0.3"
 
 [features]
@@ -78,7 +81,6 @@ required-features = ["compression"]
 
 [[example]]
 name = "unix_socket"
-required-features = ["tokio/uds"]
 
 [[example]]
 name = "websockets"
