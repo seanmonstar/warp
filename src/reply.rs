@@ -8,7 +8,7 @@
 //! Besides them, you can return a type that implements [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
-//! - [`http::Response<impl Into<hyper::Body>`](https://docs.rs/http)
+//! - [`http::Response<impl Into<hyper::Body>>`](https://docs.rs/http)
 //! - `String`
 //! - `&'static str`
 //! - `http::StatusCode`
