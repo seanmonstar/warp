@@ -85,6 +85,14 @@ pub(crate) fn unauthorized(scheme: &'static str, realm: &'static str) -> Rejecti
     known(Unauthorized { realm, scheme })
 }
 
+// 403 Forbidden
+/* unused
+#[inline]
+pub(crate) fn forbidden() -> Rejection {
+    known(Forbidden { _p: () })
+}
+*/
+
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
@@ -435,11 +443,14 @@ impl Rejections {
                     CONTENT_TYPE,
                     HeaderValue::from_static("text/plain; charset=utf-8"),
                 );
-                // TODO: use Bearer
-                res.headers_mut().insert(
-                    "www-authenticate",
-                    HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str()).unwrap(),
-                );
+                // TODO: allow Bearer
+                if scheme == "Basic" {
+                    res.headers_mut().insert(
+                        "www-authenticate",
+                        HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str())
+                            .unwrap(),
+                    );
+                }
                 res
             }
             Rejections::Known(ref e) => {
