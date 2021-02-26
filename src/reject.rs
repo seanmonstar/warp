@@ -82,7 +82,7 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
 // 401 Unauthorized
 #[inline]
 pub(crate) fn unauthorized(scheme: &'static str, realm: &'static str) -> Rejection {
-    known(UnauthorizedChallenge { realm, scheme })
+    known(crate::filters::auth::UnauthorizedChallenge { realm, scheme })
 }
 
 // 403 Forbidden
@@ -258,7 +258,7 @@ macro_rules! enum_known {
 
 enum_known! {
     MethodNotAllowed(MethodNotAllowed),
-    Unauthorized(UnauthorizedChallenge),
+    Unauthorized(crate::filters::auth::UnauthorizedChallenge),
     Forbidden(Forbidden),
     InvalidHeader(InvalidHeader),
     MissingHeader(MissingHeader),
@@ -435,7 +435,9 @@ impl Rejections {
 
     fn into_response(&self) -> crate::reply::Response {
         match *self {
-            Rejections::Known(Known::Unauthorized(UnauthorizedChallenge { realm, scheme })) => {
+            Rejections::Known(Known::Unauthorized(
+                crate::filters::auth::UnauthorizedChallenge { realm, scheme },
+            )) => {
                 let body = format!("Please Authorize for: {:?}", realm);
                 let mut res = http::Response::new(Body::from(body));
                 *res.status_mut() = self.status();
@@ -549,34 +551,6 @@ unit_error! {
     /// Forbidden request
     pub Forbidden: "Forbidden"
 }
-
-/// Unauthorized request header
-#[derive(Debug)]
-pub struct UnauthorizedChallenge {
-    realm: &'static str,
-    scheme: &'static str,
-    //content_type: &'static str, // TODO:  make it json compatible??
-}
-
-impl UnauthorizedChallenge {
-    /// Realm name of the Authoriziation
-    pub fn realm(&self) -> &str {
-        self.realm
-    }
-
-    /// Scheme of the Authoriziation (e.g. Basic, Bearer,...)
-    pub fn scheme(&self) -> &str {
-        self.scheme
-    }
-}
-
-impl ::std::fmt::Display for UnauthorizedChallenge {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-        write!(f, "Unauthorized request")
-    }
-}
-
-impl StdError for UnauthorizedChallenge {}
 
 /// Missing request header
 #[derive(Debug)]

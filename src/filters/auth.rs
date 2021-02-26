@@ -2,6 +2,7 @@
 
 use futures::future;
 use headers::{authorization::Basic, Authorization};
+use std::error::Error as StdError;
 
 use crate::filter::Filter;
 use crate::reject::Rejection;
@@ -28,3 +29,33 @@ pub fn basic(realm: &'static str) -> impl Filter<Extract = (Basic,), Error = Rej
         .map(|auth: Authorization<Basic>| auth.0)
         .or_else(move |_| future::err(crate::reject::unauthorized("Basic", realm)))
 }
+
+/// Unauthorized request header
+#[derive(Debug)]
+pub(crate) struct UnauthorizedChallenge {
+    pub realm: &'static str,
+    pub scheme: &'static str,
+    //content_type: &'static str, // TODO:  make it json compatible??
+}
+
+impl UnauthorizedChallenge {
+    /*
+    /// Realm name of the Authoriziation
+    pub fn realm(&self) -> &str {
+        self.realm
+    }
+
+    /// Scheme of the Authoriziation (e.g. Basic, Bearer,...)
+    pub fn scheme(&self) -> &str {
+        self.scheme
+    }
+    */
+}
+
+impl ::std::fmt::Display for UnauthorizedChallenge {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Unauthorized request")
+    }
+}
+
+impl StdError for UnauthorizedChallenge {}
