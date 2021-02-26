@@ -26,5 +26,5 @@ use super::header;
 pub fn basic(realm: &'static str) -> impl Filter<Extract = (Basic,), Error = Rejection> + Copy {
     header::header2()
         .map(|auth: Authorization<Basic>| auth.0)
-        .or_else(move |_| future::err(crate::reject::unauthorized(realm)))
+        .or_else(move |_| future::err(crate::reject::unauthorized("Basic", realm)))
 }

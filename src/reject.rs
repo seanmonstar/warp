@@ -81,8 +81,8 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
 
 // 401 Unauthorized
 #[inline]
-pub(crate) fn unauthorized(realm: &'static str) -> Rejection {
-    Rejection::unauthorized(Box::new(realm.to_string()))
+pub(crate) fn unauthorized(scheme: &'static str, realm: &'static str) -> Rejection {
+    known(Unauthorized { realm, scheme })
 }
 
 // 405 Method Not Allowed
@@ -190,7 +190,6 @@ enum Reason {
 
 enum Rejections {
     Known(Known),
-    Unauthorized(Box<dyn Cause>),
     Custom(Box<dyn Cause>),
     Combined(Box<Rejections>, Box<Rejections>),
 }
@@ -251,6 +250,8 @@ macro_rules! enum_known {
 
 enum_known! {
     MethodNotAllowed(MethodNotAllowed),
+    Unauthorized(Unauthorized),
+    Forbidden(Forbidden),
     InvalidHeader(InvalidHeader),
     MissingHeader(MissingHeader),
     MissingCookie(MissingCookie),
@@ -279,12 +280,6 @@ impl Rejection {
     fn custom(other: Box<dyn Cause>) -> Self {
         Rejection {
             reason: Reason::Other(Box::new(Rejections::Custom(other))),
-        }
-    }
-
-    fn unauthorized(other: Box<dyn Cause>) -> Self {
-        Rejection {
-            reason: Reason::Other(Box::new(Rejections::Unauthorized(other))),
         }
     }
 
@@ -389,7 +384,6 @@ impl fmt::Debug for Reason {
             Reason::Other(ref other) => match **other {
                 Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
                 Rejections::Custom(ref e) => fmt::Debug::fmt(e, f),
-                Rejections::Unauthorized(ref e) => fmt::Debug::fmt(e, f),
                 Rejections::Combined(ref a, ref b) => {
                     let mut list = f.debug_list();
                     a.debug_list(&mut list);
@@ -408,6 +402,8 @@ impl Rejections {
         match *self {
             Rejections::Known(ref k) => match *k {
                 Known::MethodNotAllowed(_) => StatusCode::METHOD_NOT_ALLOWED,
+                Known::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+                Known::Forbidden(_) => StatusCode::FORBIDDEN,
                 Known::InvalidHeader(_)
                 | Known::MissingHeader(_)
                 | Known::MissingCookie(_)
@@ -424,7 +420,6 @@ impl Rejections {
                 | Known::MissingExtension(_)
                 | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
-            Rejections::Unauthorized(..) => StatusCode::UNAUTHORIZED,
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
         }
@@ -432,15 +427,15 @@ impl Rejections {
 
     fn into_response(&self) -> crate::reply::Response {
         match *self {
-            Rejections::Unauthorized(ref e) => {
-                let body = format!("Please Authorize for: {:?}", e);
+            Rejections::Known(Known::Unauthorized(Unauthorized { realm, scheme })) => {
+                let body = format!("Please Authorize for: {:?}", realm);
                 let mut res = http::Response::new(Body::from(body));
                 *res.status_mut() = self.status();
                 res.headers_mut().insert(
                     CONTENT_TYPE,
                     HeaderValue::from_static("text/plain; charset=utf-8"),
                 );
-                let realm = e.downcast_ref::<String>().expect("realm must be string");
+                // TODO: use Bearer
                 res.headers_mut().insert(
                     "www-authenticate",
                     HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str()).unwrap(),
@@ -477,7 +472,6 @@ impl Rejections {
     fn find<T: 'static>(&self) -> Option<&T> {
         match *self {
             Rejections::Known(ref e) => e.inner_as_any().downcast_ref(),
-            Rejections::Unauthorized(ref e) => e.downcast_ref(),
             Rejections::Custom(ref e) => e.downcast_ref(),
             Rejections::Combined(ref a, ref b) => a.find().or_else(|| b.find()),
         }
@@ -486,9 +480,6 @@ impl Rejections {
     fn debug_list(&self, f: &mut fmt::DebugList<'_, '_>) {
         match *self {
             Rejections::Known(ref e) => {
-                f.entry(e);
-            }
-            Rejections::Unauthorized(ref e) => {
                 f.entry(e);
             }
             Rejections::Custom(ref e) => {
@@ -544,9 +535,37 @@ unit_error! {
 }
 
 unit_error! {
-    /// Unauthorized request
-    pub Unauthorized: "Unauthorized request"
+    /// Forbidden request
+    pub Forbidden: "Forbidden"
 }
+
+/// Unauthorized request header
+#[derive(Debug)]
+pub struct Unauthorized {
+    realm: &'static str,
+    scheme: &'static str,
+    //content_type: &'static str, // TODO:  make it json compatible??
+}
+
+impl Unauthorized {
+    /// Realm name of the Authoriziation
+    pub fn realm(&self) -> &str {
+        self.realm
+    }
+
+    /// Scheme of the Authoriziation (e.g. Basic, Bearer,...)
+    pub fn scheme(&self) -> &str {
+        self.scheme
+    }
+}
+
+impl ::std::fmt::Display for Unauthorized {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Unauthorized request")
+    }
+}
+
+impl StdError for Unauthorized {}
 
 /// Missing request header
 #[derive(Debug)]
