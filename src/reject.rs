@@ -82,7 +82,7 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
 // 401 Unauthorized
 #[inline]
 pub(crate) fn unauthorized(scheme: &'static str, realm: &'static str) -> Rejection {
-    known(Unauthorized { realm, scheme })
+    known(UnauthorizedChallenge { realm, scheme })
 }
 
 // 403 Forbidden
@@ -258,7 +258,7 @@ macro_rules! enum_known {
 
 enum_known! {
     MethodNotAllowed(MethodNotAllowed),
-    Unauthorized(Unauthorized),
+    Unauthorized(UnauthorizedChallenge),
     Forbidden(Forbidden),
     InvalidHeader(InvalidHeader),
     MissingHeader(MissingHeader),
@@ -435,7 +435,7 @@ impl Rejections {
 
     fn into_response(&self) -> crate::reply::Response {
         match *self {
-            Rejections::Known(Known::Unauthorized(Unauthorized { realm, scheme })) => {
+            Rejections::Known(Known::Unauthorized(UnauthorizedChallenge { realm, scheme })) => {
                 let body = format!("Please Authorize for: {:?}", realm);
                 let mut res = http::Response::new(Body::from(body));
                 *res.status_mut() = self.status();
@@ -552,13 +552,13 @@ unit_error! {
 
 /// Unauthorized request header
 #[derive(Debug)]
-pub struct Unauthorized {
+pub struct UnauthorizedChallenge {
     realm: &'static str,
     scheme: &'static str,
     //content_type: &'static str, // TODO:  make it json compatible??
 }
 
-impl Unauthorized {
+impl UnauthorizedChallenge {
     /// Realm name of the Authoriziation
     pub fn realm(&self) -> &str {
         self.realm
@@ -570,13 +570,13 @@ impl Unauthorized {
     }
 }
 
-impl ::std::fmt::Display for Unauthorized {
+impl ::std::fmt::Display for UnauthorizedChallenge {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(f, "Unauthorized request")
     }
 }
 
-impl StdError for Unauthorized {}
+impl StdError for UnauthorizedChallenge {}
 
 /// Missing request header
 #[derive(Debug)]
