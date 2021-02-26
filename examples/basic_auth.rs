@@ -1,5 +1,5 @@
 //#![deny(warnings)]
-use headers::{authorization::Basic, Authorization};
+use headers::authorization::Basic;
 use std::collections::HashMap;
 use std::sync::Arc;
 use warp::Filter;
@@ -18,10 +18,10 @@ async fn main() {
     let pwdb = Arc::new(pwdb); // no lock-guard needed, it's read-only
     let pwdb = warp::any().map(move || pwdb.clone());
     let routes = warp::auth::basic("Realm name").and(pwdb.clone()).map(
-        |auth_header: Authorization<Basic>, pwdb: Arc<HashMap<&str, &str>>| {
+        |auth_header: Basic, pwdb: Arc<HashMap<&str, &str>>| {
             println!("authorization header = {:?}", auth_header);
-            let user = auth_header.0.username();
-            if pwdb.get(user) == Some(&auth_header.0.password()) {
+            let user = auth_header.username();
+            if pwdb.get(user) == Some(&auth_header.password()) {
                 format!("Hello, {} you're authenticated", user)
             } else {
                 format!("Hello, {} you've forgot your password", user)
