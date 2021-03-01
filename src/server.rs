@@ -12,7 +12,7 @@ use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tracing_futures::Instrument;
+use tracing::Instrument;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
