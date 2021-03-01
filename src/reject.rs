@@ -442,13 +442,8 @@ impl Rejections {
             Rejections::Known(Known::Unauthorized(
                 crate::filters::auth::UnauthorizedChallenge { realm, ref scheme },
             )) => {
-                let body = format!("Please Authorize for: {:?}", realm);
-                let mut res = http::Response::new(Body::from(body));
+                let mut res = http::Response::new(Body::from(""));
                 *res.status_mut() = self.status();
-                res.headers_mut().insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_static("text/plain; charset=utf-8"),
-                );
                 match *scheme {
                     AuthScheme::Basic => res.headers_mut().insert(
                         "www-authenticate",
