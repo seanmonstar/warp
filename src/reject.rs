@@ -40,6 +40,7 @@ use http::{
 use hyper::Body;
 
 pub(crate) use self::sealed::{CombineRejection, IsReject};
+use crate::filters::auth::AuthenticationScheme as AuthScheme;
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
@@ -81,7 +82,10 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
 
 // 401 Unauthorized
 #[inline]
-pub(crate) fn unauthorized(scheme: &'static str, realm: &'static str) -> Rejection {
+pub(crate) fn unauthorized(
+    scheme: crate::filters::auth::AuthenticationScheme,
+    realm: &'static str,
+) -> Rejection {
     known(crate::filters::auth::UnauthorizedChallenge { realm, scheme })
 }
 
@@ -436,7 +440,7 @@ impl Rejections {
     fn into_response(&self) -> crate::reply::Response {
         match *self {
             Rejections::Known(Known::Unauthorized(
-                crate::filters::auth::UnauthorizedChallenge { realm, scheme },
+                crate::filters::auth::UnauthorizedChallenge { realm, ref scheme },
             )) => {
                 let body = format!("Please Authorize for: {:?}", realm);
                 let mut res = http::Response::new(Body::from(body));
@@ -445,14 +449,26 @@ impl Rejections {
                     CONTENT_TYPE,
                     HeaderValue::from_static("text/plain; charset=utf-8"),
                 );
-                // TODO: allow Bearer
-                if scheme == "Basic" {
-                    res.headers_mut().insert(
+                match *scheme {
+                    AuthScheme::Basic => res.headers_mut().insert(
                         "www-authenticate",
                         HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str())
                             .unwrap(),
-                    );
-                }
+                    ),
+                    AuthScheme::Bearer => res.headers_mut().insert(
+                        "www-authenticate",
+                        HeaderValue::from_str(format!("Bearer realm=\"{}\"", realm).as_str())
+                            .unwrap(),
+                    ),
+                    AuthScheme::Digest
+                    | AuthScheme::Hoba
+                    | AuthScheme::Mutual
+                    | AuthScheme::Negotiate
+                    | AuthScheme::OAuth
+                    | AuthScheme::ScramSha1
+                    | AuthScheme::ScramSha256
+                    | AuthScheme::Vapid => unimplemented!(),
+                };
                 res
             }
             Rejections::Known(ref e) => {
