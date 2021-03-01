@@ -460,6 +460,7 @@ impl Rejections {
                         HeaderValue::from_str(format!("Bearer realm=\"{}\"", realm).as_str())
                             .unwrap(),
                     ),
+                    /*
                     AuthScheme::Digest
                     | AuthScheme::Hoba
                     | AuthScheme::Mutual
@@ -468,6 +469,7 @@ impl Rejections {
                     | AuthScheme::ScramSha1
                     | AuthScheme::ScramSha256
                     | AuthScheme::Vapid => unimplemented!(),
+                    */
                 };
                 res
             }

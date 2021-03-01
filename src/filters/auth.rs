@@ -1,7 +1,7 @@
 //! HTTP Basic Authentication Filters
 
 use futures::future;
-use headers::{authorization::Basic, Authorization};
+use headers::{authorization::Basic, authorization::Bearer, Authorization};
 use std::error::Error as StdError;
 
 use crate::filter::Filter;
@@ -35,10 +35,37 @@ pub fn basic(realm: &'static str) -> impl Filter<Extract = (Basic,), Error = Rej
         })
 }
 
+/// Creates a `Filter` to the HTTP Bearer Authentication header. If none was sent by the client, this filter will reject
+/// any request with a 401 Unauthorized.
+///
+/// # Example
+///
+/// ```
+/// use std::net::SocketAddr;
+/// use warp::Filter;
+/// use headers::authorization::Bearer;
+///
+/// let route = warp::auth::bearer("Realm name")
+///     .map(|auth_header: Bearer| {
+///         println!("authorization header = {:?}", auth_header);
+///     });
+/// ```
+pub fn bearer(realm: &'static str) -> impl Filter<Extract = (Bearer,), Error = Rejection> + Copy {
+    header::header2()
+        .map(|auth: Authorization<Bearer>| auth.0)
+        .or_else(move |_| {
+            future::err(crate::reject::unauthorized(
+                AuthenticationScheme::Bearer,
+                realm,
+            ))
+        })
+}
+
 #[derive(Debug)]
 pub(crate) enum AuthenticationScheme {
     Basic,
     Bearer,
+    /*
     Digest,
     Hoba,
     Mutual,
@@ -47,6 +74,7 @@ pub(crate) enum AuthenticationScheme {
     ScramSha1,
     ScramSha256,
     Vapid,
+    */
 }
 
 /// Unauthorized request header
