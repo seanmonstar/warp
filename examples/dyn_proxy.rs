@@ -1,5 +1,8 @@
 #![deny(warnings)]
-use warp::hyper::body::{Body, Bytes};
+use bytes::buf::Buf;
+use futures::Stream;
+use futures::TryStreamExt;
+use warp::hyper::body::Body;
 use warp::hyper::{Client, Request};
 use warp::{
     http::{method::Method, HeaderMap, Response},
@@ -13,7 +16,7 @@ async fn proxy_request(
     method: Method,
     path: FullPath,
     headers: HeaderMap,
-    body: Bytes,
+    body: impl Stream<Item = Result<impl Buf, warp::Error>> + Send + 'static,
 ) -> Result<Response<Body>, Rejection> {
     let request = build_request(method, path, headers, body);
     let client = Client::new();
@@ -36,10 +39,16 @@ async fn proxy_request(
     }
 }
 
-fn build_request(method: Method, path: FullPath, headers: HeaderMap, body: Bytes) -> Request<Body> {
+fn build_request(
+    method: Method,
+    path: FullPath,
+    headers: HeaderMap,
+    body: impl Stream<Item = Result<impl Buf, warp::Error>> + Send + 'static,
+) -> Request<Body> {
     let uri = format!("{}/{}", PROXY_TARGET, path.as_str());
 
-    let mut request = Request::new(Body::from(body));
+    let body = body.map_ok(|mut buf| buf.copy_to_bytes(buf.remaining()));
+    let mut request = Request::new(Body::wrap_stream(body));
     *request.method_mut() = method;
     *request.uri_mut() = uri.parse().unwrap();
     *request.headers_mut() = headers;
@@ -51,7 +60,7 @@ async fn main() {
     let routes = warp::method()
         .and(warp::path::full())
         .and(warp::header::headers_cloned())
-        .and(warp::body::bytes())
+        .and(warp::body::stream())
         .and_then(proxy_request);
 
     println!("Proxy server to {} running.", PROXY_TARGET);
