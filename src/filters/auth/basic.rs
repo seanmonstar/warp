@@ -76,9 +76,10 @@ impl Builder {
     pub fn build(self) -> Auth {
         let authenticate_header = match self.realm {
             Some(realm) => {
-                HeaderValue::from_str(&format!("Basic realm=\"{}\"", realm)).expect("illegal realm")
+                HeaderValue::from_str(&format!("Basic realm=\"{}\", charset=\"UTF-8\"", realm))
+                    .expect("illegal realm")
             }
-            None => HeaderValue::from_static("Basic"),
+            None => HeaderValue::from_static("Basic charset=\"UTF-8\""),
         };
 
         let config = Arc::new(Configured {

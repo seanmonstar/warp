@@ -8,7 +8,7 @@ async fn no_authorization() {
     let res = warp::test::request().method("GET").reply(&route).await;
 
     assert_eq!(res.status(), 401);
-    assert_eq!(res.headers()["www-authenticate"], "Basic");
+    assert_eq!(res.headers()["www-authenticate"], "Basic charset=\"UTF-8\"");
 }
 
 #[tokio::test]
@@ -22,7 +22,7 @@ async fn wrong_authorization() {
         .await;
 
     assert_eq!(res.status(), 401);
-    assert_eq!(res.headers()["www-authenticate"], "Basic");
+    assert_eq!(res.headers()["www-authenticate"], "Basic charset=\"UTF-8\"");
 }
 
 #[tokio::test]
@@ -66,7 +66,10 @@ async fn many_authorization() {
     assert_eq!(res_admin.status(), 200);
     assert_eq!(res_admin.headers().get("www-authenticate"), None);
     assert_eq!(res_other.status(), 401);
-    assert_eq!(res_other.headers()["www-authenticate"], "Basic");
+    assert_eq!(
+        res_other.headers()["www-authenticate"],
+        "Basic charset=\"UTF-8\""
+    );
 }
 
 #[tokio::test]
@@ -78,6 +81,6 @@ async fn realm_authorization() {
     assert_eq!(res.status(), 401);
     assert_eq!(
         res.headers()["www-authenticate"],
-        "Basic realm=\"whatever\""
+        "Basic realm=\"whatever\", charset=\"UTF-8\""
     );
 }
