@@ -41,6 +41,7 @@ tokio-tungstenite = { version = "0.13", default-features = false, optional = tru
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.22", optional = true }
+base64 = "0.13"
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
