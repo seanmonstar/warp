@@ -11,6 +11,7 @@ use self::internal::AuthFilter;
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::{CombineRejection, Rejection};
 use crate::reply::Reply;
+use std::collections::HashSet;
 
 /// Create a wrapping filter that exposes [AUTHENTICATION][] behavior for a wrapped
 /// filter.
@@ -33,7 +34,7 @@ use crate::reply::Reply;
 pub fn basic() -> Builder {
     Builder {
         realm: None,
-        authorizations: Vec::new(),
+        authorizations: HashSet::new(),
     }
 }
 
@@ -47,7 +48,7 @@ pub struct Auth {
 #[derive(Clone, Debug)]
 pub struct Builder {
     realm: Option<String>,
-    authorizations: Vec<String>,
+    authorizations: HashSet<Vec<u8>>,
 }
 
 impl Builder {
@@ -59,8 +60,8 @@ impl Builder {
 
     /// Adds a user and password to the list of authorized credentials.
     pub fn allow(mut self, user: &str, pass: &str) -> Self {
-        let authorization = format!("Basic {}", base64::encode(format!("{}:{}", user, pass)));
-        self.authorizations.push(authorization);
+        let authorization = base64::encode(format!("{}:{}", user, pass)).into();
+        self.authorizations.insert(authorization);
         self
     }
 
@@ -123,18 +124,34 @@ where
 #[derive(Clone, Debug)]
 struct Configured {
     authenticate_header: HeaderValue,
-    authorizations: Vec<String>,
+    authorizations: HashSet<Vec<u8>>,
+}
+
+fn split_at(bytes: &[u8], mid: usize) -> Option<(&[u8], &[u8])> {
+    if mid <= bytes.len() {
+        // SAFETY: `[ptr; mid]` and `[mid; len]` are inside `bytes`, which
+        // fulfills the requirements of `from_raw_parts_mut`.
+        Some(unsafe { (bytes.get_unchecked(..mid), bytes.get_unchecked(mid..)) })
+    } else {
+        None
+    }
 }
 
 impl Configured {
     fn is_authorized(&self, headers: &http::HeaderMap) -> bool {
-        match headers.get(header::AUTHORIZATION) {
-            Some(v) => self
-                .authorizations
-                .iter()
-                .any(|a| a.as_bytes() == v.as_bytes()),
-            None => false,
-        }
+        const PREFIX: &'static [u8] = b"Basic ";
+
+        let header = match headers.get(header::AUTHORIZATION) {
+            Some(v) => v,
+            None => return false,
+        };
+
+        let (prefix, rest) = match split_at(header.as_bytes(), PREFIX.len()) {
+            Some((prefix, rest)) => (prefix, rest),
+            None => return false,
+        };
+
+        prefix == PREFIX && self.authorizations.contains(rest)
     }
 }
 
