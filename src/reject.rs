@@ -319,6 +319,14 @@ impl Rejection {
     }
 }
 
+// we cannot implement From because Response is part of hyper crate
+#[allow(clippy::from_over_into)]
+impl Into<crate::reply::Response> for Rejection {
+    fn into(self) -> crate::reply::Response {
+        self.into_response()
+    }
+}
+
 impl<T: Reject> From<T> for Rejection {
     #[inline]
     fn from(err: T) -> Rejection {
