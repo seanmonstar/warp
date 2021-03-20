@@ -203,7 +203,7 @@ impl Stream for WebSocket {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
-            Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
+            Some(Ok(item)) => Poll::Ready(Some(Ok(Message::from_protocol(item)))),
             Some(Err(e)) => {
                 tracing::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
@@ -227,7 +227,7 @@ impl Sink<Message> for WebSocket {
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
-        match Pin::new(&mut self.inner).start_send(item.inner) {
+        match Pin::new(&mut self.inner).start_send(item.into_protocol()) {
             Ok(()) => Ok(()),
             Err(e) => {
                 tracing::debug!("websocket start_send error: {}", e);
@@ -260,35 +260,60 @@ impl fmt::Debug for WebSocket {
     }
 }
 
-/// A WebSocket message.
-///
-/// This will likely become a `non-exhaustive` enum in the future, once that
-/// language feature has stabilized.
-#[derive(Eq, PartialEq, Clone)]
-pub struct Message {
-    inner: protocol::Message,
+/// Represents a WebSocket message.
+#[non_exhaustive]
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Message {
+    /// Regular string message.
+    Text(String),
+    /// Regular binary message.
+    Binary(Vec<u8>),
+    /// Ping message, used to check latency, typically responded to with a pong message.
+    Ping(Vec<u8>),
+    /// Pong message, used to check latency, typically sent in response to a ping message.
+    Pong(Vec<u8>),
+    /// Regular closure of the websocket, with a closure code and reason.
+    Close(u16, Cow<'static, str>),
+    /// An abrupt unexpected closure of the websocket.
+    AbruptClose
 }
 
 impl Message {
+    fn from_protocol(m: protocol::Message) -> Message {
+        match m {
+            protocol::Message::Text(s) => Message::Text(s),
+            protocol::Message::Binary(v) => Message::Binary(v),
+            protocol::Message::Ping(v) => Message::Ping(v),
+            protocol::Message::Pong(v) => Message::Pong(v),
+            protocol::Message::Close(Some(c)) => Message::Close(c.code.into(), c.reason),
+            protocol::Message::Close(None) => Message::AbruptClose
+        }
+    }
+
+    fn into_protocol(self) -> protocol::Message {
+        match self {
+            Message::Text(s) => protocol::Message::Text(s),
+            Message::Binary(v) => protocol::Message::Binary(v),
+            Message::Ping(v) => protocol::Message::Ping(v),
+            Message::Pong(v) => protocol::Message::Pong(v),
+            Message::Close(code, reason) => protocol::Message::Close(Some(protocol::CloseFrame {code: code.into(), reason})),
+            Message::AbruptClose => protocol::Message::Close(None)
+        }
+    }
+
     /// Construct a new Text `Message`.
     pub fn text<S: Into<String>>(s: S) -> Message {
-        Message {
-            inner: protocol::Message::text(s),
-        }
+        Message::Text(s.into())
     }
 
     /// Construct a new Binary `Message`.
     pub fn binary<V: Into<Vec<u8>>>(v: V) -> Message {
-        Message {
-            inner: protocol::Message::binary(v),
-        }
+        Message::Binary(v.into())
     }
 
     /// Construct a new Ping `Message`.
     pub fn ping<V: Into<Vec<u8>>>(v: V) -> Message {
-        Message {
-            inner: protocol::Message::Ping(v.into()),
-        }
+        Message::Ping(v.into())
     }
 
     /// Construct a new Pong `Message`.
@@ -297,90 +322,78 @@ impl Message {
     /// automatically responds to the Ping messages it receives. Manual construction might still be useful in some cases
     /// like in tests or to send unidirectional heartbeats.
     pub fn pong<V: Into<Vec<u8>>>(v: V) -> Message {
-        Message {
-            inner: protocol::Message::Pong(v.into()),
-        }
+        Message::Pong(v.into())
     }
 
     /// Construct the default Close `Message`.
     pub fn close() -> Message {
-        Message {
-            inner: protocol::Message::Close(None),
-        }
+        Message::AbruptClose
     }
 
     /// Construct a Close `Message` with a code and reason.
     pub fn close_with(code: impl Into<u16>, reason: impl Into<Cow<'static, str>>) -> Message {
-        Message {
-            inner: protocol::Message::Close(Some(protocol::frame::CloseFrame {
-                code: protocol::frame::coding::CloseCode::from(code.into()),
-                reason: reason.into(),
-            })),
-        }
+        Message::Close(code.into(), reason.into())
     }
 
     /// Returns true if this message is a Text message.
     pub fn is_text(&self) -> bool {
-        self.inner.is_text()
+        matches!(self, Message::Text(_))
     }
 
     /// Returns true if this message is a Binary message.
     pub fn is_binary(&self) -> bool {
-        self.inner.is_binary()
+        matches!(self, Message::Binary(_))
     }
 
     /// Returns true if this message a is a Close message.
     pub fn is_close(&self) -> bool {
-        self.inner.is_close()
+        matches!(self, Message::Close(_, _)) || matches!(self, Message::AbruptClose)
     }
 
     /// Returns true if this message is a Ping message.
     pub fn is_ping(&self) -> bool {
-        self.inner.is_ping()
+        matches!(self, Message::Ping(_))
     }
 
     /// Returns true if this message is a Pong message.
     pub fn is_pong(&self) -> bool {
-        self.inner.is_pong()
+        matches!(self, Message::Pong(_))
     }
 
     /// Try to get the close frame (close code and reason)
     pub fn close_frame(&self) -> Option<(u16, &str)> {
-        if let protocol::Message::Close(Some(ref close_frame)) = self.inner {
-            Some((close_frame.code.into(), close_frame.reason.as_ref()))
-        } else {
-            None
+        match self {
+            Message::Close(code, reason) => Some((*code, reason.as_ref())),
+            Message::AbruptClose => None,
+            _ => None
         }
     }
 
     /// Try to get a reference to the string text, if this is a Text message.
     pub fn to_str(&self) -> Result<&str, ()> {
-        match self.inner {
-            protocol::Message::Text(ref s) => Ok(s),
+        match self {
+            Message::Text(s) => Ok(s),
             _ => Err(()),
         }
     }
 
     /// Return the bytes of this message, if the message can contain data.
     pub fn as_bytes(&self) -> &[u8] {
-        match self.inner {
-            protocol::Message::Text(ref s) => s.as_bytes(),
-            protocol::Message::Binary(ref v) => v,
-            protocol::Message::Ping(ref v) => v,
-            protocol::Message::Pong(ref v) => v,
-            protocol::Message::Close(_) => &[],
+        match self {
+            Message::Text(s) => s.as_bytes(),
+            Message::Binary(v) | Message::Ping(v) | Message::Pong(v) => v,
+            _ => &[]
         }
     }
 
     /// Destructure this message into binary data.
     pub fn into_bytes(self) -> Vec<u8> {
-        self.inner.into_data()
-    }
-}
-
-impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(&self.inner, f)
+        match self {
+            Message::Text(s) => s.into_bytes(),
+            Message::Binary(v) | Message::Ping(v) | Message::Pong(v) => v,
+            Message::Close(_, s) => s.into_owned().into_bytes(),
+            Message::AbruptClose => Vec::new()
+        }
     }
 }
 
