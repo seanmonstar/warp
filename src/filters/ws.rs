@@ -275,7 +275,7 @@ pub enum Message {
     /// Regular closure of the websocket, with a closure code and reason.
     Close(u16, Cow<'static, str>),
     /// An abrupt unexpected closure of the websocket.
-    AbruptClose
+    AbruptClose,
 }
 
 impl Message {
@@ -286,7 +286,7 @@ impl Message {
             protocol::Message::Ping(v) => Message::Ping(v),
             protocol::Message::Pong(v) => Message::Pong(v),
             protocol::Message::Close(Some(c)) => Message::Close(c.code.into(), c.reason),
-            protocol::Message::Close(None) => Message::AbruptClose
+            protocol::Message::Close(None) => Message::AbruptClose,
         }
     }
 
@@ -296,8 +296,11 @@ impl Message {
             Message::Binary(v) => protocol::Message::Binary(v),
             Message::Ping(v) => protocol::Message::Ping(v),
             Message::Pong(v) => protocol::Message::Pong(v),
-            Message::Close(code, reason) => protocol::Message::Close(Some(protocol::CloseFrame {code: code.into(), reason})),
-            Message::AbruptClose => protocol::Message::Close(None)
+            Message::Close(code, reason) => protocol::Message::Close(Some(protocol::CloseFrame {
+                code: code.into(),
+                reason,
+            })),
+            Message::AbruptClose => protocol::Message::Close(None),
         }
     }
 
@@ -365,7 +368,7 @@ impl Message {
         match self {
             Message::Close(code, reason) => Some((*code, reason.as_ref())),
             Message::AbruptClose => None,
-            _ => None
+            _ => None,
         }
     }
 
@@ -382,7 +385,7 @@ impl Message {
         match self {
             Message::Text(s) => s.as_bytes(),
             Message::Binary(v) | Message::Ping(v) | Message::Pong(v) => v,
-            _ => &[]
+            _ => &[],
         }
     }
 
@@ -392,7 +395,7 @@ impl Message {
             Message::Text(s) => s.into_bytes(),
             Message::Binary(v) | Message::Ping(v) | Message::Pong(v) => v,
             Message::Close(_, s) => s.into_owned().into_bytes(),
-            Message::AbruptClose => Vec::new()
+            Message::AbruptClose => Vec::new(),
         }
     }
 }
