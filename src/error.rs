@@ -50,7 +50,7 @@ fn error_size_of() {
 
 #[test]
 fn error_source() {
-    let e = Error::new(std::fmt::Error{});
+    let e = Error::new(std::fmt::Error {});
     assert!(e.source().unwrap().is::<std::fmt::Error>());
 }
 
