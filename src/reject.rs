@@ -317,6 +317,30 @@ impl Rejection {
             false
         }
     }
+
+    /// Get the default `Response` for this `Rejection`. With a custom `Rejection`, this will
+    /// always return a response with status code `INTERNAL_SERVER_ERROR`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rejection = warp::reject();
+    /// assert_eq!(rejection.default_response().status(), warp::http::StatusCode::NOT_FOUND);
+    ///
+    /// #[derive(Debug)]
+    /// struct MyCustomErr;
+    ///
+    /// impl warp::reject::Reject for MyCustomErr {}
+    ///
+    /// let rejection = warp::reject::custom(MyCustomErr{});
+    /// assert_eq!(
+    ///     rejection.default_response().status(),
+    ///     warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+    /// );
+    /// ```
+    pub fn default_response(&self) -> crate::reply::Response {
+        self.into_response()
+    }
 }
 
 impl<T: Reject> From<T> for Rejection {
