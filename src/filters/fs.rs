@@ -375,7 +375,14 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
 
             let end = match end {
                 Bound::Unbounded => max_len,
-                Bound::Included(s) => s + 1,
+                Bound::Included(s) => {
+                    // For the special case where s == the file size
+                    if s == max_len {
+                        s
+                    } else {
+                        s + 1
+                    }
+                }
                 Bound::Excluded(s) => s,
             };
 

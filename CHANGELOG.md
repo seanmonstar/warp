@@ -1,3 +1,12 @@
+### v0.3.1 (March 24, 2021)
+
+- **Features**:
+  - Add `pong` constructor to websocket messages.
+  - Add `redirect::see_other` and `redirect::permanent` helpers.
+- **Fixes**:
+  - Fix `fs` filters sometimes having an off-by-one error with range requests.
+  - Fix CORS to allow spaces when checking `Access-Control-Request-Headers`.
+
 ## v0.3.0 (January 19, 2021)
 
 - **Features**:
