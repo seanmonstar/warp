@@ -8,20 +8,20 @@ use pin_project::pin_project;
 use super::{Filter, FilterBase, Internal};
 
 #[derive(Clone, Copy, Debug)]
-pub struct TupleArgs<F> {
+pub struct TupleAll<F> {
     pub(super) filter: F,
 }
 
-impl<F> FilterBase for TupleArgs<F>
+impl<F> FilterBase for TupleAll<F>
 where
     F: Filter,
 {
     type Extract = (F::Extract,);
     type Error = F::Error;
-    type Future = TupleArgsFuture<F>;
+    type Future = TupleAllFuture<F>;
     #[inline]
     fn filter(&self, _: Internal) -> Self::Future {
-        TupleArgsFuture {
+        TupleAllFuture {
             extract: self.filter.filter(Internal),
         }
     }
@@ -29,12 +29,12 @@ where
 
 #[allow(missing_debug_implementations)]
 #[pin_project]
-pub struct TupleArgsFuture<F: Filter> {
+pub struct TupleAllFuture<F: Filter> {
     #[pin]
     extract: F::Future,
 }
 
-impl<F> Future for TupleArgsFuture<F>
+impl<F> Future for TupleAllFuture<F>
 where
     F: Filter,
 {

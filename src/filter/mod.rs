@@ -7,7 +7,7 @@ mod or;
 mod or_else;
 mod recover;
 pub(crate) mod service;
-mod tuple_args;
+mod tuple_all;
 mod unify;
 mod untuple_one;
 mod wrap;
@@ -29,7 +29,7 @@ pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
-use self::tuple_args::TupleArgs;
+use self::tuple_all::TupleAll;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub use self::wrap::wrap_fn;
@@ -353,39 +353,26 @@ pub trait Filter: FilterBase {
     /// # Example
     ///
     /// ```
-    /// use warp::{filters::BoxedFilter, Filter, Rejection};
-
-    /// trait FilterExt: Filter {
-    ///     /// similar to `and_then`, except the closure is run inside of
-    ///     /// `tokio::spawn_blocking` and may block.
-    ///     /// Note that, to keep things simpler than they would otherwise be,
-    ///     /// the closure is passed all arguments in a single tuple.
-    ///     fn blocking_and_then<F, O>(self, func: F) -> BoxedFilter<(O,)>
-    ///     where
-    ///         F: Fn(Self::Extract) -> Result<O, Rejection> + Clone + Send + Sync + 'static,
-    ///         Self: Filter<Error = Rejection> + Clone + Sized + Send + Sync + 'static,
-    ///         Self::Extract: Send + 'static,
-    ///         O: Send + 'static,
-    ///     {
-    ///         self.tuple_args()
-    ///             .and_then(move |args| {
-    ///                 let func = func.clone();
-
-    ///                 async move {
-    ///                     tokio::task::spawn_blocking(move || func(args))
-    ///                         .await
-    ///                         .unwrap_or_else(|err| panic!("{}", err))
-    ///                 }
-    ///             })
-    ///             .boxed()
-    ///     }
-    /// }
+    ///# use warp::Filter;
+    ///
+    /// let filter = warp::path!(u32 / String);
+    ///
+    /// // Normally
+    /// filter.map(|amount: u32, currency: String| {
+    ///     format!("got {} {}", amount, currency);
+    /// });
+    ///
+    /// // With tuple_all
+    /// filter.tuple_all().map(|tup: (u32, String)| {
+    ///     let (amount, currency) = tup;
+    ///     format!("got {} {} as a tuple", amount, currency);
+    /// });
     /// ```
-    fn tuple_args(self) -> TupleArgs<Self>
+    fn tuple_all(self) -> TupleAll<Self>
     where
         Self: Sized,
     {
-        TupleArgs { filter: self }
+        TupleAll { filter: self }
     }
 
     /// Wraps the current filter with some wrapper.
