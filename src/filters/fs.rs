@@ -81,6 +81,8 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     crate::get()
+        .or(crate::head())
+        .unify()
         .and(path_from_tail(base))
         .and(conditionals())
         .and_then(file_reply)
