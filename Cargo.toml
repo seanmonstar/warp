@@ -22,7 +22,7 @@ bytes = "1.0"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 headers = "0.3"
 http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+hyper = { version = "0.14", features = ["stream", "server", "http1", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -53,10 +53,11 @@ tokio-stream = { version = "0.1.1", features = ["net"] }
 listenfd = "0.3"
 
 [features]
-default = ["multipart", "websocket"]
+default = ["multipart", "websocket", "http2"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
 compression = ["async-compression"]
+http2 = ["hyper/http2"]
 
 [profile.release]
 codegen-units = 1
