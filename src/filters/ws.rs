@@ -177,6 +177,11 @@ fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection
 /// Ping messages sent from the client will be handled internally by replying with a Pong message.
 /// Close messages need to be handled explicitly: usually by closing the `Sink` end of the
 /// `WebSocket`.
+///
+/// **Note!**
+/// If you are not reading from `Stream` part of the `WebSocket`, ping won't be handled.
+
+
 pub struct WebSocket {
     inner: WebSocketStream<hyper::upgrade::Upgraded>,
 }
