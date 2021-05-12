@@ -18,5 +18,5 @@ async fn main() {
 #[cfg(not(unix))]
 #[tokio::main]
 async fn main() {
-    panic!("Must run under Unix-like platform!")
+    panic!("Must run under Unix-like platform!");
 }
