@@ -12,7 +12,7 @@ async fn main() {
     let incoming = UnixListenerStream::new(listener);
     warp::serve(warp::fs::dir("examples/dir"))
         .run_incoming(incoming)
-        .await
+        .await;
 }
 
 #[cfg(not(unix))]
