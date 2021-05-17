@@ -154,13 +154,10 @@ impl Route {
     /// Hyper transparently handles 1a/1b, but not 2, so we must look at both.
     pub(crate) fn host(&self) -> Result<Option<Authority>, HostError> {
         let from_uri = self.req.uri().authority();
-        let from_header = self.req.headers()
-            .get(http::header::HOST)
-            .map(|value|
+        let from_header = self.req.headers().get(http::header::HOST).map(|value|
                 // Header present, parse it
                 value.to_str().map_err(|_| HostError)
-                    .and_then(|value| Authority::from_str(value).map_err(|_| HostError))
-            );
+                    .and_then(|value| Authority::from_str(value).map_err(|_| HostError)));
 
         match (from_uri, from_header) {
             // no authority in the request (HTTP/1.0 or non-conforming)

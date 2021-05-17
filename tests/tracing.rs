@@ -37,8 +37,7 @@ async fn uses_tracing() {
     tracing::info!("logged using tracing macro");
 
     // Send a request for /
-    let req = warp::test::request()
-        .header("host", "www.example.org");
+    let req = warp::test::request().header("host", "www.example.org");
     let resp = req.reply(&ok);
     assert_eq!(resp.await.status(), 404);
 
