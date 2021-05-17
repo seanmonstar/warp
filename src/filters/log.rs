@@ -4,7 +4,7 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-use http::{self, header, StatusCode, uri::Authority};
+use http::{self, header, uri::Authority, StatusCode};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
