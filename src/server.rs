@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
 use hyper::server::conn::AddrIncoming;
@@ -62,6 +63,7 @@ macro_rules! addr_incoming {
     ($addr:expr) => {{
         let mut incoming = AddrIncoming::bind($addr)?;
         incoming.set_nodelay(true);
+        incoming.set_keepalive(Some(Duration::new(7200, 0)));
         let addr = incoming.local_addr();
         (addr, incoming)
     }};

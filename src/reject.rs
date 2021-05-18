@@ -362,7 +362,6 @@ impl fmt::Debug for Reason {
 }
 
 #[doc(hidden)]
-#[deprecated(note = "Use warp::reply::json and warp::reply::with_status instead.")]
 impl serde::Serialize for Rejection {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
