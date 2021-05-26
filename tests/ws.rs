@@ -150,6 +150,28 @@ async fn echo_pings() {
 }
 
 #[tokio::test]
+async fn pongs_only() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    // construct a pong message and make sure it is correct
+    let msg = Message::pong("clt");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // send it to echo and wait for `ws_echo` to send it back
+    client.send(msg).await;
+
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+}
+
+#[tokio::test]
 async fn closed() {
     let _ = pretty_env_logger::try_init();
 
