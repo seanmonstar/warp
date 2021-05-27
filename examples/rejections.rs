@@ -10,6 +10,10 @@ use warp::{reject, Filter, Rejection, Reply};
 
 /// Rejections represent cases where a filter should not continue processing
 /// the request, but a different filter *could* process it.
+/// Try with:
+/// - `curl -i -X GET loclhost:3030/math/100 -H "div-by: 0"`
+/// - `curl -i -X POST localhost:3030/math/100 -H "Content-Type:application/json" -d '{"denom": 0}'`
+/// - `curl -i -X POST localhost:3030/math/100 -H "Content-Type:application/json" -d '{"denom": dd}'`
 #[tokio::main]
 async fn main() {
     let math = warp::path!("math" / u16);
@@ -79,44 +83,45 @@ struct ErrorMessage {
 // value, otherwise simply passes the rejection along.
 async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
     let code;
-    let message;
+    let message: String;
 
     if err.is_not_found() {
         code = StatusCode::NOT_FOUND;
-        message = "NOT_FOUND";
+        message = "NOT_FOUND".into();
     } else if let Some(DivideByZero) = err.find() {
         code = StatusCode::BAD_REQUEST;
-        message = "DIVIDE_BY_ZERO";
+        message = "DIVIDE_BY_ZERO".into();
     } else if let Some(e) = err.find::<warp::filters::body::BodyDeserializeError>() {
         // This error happens if the body could not be deserialized correctly
         // We can use the cause to analyze the error and customize the error message
         message = match e.source() {
             Some(cause) => {
-                if cause.to_string().contains("denom") {
-                    "FIELD_ERROR: denom"
+                let cause = cause.to_string();
+                if cause.contains("denom") {
+                    "FIELD_ERROR: denom missing".into()
                 } else {
-                    "BAD_REQUEST"
+                    format!("BAD_REQUEST: {}", cause)
                 }
             }
-            None => "BAD_REQUEST",
+            None => "BAD_REQUEST".into(),
         };
         code = StatusCode::BAD_REQUEST;
     } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
         // We can handle a specific error, here METHOD_NOT_ALLOWED,
         // and render it however we want
         code = StatusCode::METHOD_NOT_ALLOWED;
-        message = "METHOD_NOT_ALLOWED";
+        message = "METHOD_NOT_ALLOWED".into();
     } else {
         // We should have expected this... Just log and say its a 500
         eprintln!("unhandled rejection: {:?}", err);
         code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = "UNHANDLED_REJECTION";
+        message = "UNHANDLED_REJECTION".into();
     }
 
     let json = warp::reply::json(&ErrorMessage {
         code: code.as_u16(),
-        message: message.into(),
+        message,
     });
 
-    Ok(warp::reply::with_status(json, code))
+    Ok(json.with_status(code))
 }

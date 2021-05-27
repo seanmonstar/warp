@@ -231,63 +231,83 @@ pub trait Reply: BoxedReply + Send {
     /// [`Response`]: type.Response.html
     fn into_response(self) -> Response;
 
-    /*
-    TODO: Currently unsure about having trait methods here, as it
-    requires returning an exact type, which I'd rather not commit to.
-    Additionally, it doesn't work great with `Box<Reply>`.
-
-    A possible alternative is to have wrappers, like
-
-    - `WithStatus<R: Reply>(StatusCode, R)`
-
-
-    /// Change the status code of this `Reply`.
-    fn with_status(self, status: StatusCode) -> Reply_
-    where
-        Self: Sized,
-    {
-        let mut res = self.into_response();
-        *res.status_mut() = status;
-        Reply_(res)
-    }
-
-    /// Add a header to this `Reply`.
+    /// Convert the given value into a [`WithStatus`].
     ///
     /// # Example
     ///
-    /// ```rust
-    /// use warp::Reply;
-    ///
-    /// let reply = warp::reply()
-    ///     .with_header("x-foo", "bar");
     /// ```
-    fn with_header<K, V>(self, name: K, value: V) -> Reply_
+    /// use warp::{Filter, Reply};
+    ///
+    /// #[tokio::main]
+    /// # async fn main() {
+    /// let filter = warp::any()
+    ///     .map(|| "hello".with_status(warp::http::StatusCode::CREATED));
+    ///
+    /// # let res = warp::test::request()
+    /// #        .path("/whatever")
+    /// #        .reply(&filter)
+    /// #        .await;
+    /// #    assert_eq!(res.status(), 201);
+    /// # }
+    /// ```
+    fn with_status(self, status: StatusCode) -> WithStatus<Self>
     where
         Self: Sized,
-        HeaderName: TryFrom<K>,
-        HeaderValue: TryFrom<V>,
     {
-        match <HeaderName as TryFrom<K>>::try_from(name) {
+        WithStatus {
+            reply: self,
+            status,
+        }
+    }
+
+    /// Wrap an `impl Reply` to add a header when rendering.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::{Filter, Reply};
+    ///
+    /// #[tokio::main]
+    /// # async fn main() {
+    /// let filter = warp::any()
+    ///     .map(|| "hello".with_header("server", "warp"));
+    /// #
+    /// # let res = warp::test::request()
+    /// #        .path("/whatever")
+    /// #        .reply(&filter)
+    /// #        .await;
+    /// #    assert_eq!(res.headers().get("server").unwrap(), "warp");
+    /// # }
+    /// ```
+    fn with_header<K, V>(self, name: K, value: V) -> WithHeader<Self>
+    where
+        HeaderName: TryFrom<K>,
+        <HeaderName as TryFrom<K>>::Error: Into<http::Error>,
+        HeaderValue: TryFrom<V>,
+        <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
+        Self: Sized,
+    {
+        let header = match <HeaderName as TryFrom<K>>::try_from(name) {
             Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
-                Ok(value) => {
-                    let mut res = self.into_response();
-                    res.headers_mut().append(name, value);
-                    Reply_(res)
-                },
+                Ok(value) => Some((name, value)),
                 Err(err) => {
-                    tracing::error!("with_header value error: {}", err.into());
-                    Reply_(::reject::server_error()
-                        .into_response())
+                    let err = err.into();
+                    tracing::error!("with_header value error: {}", err);
+                    None
                 }
             },
             Err(err) => {
-                tracing::error!("with_header name error: {}", err.into());
-                Reply_(::reject::server_error()
-                    .into_response())
+                let err = err.into();
+                tracing::error!("with_header name error: {}", err);
+                None
             }
+        };
+
+        WithHeader {
+            header,
+            reply: self,
         }
     }
-    */
 }
 
 impl<T: Reply + ?Sized> Reply for Box<T> {
@@ -302,28 +322,11 @@ fn _assert_object_safe() {
 
 /// Wrap an `impl Reply` to change its `StatusCode`.
 ///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::any()
-///     .map(warp::reply)
-///     .map(|reply| {
-///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
-///     });
-/// ```
-pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
-    WithStatus { reply, status }
-}
-
-/// Wrap an `impl Reply` to change its `StatusCode`.
-///
 /// Returned by `warp::reply::with_status`.
 #[derive(Debug)]
 pub struct WithStatus<T> {
-    reply: T,
     status: StatusCode,
+    reply: T,
 }
 
 impl<T: Reply> Reply for WithStatus<T> {
@@ -334,43 +337,16 @@ impl<T: Reply> Reply for WithStatus<T> {
     }
 }
 
-/// Wrap an `impl Reply` to add a header when rendering.
-///
-/// # Example
-///
-/// ```
-/// use warp::Filter;
-///
-/// let route = warp::any()
-///     .map(warp::reply)
-///     .map(|reply| {
-///         warp::reply::with_header(reply, "server", "warp")
-///     });
-/// ```
-pub fn with_header<T: Reply, K, V>(reply: T, name: K, value: V) -> WithHeader<T>
-where
-    HeaderName: TryFrom<K>,
-    <HeaderName as TryFrom<K>>::Error: Into<http::Error>,
-    HeaderValue: TryFrom<V>,
-    <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
-{
-    let header = match <HeaderName as TryFrom<K>>::try_from(name) {
-        Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
-            Ok(value) => Some((name, value)),
-            Err(err) => {
-                let err = err.into();
-                tracing::error!("with_header value error: {}", err);
-                None
-            }
-        },
-        Err(err) => {
-            let err = err.into();
-            tracing::error!("with_header name error: {}", err);
-            None
-        }
-    };
+impl<T> WithStatus<T> {
+    /// Get a reference of internal reply
+    pub fn get_reply(&self) -> &T {
+        return &self.reply;
+    }
 
-    WithHeader { header, reply }
+    /// Get a reference of internal status code
+    pub fn get_status(&self) -> &StatusCode {
+        return &self.status;
+    }
 }
 
 /// Wraps an `impl Reply` and adds a header when rendering.
@@ -389,6 +365,18 @@ impl<T: Reply> Reply for WithHeader<T> {
             res.headers_mut().insert(name, value);
         }
         res
+    }
+}
+
+impl<T> WithHeader<T> {
+    /// Get a reference of internal reply
+    pub fn get_reply(&self) -> &T {
+        return &self.reply;
+    }
+
+    /// Get a reference of internal header
+    pub fn get_header(&self) -> &Option<(HeaderName, HeaderValue)> {
+        return &self.header;
     }
 }
 
@@ -551,9 +539,8 @@ mod sealed {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn json_serde_error() {

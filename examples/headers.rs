@@ -1,6 +1,6 @@
 #![deny(warnings)]
 use std::net::SocketAddr;
-use warp::Filter;
+use warp::{Filter, Reply};
 
 /// Create a server that requires header conditions:
 ///
@@ -8,6 +8,8 @@ use warp::Filter;
 /// - `Accept` is exactly `*/*`
 ///
 /// If these conditions don't match, a 404 is returned.
+///
+/// Try it out with `curl -v -H "Accept: */*" 127.0.0.1:3030`
 #[tokio::main]
 async fn main() {
     pretty_env_logger::init();
@@ -21,7 +23,7 @@ async fn main() {
 
     let routes = host
         .and(accept_stars)
-        .map(|addr| format!("accepting stars on {}", addr));
+        .map(|addr| format!("accepting stars on {}", addr).with_header("server", "warp")); // Reply with a `server` header
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }

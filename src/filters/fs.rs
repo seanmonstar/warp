@@ -231,7 +231,7 @@ impl File {
     ///     .and(warp::fs::dir("/www/static"))
     ///     .map(|reply: warp::filters::fs::File| {
     ///         if reply.path().ends_with("video.mp4") {
-    ///             warp::reply::with_header(reply, "Content-Type", "video/mp4").into_response()
+    ///             reply.with_header("Content-Type", "video/mp4").into_response()
     ///         } else {
     ///             reply.into_response()
     ///         }
