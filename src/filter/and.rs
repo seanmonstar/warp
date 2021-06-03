@@ -3,9 +3,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::ready;
-use pin_project::{pin_project, project};
+use pin_project::pin_project;
 
-use super::{Combine, Filter, FilterBase, HList, Internal, Tuple};
+use super::{Combine, Filter, FilterBase, Internal, Tuple};
+use crate::generic::CombinedTuples;
 use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
@@ -20,10 +21,10 @@ where
     T::Extract: Send,
     U: Filter + Clone + Send,
     <T::Extract as Tuple>::HList: Combine<<U::Extract as Tuple>::HList> + Send,
-    <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple: Send,
+    CombinedTuples<T::Extract, U::Extract>: Send,
     U::Error: CombineRejection<T::Error>,
 {
-    type Extract = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
+    type Extract = CombinedTuples<T::Extract, U::Extract>;
     type Error = <U::Error as CombineRejection<T::Error>>::One;
     type Future = AndFuture<T, U>;
 
@@ -38,13 +39,13 @@ where
 #[pin_project]
 pub struct AndFuture<T: Filter, U: Filter> {
     #[pin]
-    state: State<T, U>,
+    state: State<T::Future, T::Extract, U>,
 }
 
-#[pin_project]
-enum State<T: Filter, U: Filter> {
-    First(#[pin] T::Future, U),
-    Second(Option<T::Extract>, #[pin] U::Future),
+#[pin_project(project = StateProj)]
+enum State<T, TE, U: Filter> {
+    First(#[pin] T, U),
+    Second(Option<TE>, #[pin] U::Future),
     Done,
 }
 
@@ -56,34 +57,41 @@ where
     U::Error: CombineRejection<T::Error>,
 {
     type Output = Result<
-            <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple,
-        <U::Error as CombineRejection<T::Error>>::One>;
+        CombinedTuples<T::Extract, U::Extract>,
+        <U::Error as CombineRejection<T::Error>>::One,
+    >;
 
-    #[project]
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.project().state.poll(cx)
+    }
+}
+
+impl<T, TE, U, E> Future for State<T, TE, U>
+where
+    T: Future<Output = Result<TE, E>>,
+    U: Filter,
+    TE: Tuple,
+    TE::HList: Combine<<U::Extract as Tuple>::HList> + Send,
+    U::Error: CombineRejection<E>,
+{
+    type Output = Result<CombinedTuples<TE, U::Extract>, <U::Error as CombineRejection<E>>::One>;
+
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            let pin = self.as_mut().project();
-            #[project]
-            let (ex1, fut2) = match pin.state.project() {
-                State::First(first, second) => match ready!(first.poll(cx)) {
-                    Ok(first) => (first, second.filter(Internal)),
-                    Err(err) => return Poll::Ready(Err(From::from(err))),
-                },
-                State::Second(ex1, second) => {
-                    let ex2 = match ready!(second.poll(cx)) {
-                        Ok(second) => second,
-                        Err(err) => return Poll::Ready(Err(From::from(err))),
-                    };
-                    let ex3 = ex1.take().unwrap().hlist().combine(ex2.hlist()).flatten();
-                    self.set(AndFuture { state: State::Done });
+            match self.as_mut().project() {
+                StateProj::First(first, second) => {
+                    let ex1 = ready!(first.poll(cx))?;
+                    let fut2 = second.filter(Internal);
+                    self.set(State::Second(Some(ex1), fut2));
+                }
+                StateProj::Second(ex1, second) => {
+                    let ex2 = ready!(second.poll(cx))?;
+                    let ex3 = ex1.take().unwrap().combine(ex2);
+                    self.set(State::Done);
                     return Poll::Ready(Ok(ex3));
                 }
-                State::Done => panic!("polled after complete"),
-            };
-
-            self.set(AndFuture {
-                state: State::Second(Some(ex1), fut2),
-            });
+                StateProj::Done => panic!("polled after complete"),
+            }
         }
     }
 }

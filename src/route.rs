@@ -75,11 +75,10 @@ impl Route {
         self.req.extensions()
     }
 
-    /*
+    #[cfg(feature = "websocket")]
     pub(crate) fn extensions_mut(&mut self) -> &mut http::Extensions {
         self.req.extensions_mut()
     }
-    */
 
     pub(crate) fn uri(&self) -> &http::Uri {
         self.req.uri()
@@ -95,14 +94,14 @@ impl Route {
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
         let index = self.segments_index + index;
-
         let path = self.req.uri().path();
-
-        if path.len() == index {
+        if path.is_empty() {
+            // malformed path
+            return;
+        } else if path.len() == index {
             self.segments_index = index;
         } else {
             debug_assert_eq!(path.as_bytes()[index], b'/');
-
             self.segments_index = index + 1;
         }
     }

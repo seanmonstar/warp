@@ -4,6 +4,25 @@ Welcome to the examples! These show off `warp`'s functionality and explain how t
 
 ## Getting Started
 
+To get started, run `examples/hello.rs` with:
+
+```bash
+> cargo run --example hello
+```
+
+This will start a simple "hello world" service running on your localhost port 3030.
+
+Open another terminal and run:
+
+```bash
+> curl http://localhost:3030/hi
+Hello, World!%
+```
+
+Congratulations, you have just run your first warp service!
+
+You can run other examples with `cargo run --example [example name]`:
+
 - [`hello.rs`](./hello.rs) - Just a basic "Hello World" API
 - [`routing.rs`](./routing.rs) - Builds up a more complex set of routes and shows how to combine filters
 - [`body.rs`](./body.rs) - What's a good API without parsing data from the request body?
@@ -39,3 +58,7 @@ Hooray! `warp` also includes built-in support for WebSockets
 ### Autoreloading
 
 - [`autoreload.rs`](./autoreload.rs) - Change some code and watch the server reload automatically!
+
+### Debugging
+
+- [`tracing.rs`](./tracing.rs) - Warp has built-in support for rich diagnostics with [`tracing`](https://docs.rs/tracing)!

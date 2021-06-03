@@ -1,9 +1,10 @@
 # warp
 
-[![GHA Build Status](https://github.com/seanmonstar/warp/workflows/CI/badge.svg)](https://github.com/seanmonstar/warp/actions?query=workflow%3ACI)
-[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![crates.io](https://img.shields.io/crates/v/warp.svg)](https://crates.io/crates/warp)
 [![Released API docs](https://docs.rs/warp/badge.svg)](https://docs.rs/warp)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![GHA Build Status](https://github.com/seanmonstar/warp/workflows/CI/badge.svg)](https://github.com/seanmonstar/warp/actions?query=workflow%3ACI)
+[![Discord chat][discord-badge]][discord-url]
 
 A super-easy, composable, web server framework for warp speeds.
 
@@ -35,8 +36,8 @@ Since it builds on top of [hyper](https://hyper.rs), you automatically get:
 Add warp and Tokio to your dependencies:
 
 ```toml
-tokio = { version = "0.2", features = ["macros"] }
-warp = "0.2"
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
 ```
 
 And then get started in your `main.rs`:
@@ -57,3 +58,6 @@ async fn main() {
 ```
 
 For more information you can check the [docs](https://docs.rs/warp) or the [examples](https://github.com/seanmonstar/warp/tree/master/examples).
+
+[discord-badge]: https://img.shields.io/discord/500028886025895936.svg?logo=discord
+[discord-url]: https://discord.gg/RFsPjyt

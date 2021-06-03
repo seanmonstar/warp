@@ -12,11 +12,10 @@ mod untuple_one;
 mod wrap;
 
 use std::future::Future;
-use std::pin::Pin;
 
 use futures::{future, TryFuture, TryFutureExt};
 
-pub(crate) use crate::generic::{one, Combine, Either, Func, HList, One, Tuple};
+pub(crate) use crate::generic::{one, Combine, Either, Func, One, Tuple};
 use crate::reject::{CombineRejection, IsReject, Rejection};
 use crate::route::{self, Route};
 
@@ -30,6 +29,7 @@ use self::or_else::OrElse;
 use self::recover::Recover;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
+pub use self::wrap::wrap_fn;
 pub(crate) use self::wrap::{Wrap, WrapSealed};
 
 // A crate-private base trait, allowing the actual `filter` method to change
@@ -177,7 +177,7 @@ pub trait Filter: FilterBase {
     ///
     /// Even worse, the tuples would shuffle the types around depending on
     /// the exact invocation of `and`s. So, `unit.and(int).and(int)` would
-    /// result in a different extracted type from `unit.and(int.and(int)`,
+    /// result in a different extracted type from `unit.and(int.and(int))`,
     /// or from `int.and(unit).and(int)`. If you changed around the order
     /// of filters, while still having them be semantically equivalent, you'd
     /// need to update all your `map`s as well.
@@ -423,17 +423,14 @@ where
 
 pub(crate) fn filter_fn_one<F, U>(
     func: F,
-) -> FilterFn<impl Fn(&mut Route) -> future::MapOk<U, fn(U::Ok) -> (U::Ok,)> + Copy>
+) -> impl Filter<Extract = (U::Ok,), Error = U::Error> + Copy
 where
     F: Fn(&mut Route) -> U + Copy,
-    U: TryFuture,
+    U: TryFuture + Send + 'static,
+    U::Ok: Send,
     U::Error: IsReject,
 {
-    filter_fn(move |route| func(route).map_ok(tup_one as _))
-}
-
-fn tup_one<T>(item: T) -> (T,) {
-    (item,)
+    filter_fn(move |route| func(route).map_ok(|item| (item,)))
 }
 
 #[derive(Copy, Clone)]
@@ -452,11 +449,10 @@ where
 {
     type Extract = U::Ok;
     type Error = U::Error;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send + 'static>>;
+    type Future = future::IntoFuture<U>;
 
     #[inline]
     fn filter(&self, _: Internal) -> Self::Future {
-        Box::pin(route::with(|route| (self.func)(route)).into_future())
+        route::with(|route| (self.func)(route)).into_future()
     }
 }

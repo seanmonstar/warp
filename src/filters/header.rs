@@ -9,6 +9,7 @@ use std::str::FromStr;
 
 use futures::future;
 use headers::{Header, HeaderMapExt};
+use http::header::HeaderValue;
 use http::HeaderMap;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
@@ -37,7 +38,7 @@ pub fn header<T: FromStr + Send + 'static>(
     name: &'static str,
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(move |route| {
-        log::trace!("header({:?})", name);
+        tracing::trace!("header({:?})", name);
         let route = route
             .headers()
             .get(name)
@@ -51,7 +52,7 @@ pub fn header<T: FromStr + Send + 'static>(
 pub(crate) fn header2<T: Header + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_fn_one(move |route| {
-        log::trace!("header2({:?})", T::name());
+        tracing::trace!("header2({:?})", T::name());
         let route = route
             .headers()
             .typed_get()
@@ -79,7 +80,7 @@ where
     T: FromStr + Send + 'static,
 {
     filter_fn_one(move |route| {
-        log::trace!("optional({:?})", name);
+        tracing::trace!("optional({:?})", name);
         let result = route.headers().get(name).map(|value| {
             value
                 .to_str()
@@ -109,7 +110,7 @@ where
     T: Header + PartialEq + Clone + Send,
 {
     filter_fn(move |route| {
-        log::trace!("exact2({:?})", T::NAME);
+        tracing::trace!("exact2({:?})", T::NAME);
         route.headers()
             .typed_get::<T>()
             .and_then(|val| if val == header {
@@ -138,7 +139,7 @@ pub fn exact(
     value: &'static str,
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
-        log::trace!("exact?({:?}, {:?})", name, value);
+        tracing::trace!("exact?({:?}, {:?})", name, value);
         let route = route
             .headers()
             .get(name)
@@ -163,14 +164,14 @@ pub fn exact(
 ///
 /// ```
 /// // Require `connection: keep-alive` header to be set.
-/// let keep_alive = warp::header::exact("connection", "keep-alive");
+/// let keep_alive = warp::header::exact_ignore_case("connection", "keep-alive");
 /// ```
 pub fn exact_ignore_case(
     name: &'static str,
     value: &'static str,
 ) -> impl Filter<Extract = (), Error = Rejection> + Copy {
     filter_fn(move |route| {
-        log::trace!("exact_ignore_case({:?}, {:?})", name, value);
+        tracing::trace!("exact_ignore_case({:?}, {:?})", name, value);
         let route = route
             .headers()
             .get(name)
@@ -182,6 +183,32 @@ pub fn exact_ignore_case(
                     Err(reject::invalid_header(name))
                 }
             });
+        future::ready(route)
+    })
+}
+
+/// Create a `Filter` that gets a `HeaderValue` for the name.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, http::header::HeaderValue};
+///
+/// let filter = warp::header::value("x-token")
+///     .map(|value: HeaderValue| {
+///         format!("header value bytes: {:?}", value)
+///     });
+/// ```
+pub fn value(
+    name: &'static str,
+) -> impl Filter<Extract = One<HeaderValue>, Error = Rejection> + Copy {
+    filter_fn_one(move |route| {
+        tracing::trace!("value({:?})", name);
+        let route = route
+            .headers()
+            .get(name)
+            .cloned()
+            .ok_or_else(|| reject::missing_header(name));
         future::ready(route)
     })
 }

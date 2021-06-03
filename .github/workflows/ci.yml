@@ -45,8 +45,6 @@ jobs:
             benches: true
           - build: tls
             features: "--features tls"
-          - build: uds
-            features: "--features tokio/uds"
           - build: no-default-features
             features: "--no-default-features"
           - build: compression
@@ -96,4 +94,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: rustdoc
-          args: -- -D intra-doc-link-resolution-failure
+          args: -- -D broken_intra_doc_links

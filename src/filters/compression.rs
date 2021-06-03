@@ -2,9 +2,13 @@
 //!
 //! Filters that compress the body of a response.
 
-use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
+use async_compression::tokio::bufread::{BrotliEncoder, DeflateEncoder, GzipEncoder};
 use http::header::HeaderValue;
-use hyper::{header::CONTENT_ENCODING, Body};
+use hyper::{
+    header::{CONTENT_ENCODING, CONTENT_LENGTH},
+    Body,
+};
+use tokio_util::io::{ReaderStream, StreamReader};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -53,11 +57,14 @@ pub struct Compression<F> {
 /// ```
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(GzipEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(GzipEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::GZIP.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -78,11 +85,14 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 /// ```
 pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(DeflateEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(DeflateEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::DEFLATE.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
@@ -103,11 +113,14 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 /// ```
 pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(BrotliEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(BrotliEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
             .append(CONTENT_ENCODING, CompressionAlgo::BR.into());
+        props.head.headers.remove(CONTENT_LENGTH);
         Response::from_parts(props.head, body)
     };
     Compression { func }
