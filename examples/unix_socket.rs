@@ -1,8 +1,6 @@
 #![deny(warnings)]
 
 use futures::TryStreamExt;
-use tokio::net::UnixListener;
-use tokio_stream::wrappers::UnixListenerStream;
 use warp::LiftIo;
 
 #[cfg(unix)]
