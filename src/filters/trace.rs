@@ -234,8 +234,8 @@ mod internal {
         pub(super) trace: Trace<FN>,
     }
 
+    use tracing::instrument::{Instrument, Instrumented};
     use tracing::Span;
-    use tracing_futures::{Instrument, Instrumented};
 
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
         match reply {

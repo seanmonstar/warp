@@ -26,7 +26,19 @@ where
 {
 }
 
-/// Function that receives a filter to be combined with pre and after filters
+/// Combines received filter with pre and after filters
+///
+/// # Example
+///
+/// ```
+/// use crate::warp::Filter;
+///
+/// let route = warp::any()
+///     .map(|| "hello world")
+///     .with(warp::wrap_fn(|filter| filter));
+/// ```
+///
+/// You can find the full example in the [usage example](https://github.com/seanmonstar/warp/blob/master/examples/wrapping.rs).
 pub fn wrap_fn<F, T, U>(func: F) -> WrapFn<F>
 where
     F: Fn(T) -> U,
