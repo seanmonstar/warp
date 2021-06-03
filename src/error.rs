@@ -28,7 +28,11 @@ impl fmt::Display for Error {
     }
 }
 
-impl StdError for Error {}
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.inner.as_ref())
+    }
+}
 
 impl From<Infallible> for Error {
     fn from(infallible: Infallible) -> Error {
@@ -42,6 +46,12 @@ fn error_size_of() {
         ::std::mem::size_of::<Error>(),
         ::std::mem::size_of::<usize>() * 2
     );
+}
+
+#[test]
+fn error_source() {
+    let e = Error::new(std::fmt::Error {});
+    assert!(e.source().unwrap().is::<std::fmt::Error>());
 }
 
 macro_rules! unit_error {
