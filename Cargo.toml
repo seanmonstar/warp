@@ -34,7 +34,7 @@ serde_urlencoded = "0.7"
 tokio = { version = "1.0", features = ["fs", "sync", "time"] }
 tokio-stream = "0.1.1"
 tokio-util = { version = "0.6", features = ["io"] }
-tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
+tracing = { version = "0.1.21", default-features = false, features = ["std"] }
 tower-service = "0.3"
 tokio-tungstenite = { version = "0.14", optional = true }
 percent-encoding = "2.1"
@@ -52,10 +52,11 @@ tokio-stream = { version = "0.1.1", features = ["net"] }
 listenfd = "0.3"
 
 [features]
-default = ["multipart", "websocket"]
+default = ["multipart", "websocket", "trace-log"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
 compression = ["async-compression"]
+trace-log = ["tracing/log"]
 
 [profile.release]
 codegen-units = 1
