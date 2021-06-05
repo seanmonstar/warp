@@ -1,9 +1,13 @@
-use std::mem;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use futures::{Async, Future, Poll};
+use futures::ready;
+use pin_project::pin_project;
 
-use ::reject::CombineRejection;
-use super::{Combine, FilterBase, Filter, HList, Tuple};
+use super::{Combine, Filter, FilterBase, Internal, Tuple};
+use crate::generic::CombinedTuples;
+use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct And<T, U> {
@@ -14,31 +18,34 @@ pub struct And<T, U> {
 impl<T, U> FilterBase for And<T, U>
 where
     T: Filter,
-    U: Filter + Clone + Send,
     T::Extract: Send,
+    U: Filter + Clone + Send,
     <T::Extract as Tuple>::HList: Combine<<U::Extract as Tuple>::HList> + Send,
-    <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple: Send,
+    CombinedTuples<T::Extract, U::Extract>: Send,
     U::Error: CombineRejection<T::Error>,
 {
-    type Extract = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
-    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
+    type Extract = CombinedTuples<T::Extract, U::Extract>;
+    type Error = <U::Error as CombineRejection<T::Error>>::One;
     type Future = AndFuture<T, U>;
 
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AndFuture {
-            state: State::First(self.first.filter(), self.second.clone()),
+            state: State::First(self.first.filter(Internal), self.second.clone()),
         }
     }
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct AndFuture<T: Filter, U: Filter> {
-    state: State<T, U>,
+    #[pin]
+    state: State<T::Future, T::Extract, U>,
 }
 
-enum State<T: Filter, U: Filter> {
-    First(T::Future, U),
-    Second(Option<T::Extract>, U::Future),
+#[pin_project(project = StateProj)]
+enum State<T, TE, U: Filter> {
+    First(#[pin] T, U),
+    Second(Option<TE>, #[pin] U::Future),
     Done,
 }
 
@@ -46,41 +53,45 @@ impl<T, U> Future for AndFuture<T, U>
 where
     T: Filter,
     U: Filter,
-    //T::Extract: Combine<U::Extract>,
     <T::Extract as Tuple>::HList: Combine<<U::Extract as Tuple>::HList> + Send,
     U::Error: CombineRejection<T::Error>,
 {
-    //type Item = <T::Extract as Combine<U::Extract>>::Output;
-    type Item = <<<T::Extract as Tuple>::HList as Combine<<U::Extract as Tuple>::HList>>::Output as HList>::Tuple;
-    type Error = <U::Error as CombineRejection<T::Error>>::Rejection;
+    type Output = Result<
+        CombinedTuples<T::Extract, U::Extract>,
+        <U::Error as CombineRejection<T::Error>>::One,
+    >;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let ex1 = match self.state {
-            State::First(ref mut first, _) => {
-                try_ready!(first.poll())
-            },
-            State::Second(ref mut ex1, ref mut second) => {
-                let ex2 = try_ready!(second.poll());
-                let ex3 = ex1.take().unwrap().hlist().combine(ex2.hlist()).flatten();
-                return Ok(Async::Ready(ex3));
-            },
-            State::Done => panic!("polled after complete"),
-        };
-
-        let mut second = match mem::replace(&mut self.state, State::Done) {
-            State::First(_, second) => second.filter(),
-            _ => unreachable!(),
-        };
-
-        match second.poll()? {
-            Async::Ready(ex2) => {
-                Ok(Async::Ready(ex1.hlist().combine(ex2.hlist()).flatten()))
-            },
-            Async::NotReady => {
-                self.state = State::Second(Some(ex1), second);
-                Ok(Async::NotReady)
-            },
-        }
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.project().state.poll(cx)
     }
 }
 
+impl<T, TE, U, E> Future for State<T, TE, U>
+where
+    T: Future<Output = Result<TE, E>>,
+    U: Filter,
+    TE: Tuple,
+    TE::HList: Combine<<U::Extract as Tuple>::HList> + Send,
+    U::Error: CombineRejection<E>,
+{
+    type Output = Result<CombinedTuples<TE, U::Extract>, <U::Error as CombineRejection<E>>::One>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        loop {
+            match self.as_mut().project() {
+                StateProj::First(first, second) => {
+                    let ex1 = ready!(first.poll(cx))?;
+                    let fut2 = second.filter(Internal);
+                    self.set(State::Second(Some(ex1), fut2));
+                }
+                StateProj::Second(ex1, second) => {
+                    let ex2 = ready!(second.poll(cx))?;
+                    let ex3 = ex1.take().unwrap().combine(ex2);
+                    self.set(State::Done);
+                    return Poll::Ready(Ok(ex3));
+                }
+                StateProj::Done => panic!("polled after complete"),
+            }
+        }
+    }
+}

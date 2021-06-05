@@ -1,14 +1,15 @@
 //! A filter that matches any route.
+use std::convert::Infallible;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use futures::{Future, Poll};
-
-use ::never::Never;
-use ::filter::{FilterBase, Filter};
+use crate::filter::{Filter, FilterBase, Internal};
 
 /// A filter that matches any route.
 ///
 /// This can be a useful building block to build new filters from,
-/// since [`Filter`](::Filter) is otherwise a sealed trait.
+/// since [`Filter`](crate::Filter) is otherwise a sealed trait.
 ///
 /// # Example
 ///
@@ -43,7 +44,7 @@ use ::filter::{FilterBase, Filter};
 ///         db.contains(&param_id)
 ///     });
 /// ```
-pub fn any() -> impl Filter<Extract=(), Error=Never> + Copy {
+pub fn any() -> impl Filter<Extract = (), Error = Infallible> + Copy {
     Any
 }
 
@@ -53,11 +54,11 @@ struct Any;
 
 impl FilterBase for Any {
     type Extract = ();
-    type Error = Never;
+    type Error = Infallible;
     type Future = AnyFut;
 
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AnyFut
     }
 }
@@ -66,12 +67,10 @@ impl FilterBase for Any {
 struct AnyFut;
 
 impl Future for AnyFut {
-    type Item = ();
-    type Error = Never;
+    type Output = Result<(), Infallible>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(().into())
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+        Poll::Ready(Ok(()))
     }
 }
-

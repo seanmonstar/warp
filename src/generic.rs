@@ -26,7 +26,20 @@ pub trait Tuple: Sized {
     type HList: HList<Tuple = Self>;
 
     fn hlist(self) -> Self::HList;
+
+    #[inline]
+    fn combine<T>(self, other: T) -> CombinedTuples<Self, T>
+    where
+        Self: Sized,
+        T: Tuple,
+        Self::HList: Combine<T::HList>,
+    {
+        self.hlist().combine(other.hlist()).flatten()
+    }
 }
+
+pub type CombinedTuples<T, U> =
+    <<<T as Tuple>::HList as Combine<<U as Tuple>::HList>>::Output as HList>::Tuple;
 
 // Combines Product together.
 pub trait Combine<T: HList> {
@@ -67,18 +80,14 @@ where
 impl HList for () {
     type Tuple = ();
     #[inline]
-    fn flatten(self) -> Self::Tuple {
-        ()
-    }
+    fn flatten(self) -> Self::Tuple {}
 }
 
 impl Tuple for () {
     type HList = ();
 
     #[inline]
-    fn hlist(self) -> Self::HList {
-        ()
-    }
+    fn hlist(self) -> Self::HList {}
 }
 
 impl<F, R> Func<()> for F
@@ -93,14 +102,14 @@ where
     }
 }
 
-impl<F, R> Func<::Rejection> for F
+impl<F, R> Func<crate::Rejection> for F
 where
-    F: Fn(::Rejection) -> R,
+    F: Fn(crate::Rejection) -> R,
 {
     type Output = R;
 
     #[inline]
-    fn call(&self, arg: ::Rejection) -> Self::Output {
+    fn call(&self, arg: crate::Rejection) -> Self::Output {
         (*self)(arg)
     }
 }
@@ -239,4 +248,3 @@ generics! {
     T15,
     T16
 }
-

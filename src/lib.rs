@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/warp/0.1.3")]
+#![doc(html_root_url = "https://docs.rs/warp/0.3.1")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![cfg_attr(test, deny(warnings))]
@@ -13,6 +13,7 @@
 //! - Header requirements and extraction
 //! - Query string deserialization
 //! - JSON and Form bodies
+//! - Multipart form data
 //! - Static Files and Directories
 //! - Websockets
 //! - Access logging
@@ -30,8 +31,8 @@
 //!
 //! The main concept in warp is the [`Filter`][Filter], which allows composition
 //! to describe various endpoints in your web service. Besides this powerful
-//! trait, warp comes with several built in [filters](filters), which can be
-//! combined for your specific needs.
+//! trait, warp comes with several built in [filters](filters/index.html), which
+//! can be combined for your specific needs.
 //!
 //! As a small example, consider an endpoint that has path and header requirements:
 //!
@@ -52,7 +53,7 @@
 //! - A path parameter of a `String`
 //! - The `user-agent` header parsed as a `String`
 //!
-//! These specific filters will [`reject`](./reject) requests that don't match
+//! These specific filters will [`reject`][reject] requests that don't match
 //! their requirements.
 //!
 //! This ends up matching requests like:
@@ -73,89 +74,105 @@
 //! Hello sean, whose agent is reqwest/v0.8.6
 //! ```
 //!
-//! Take a look at the full list of [`filters`](filters) to see what you can build.
+//! Take a look at the full list of [`filters`](filters/index.html) to see what
+//! you can build.
 //!
 //! ## Testing
 //!
 //! Testing your web services easily is extremely important, and warp provides
-//! a [`test`](test) module to help send mocked requests through your service.
+//! a [`test`](self::test) module to help send mocked requests through your service.
 //!
 //! [Filter]: trait.Filter.html
+//! [reject]: reject/index.html
 
-extern crate base64;
-#[macro_use] extern crate bitflags;
-extern crate bytes;
-#[macro_use] extern crate futures;
-#[doc(hidden)]
-pub extern crate http;
-extern crate hyper;
-#[macro_use] extern crate log as logcrate;
-extern crate mime;
-extern crate mime_guess;
-#[macro_use] extern crate scoped_tls;
-extern crate serde;
-extern crate serde_json;
-extern crate serde_urlencoded;
-extern crate sha1;
-extern crate tokio;
-extern crate tungstenite;
-extern crate urlencoding;
-
+#[macro_use]
 mod error;
 mod filter;
 pub mod filters;
 mod generic;
-mod never;
+pub mod redirect;
 pub mod reject;
 pub mod reply;
 mod route;
 mod server;
+mod service;
 pub mod test;
+#[cfg(feature = "tls")]
+mod tls;
+mod transport;
 
 pub use self::error::Error;
-pub use self::filter::{Filter};
+pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
+#[cfg(feature = "compression")]
 #[doc(hidden)]
-#[allow(deprecated)]
+pub use self::filters::compression;
+#[cfg(feature = "multipart")]
+#[doc(hidden)]
+pub use self::filters::multipart;
+#[cfg(feature = "websocket")]
+#[doc(hidden)]
+pub use self::filters::ws;
+#[doc(hidden)]
 pub use self::filters::{
+    addr,
     // any() function
     any::any,
     body,
     cookie,
     // cookie() function
     cookie::cookie,
+    cors,
+    // cors() function
+    cors::cors,
+    ext,
     fs,
     header,
     // header() function
     header::header,
+    host,
     log,
     // log() function
     log::log,
-    method::{get, method, post, put, delete},
-    method::{head, options, patch},
-    method::{get2, post2, put2, delete2},
+    method::{delete, get, head, method, options, patch, post, put},
     path,
-    // the index() function
-    path::index,
-    // path() function
+    // path() function and macro
     path::path,
     query,
     // query() function
     query::query,
-    ws,
-    // ws() function
-    ws::{ws, ws2},
+    sse,
+    trace,
+    // trace() function
+    trace::trace,
 };
+// ws() function
+pub use self::filter::wrap_fn;
+#[cfg(feature = "websocket")]
 #[doc(hidden)]
+pub use self::filters::ws::ws;
+#[doc(hidden)]
+pub use self::redirect::redirect;
+#[doc(hidden)]
+#[allow(deprecated)]
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
+#[cfg(feature = "tls")]
+pub use self::server::TlsServer;
 pub use self::server::{serve, Server};
-pub use hyper::rt::spawn;
+pub use self::service::service;
+#[doc(hidden)]
+pub use http;
+#[doc(hidden)]
+pub use hyper;
 
 #[doc(hidden)]
+pub use bytes::Buf;
+#[doc(hidden)]
 pub use futures::{Future, Sink, Stream};
+#[doc(hidden)]
 
 pub(crate) type Request = http::Request<hyper::Body>;

@@ -16,66 +16,85 @@
 //! ```
 //! use warp::Filter;
 //!
-//! // Filter on `/:id`, but reject with 400 if the `id` is `0`.
+//! // Filter on `/:id`, but reject with 404 if the `id` is `0`.
 //! let route = warp::path::param()
-//!     .and_then(|id: u32| {
+//!     .and_then(|id: u32| async move {
 //!         if id == 0 {
-//!             Err(warp::reject())
+//!             Err(warp::reject::not_found())
 //!         } else {
 //!             Ok("something since id is valid")
 //!         }
 //!     });
 //! ```
 
+use std::any::Any;
+use std::convert::Infallible;
 use std::error::Error as StdError;
+use std::fmt;
 
-use http;
-use serde;
+use http::{
+    self,
+    header::{HeaderValue, CONTENT_TYPE},
+    StatusCode,
+};
+use hyper::Body;
 
-use ::never::Never;
+pub(crate) use self::sealed::{CombineRejection, IsReject};
 
-pub(crate) use self::sealed::{CombineRejection, Reject};
-
-/// Rejects a request with a default `400 Bad Request`.
+/// Rejects a request with `404 Not Found`.
 #[inline]
 pub fn reject() -> Rejection {
-    bad_request()
-}
-
-/// Rejects a request with `400 Bad Request`.
-#[inline]
-pub fn bad_request() -> Rejection {
-    Reason::BAD_REQUEST.into()
-}
-
-/// Rejects a request with `403 Forbidden`
-#[inline]
-pub fn forbidden() -> Rejection {
-    Reason::FORBIDDEN.into()
+    not_found()
 }
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
 pub fn not_found() -> Rejection {
-    Reason::empty().into()
+    Rejection {
+        reason: Reason::NotFound,
+    }
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn invalid_query() -> Rejection {
+    known(InvalidQuery { _p: () })
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn missing_header(name: &'static str) -> Rejection {
+    known(MissingHeader { name })
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn invalid_header(name: &'static str) -> Rejection {
+    known(InvalidHeader { name })
+}
+
+// 400 Bad Request
+#[inline]
+pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
+    known(MissingCookie { name })
 }
 
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
-    Reason::METHOD_NOT_ALLOWED.into()
+    known(MethodNotAllowed { _p: () })
 }
 
 // 411 Length Required
 #[inline]
 pub(crate) fn length_required() -> Rejection {
-    Reason::LENGTH_REQUIRED.into()
+    known(LengthRequired { _p: () })
 }
 
 // 413 Payload Too Large
 #[inline]
 pub(crate) fn payload_too_large() -> Rejection {
-    Reason::PAYLOAD_TOO_LARGE.into()
+    known(PayloadTooLarge { _p: () })
 }
 
 // 415 Unsupported Media Type
@@ -84,218 +103,568 @@ pub(crate) fn payload_too_large() -> Rejection {
 // what can be deserialized.
 #[inline]
 pub(crate) fn unsupported_media_type() -> Rejection {
-    Reason::UNSUPPORTED_MEDIA_TYPE.into()
+    known(UnsupportedMediaType { _p: () })
 }
 
-/// Rejects a request with `500 Internal Server Error`.
-#[inline]
-pub fn server_error() -> Rejection {
-    Reason::SERVER_ERROR.into()
+/// Rejects a request with a custom cause.
+///
+/// A [`recover`][] filter should convert this `Rejection` into a `Reply`,
+/// or else this will be returned as a `500 Internal Server Error`.
+///
+/// [`recover`]: ../trait.Filter.html#method.recover
+pub fn custom<T: Reject>(err: T) -> Rejection {
+    Rejection::custom(Box::new(err))
 }
 
-/// Error cause for a rejection.
-pub type Cause = Box<StdError + Send + Sync>;
+/// Protect against re-rejecting a rejection.
+///
+/// ```compile_fail
+/// fn with(r: warp::Rejection) {
+///     let _wat = warp::reject::custom(r);
+/// }
+/// ```
+fn __reject_custom_compilefail() {}
 
-/// Rejection of a request by a [`Filter`](::Filter).
-#[derive(Debug)]
+/// A marker trait to ensure proper types are used for custom rejections.
+///
+/// Can be converted into Rejection.
+///
+/// # Example
+///
+/// ```
+/// use warp::{Filter, reject::Reject};
+///
+/// #[derive(Debug)]
+/// struct RateLimited;
+///
+/// impl Reject for RateLimited {}
+///
+/// let route = warp::any().and_then(|| async {
+///     Err::<(), _>(warp::reject::custom(RateLimited))
+/// });
+/// ```
+// Require `Sized` for now to prevent passing a `Box<dyn Reject>`, since we
+// would be double-boxing it, and the downcasting wouldn't work as expected.
+pub trait Reject: fmt::Debug + Sized + Send + Sync + 'static {}
+
+trait Cause: fmt::Debug + Send + Sync + 'static {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T> Cause for T
+where
+    T: fmt::Debug + Send + Sync + 'static,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl dyn Cause {
+    fn downcast_ref<T: Any>(&self) -> Option<&T> {
+        self.as_any().downcast_ref::<T>()
+    }
+}
+
+pub(crate) fn known<T: Into<Known>>(err: T) -> Rejection {
+    Rejection::known(err.into())
+}
+
+/// Rejection of a request by a [`Filter`](crate::Filter).
+///
+/// See the [`reject`](module@crate::reject) documentation for more.
 pub struct Rejection {
     reason: Reason,
-    cause: Option<Cause>,
 }
 
-bitflags! {
-    struct Reason: u8 {
-        // NOT_FOUND = 0
-        const BAD_REQUEST            = 0b00000001;
-        const METHOD_NOT_ALLOWED     = 0b00000010;
-        const LENGTH_REQUIRED        = 0b00000100;
-        const PAYLOAD_TOO_LARGE      = 0b00001000;
-        const UNSUPPORTED_MEDIA_TYPE = 0b00010000;
-        const FORBIDDEN              = 0b00100000;
+enum Reason {
+    NotFound,
+    Other(Box<Rejections>),
+}
 
-        // SERVER_ERROR has to be the last reason, to avoid shadowing it when combining rejections
-        const SERVER_ERROR           = 0b10000000;
-    }
+enum Rejections {
+    Known(Known),
+    Custom(Box<dyn Cause>),
+    Combined(Box<Rejections>, Box<Rejections>),
+}
+
+macro_rules! enum_known {
+     ($($(#[$attr:meta])* $var:ident($ty:path),)+) => (
+        pub(crate) enum Known {
+            $(
+            $(#[$attr])*
+            $var($ty),
+            )+
+        }
+
+        impl Known {
+            fn inner_as_any(&self) -> &dyn Any {
+                match *self {
+                    $(
+                    $(#[$attr])*
+                    Known::$var(ref t) => t,
+                    )+
+                }
+            }
+        }
+
+        impl fmt::Debug for Known {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match *self {
+                    $(
+                    $(#[$attr])*
+                    Known::$var(ref t) => t.fmt(f),
+                    )+
+                }
+            }
+        }
+
+        impl fmt::Display for Known {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match *self {
+                    $(
+                    $(#[$attr])*
+                    Known::$var(ref t) => t.fmt(f),
+                    )+
+                }
+            }
+        }
+
+        $(
+        #[doc(hidden)]
+        $(#[$attr])*
+        impl From<$ty> for Known {
+            fn from(ty: $ty) -> Known {
+                Known::$var(ty)
+            }
+        }
+        )+
+    );
+}
+
+enum_known! {
+    MethodNotAllowed(MethodNotAllowed),
+    InvalidHeader(InvalidHeader),
+    MissingHeader(MissingHeader),
+    MissingCookie(MissingCookie),
+    InvalidQuery(InvalidQuery),
+    LengthRequired(LengthRequired),
+    PayloadTooLarge(PayloadTooLarge),
+    UnsupportedMediaType(UnsupportedMediaType),
+    FileOpenError(crate::fs::FileOpenError),
+    FilePermissionError(crate::fs::FilePermissionError),
+    BodyReadError(crate::body::BodyReadError),
+    BodyDeserializeError(crate::body::BodyDeserializeError),
+    CorsForbidden(crate::cors::CorsForbidden),
+    #[cfg(feature = "websocket")]
+    MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
+    MissingExtension(crate::ext::MissingExtension),
+    BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
 }
 
 impl Rejection {
-    /// Return the HTTP status code that this rejection represents.
-    pub fn status(&self) -> http::StatusCode {
-        Reject::status(self)
-    }
-
-    /// Add given `err` into `Rejection`.
-    pub fn with<E>(self, err: E) -> Self
-    where E: Into<Cause> + Sized
-    {
-        let cause = Some(err.into());
-        Self {
-            cause,
-            .. self
-        }
-    }
-}
-
-#[doc(hidden)]
-impl From<Reason> for Rejection {
-    #[inline]
-    fn from(reason: Reason) -> Rejection {
+    fn known(known: Known) -> Self {
         Rejection {
-            reason,
-            cause: None,
+            reason: Reason::Other(Box::new(Rejections::Known(known))),
+        }
+    }
+
+    fn custom(other: Box<dyn Cause>) -> Self {
+        Rejection {
+            reason: Reason::Other(Box::new(Rejections::Custom(other))),
+        }
+    }
+
+    /// Searches this `Rejection` for a specific cause.
+    ///
+    /// A `Rejection` will accumulate causes over a `Filter` chain. This method
+    /// can search through them and return the first cause of this type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// #[derive(Debug)]
+    /// struct Nope;
+    ///
+    /// impl warp::reject::Reject for Nope {}
+    ///
+    /// let reject = warp::reject::custom(Nope);
+    ///
+    /// if let Some(nope) = reject.find::<Nope>() {
+    ///    println!("found it: {:?}", nope);
+    /// }
+    /// ```
+    pub fn find<T: 'static>(&self) -> Option<&T> {
+        if let Reason::Other(ref rejections) = self.reason {
+            return rejections.find();
+        }
+        None
+    }
+
+    /// Returns true if this Rejection was made via `warp::reject::not_found`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let rejection = warp::reject();
+    ///
+    /// assert!(rejection.is_not_found());
+    /// ```
+    pub fn is_not_found(&self) -> bool {
+        if let Reason::NotFound = self.reason {
+            true
+        } else {
+            false
         }
     }
 }
 
-impl From<Never> for Rejection {
+impl<T: Reject> From<T> for Rejection {
     #[inline]
-    fn from(never: Never) -> Rejection {
-        match never {}
+    fn from(err: T) -> Rejection {
+        custom(err)
     }
 }
 
-impl Reject for Never {
-    fn status(&self) -> http::StatusCode {
+impl From<Infallible> for Rejection {
+    #[inline]
+    fn from(infallible: Infallible) -> Rejection {
+        match infallible {}
+    }
+}
+
+impl IsReject for Infallible {
+    fn status(&self) -> StatusCode {
         match *self {}
     }
 
-    fn into_response(self) -> ::reply::Response {
-        match self {}
-    }
-
-    fn cause(&self) -> Option<&Cause> {
-        None
+    fn into_response(&self) -> crate::reply::Response {
+        match *self {}
     }
 }
 
-impl Reject for Rejection {
-    fn status(&self) -> http::StatusCode {
-        if self.reason.contains(Reason::SERVER_ERROR) {
-            http::StatusCode::INTERNAL_SERVER_ERROR
-        } else if self.reason.contains(Reason::FORBIDDEN) {
-            http::StatusCode::FORBIDDEN
-        } else if self.reason.contains(Reason::UNSUPPORTED_MEDIA_TYPE) {
-            http::StatusCode::UNSUPPORTED_MEDIA_TYPE
-        } else if self.reason.contains(Reason::LENGTH_REQUIRED) {
-            http::StatusCode::LENGTH_REQUIRED
-        } else if self.reason.contains(Reason::PAYLOAD_TOO_LARGE) {
-            http::StatusCode::PAYLOAD_TOO_LARGE
-        } else if self.reason.contains(Reason::BAD_REQUEST) {
-            http::StatusCode::BAD_REQUEST
-        } else if self.reason.contains(Reason::METHOD_NOT_ALLOWED) {
-            http::StatusCode::METHOD_NOT_ALLOWED
-        } else {
-            debug_assert!(self.reason.is_empty());
-            http::StatusCode::NOT_FOUND
+impl IsReject for Rejection {
+    fn status(&self) -> StatusCode {
+        match self.reason {
+            Reason::NotFound => StatusCode::NOT_FOUND,
+            Reason::Other(ref other) => other.status(),
         }
     }
 
-    fn into_response(self) -> ::reply::Response {
-        use http::header::{CONTENT_TYPE, HeaderValue};
-        use hyper::Body;
+    fn into_response(&self) -> crate::reply::Response {
+        match self.reason {
+            Reason::NotFound => {
+                let mut res = http::Response::default();
+                *res.status_mut() = StatusCode::NOT_FOUND;
+                res
+            }
+            Reason::Other(ref other) => other.into_response(),
+        }
+    }
+}
 
-        let code = self.status();
-        let mut res = http::Response::default();
-        *res.status_mut() = code;
+impl fmt::Debug for Rejection {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Rejection").field(&self.reason).finish()
+    }
+}
 
-        match self.cause {
-            Some(err) => {
-                let bytes = format!("{}", err);
-                res.headers_mut().insert(CONTENT_TYPE, HeaderValue::from_static("text/plain"));
-                *res.body_mut() = Body::from(bytes);
+impl fmt::Debug for Reason {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Reason::NotFound => f.write_str("NotFound"),
+            Reason::Other(ref other) => match **other {
+                Rejections::Known(ref e) => fmt::Debug::fmt(e, f),
+                Rejections::Custom(ref e) => fmt::Debug::fmt(e, f),
+                Rejections::Combined(ref a, ref b) => {
+                    let mut list = f.debug_list();
+                    a.debug_list(&mut list);
+                    b.debug_list(&mut list);
+                    list.finish()
+                }
             },
-            None => {}
         }
-
-        res
-    }
-
-    fn cause(&self) -> Option<&Cause> {
-        if let Some(ref err) = self.cause {
-            return Some(&err)
-        }
-        None
     }
 }
 
-impl serde::Serialize for Rejection {
+// ===== Rejections =====
 
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer
-    {
-        use serde::ser::SerializeMap;
-
-        let mut map = serializer.serialize_map(None)?;
-        let err = match self.cause {
-            Some(ref err) => err,
-            None => return map.end()
-        };
-
-        map.serialize_key("description").and_then(|_| map.serialize_value(err.description()))?;
-        map.serialize_key("message").and_then(|_| map.serialize_value(&err.to_string()))?;
-        map.end()
-    }
-}
-
-mod sealed {
-    use ::never::Never;
-    use super::{Rejection, Cause};
-
-    pub trait Reject: ::std::fmt::Debug + Send {
-        fn status(&self) -> ::http::StatusCode;
-        fn into_response(self) -> ::reply::Response;
-        fn cause(&self) -> Option<&Cause>;
+impl Rejections {
+    fn status(&self) -> StatusCode {
+        match *self {
+            Rejections::Known(ref k) => match *k {
+                Known::MethodNotAllowed(_) => StatusCode::METHOD_NOT_ALLOWED,
+                Known::InvalidHeader(_)
+                | Known::MissingHeader(_)
+                | Known::MissingCookie(_)
+                | Known::InvalidQuery(_)
+                | Known::BodyReadError(_)
+                | Known::BodyDeserializeError(_) => StatusCode::BAD_REQUEST,
+                #[cfg(feature = "websocket")]
+                Known::MissingConnectionUpgrade(_) => StatusCode::BAD_REQUEST,
+                Known::LengthRequired(_) => StatusCode::LENGTH_REQUIRED,
+                Known::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+                Known::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                Known::FilePermissionError(_) | Known::CorsForbidden(_) => StatusCode::FORBIDDEN,
+                Known::FileOpenError(_)
+                | Known::MissingExtension(_)
+                | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            },
+            Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
+            Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
+        }
     }
 
-    fn _assert_object_safe() {
-        fn _assert(_: &Reject) {}
+    fn into_response(&self) -> crate::reply::Response {
+        match *self {
+            Rejections::Known(ref e) => {
+                let mut res = http::Response::new(Body::from(e.to_string()));
+                *res.status_mut() = self.status();
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
+                res
+            }
+            Rejections::Custom(ref e) => {
+                tracing::error!(
+                    "unhandled custom rejection, returning 500 response: {:?}",
+                    e
+                );
+                let body = format!("Unhandled rejection: {:?}", e);
+                let mut res = http::Response::new(Body::from(body));
+                *res.status_mut() = self.status();
+                res.headers_mut().insert(
+                    CONTENT_TYPE,
+                    HeaderValue::from_static("text/plain; charset=utf-8"),
+                );
+                res
+            }
+            Rejections::Combined(ref a, ref b) => preferred(a, b).into_response(),
+        }
     }
 
-    pub trait CombineRejection<E>: Send + Sized {
-        type Rejection: Reject + From<Self> + From<E>;
-
-        fn combine(self, other: E) -> Self::Rejection;
+    fn find<T: 'static>(&self) -> Option<&T> {
+        match *self {
+            Rejections::Known(ref e) => e.inner_as_any().downcast_ref(),
+            Rejections::Custom(ref e) => e.downcast_ref(),
+            Rejections::Combined(ref a, ref b) => a.find().or_else(|| b.find()),
+        }
     }
 
-    impl CombineRejection<Rejection> for Rejection {
-        type Rejection = Rejection;
-
-        fn combine(self, other: Rejection) -> Self::Rejection {
-            let reason = self.reason | other.reason;
-            let cause = if self.reason > other.reason {
-                self.cause
-            } else {
-                other.cause
-            };
-
-            Rejection {
-                reason,
-                cause
+    fn debug_list(&self, f: &mut fmt::DebugList<'_, '_>) {
+        match *self {
+            Rejections::Known(ref e) => {
+                f.entry(e);
+            }
+            Rejections::Custom(ref e) => {
+                f.entry(e);
+            }
+            Rejections::Combined(ref a, ref b) => {
+                a.debug_list(f);
+                b.debug_list(f);
             }
         }
     }
+}
 
-    impl CombineRejection<Never> for Rejection {
-        type Rejection = Rejection;
+fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
+    // Compare status codes, with this priority:
+    // - NOT_FOUND is lowest
+    // - METHOD_NOT_ALLOWED is second
+    // - if one status code is greater than the other
+    // - otherwise, prefer A...
+    match (a.status(), b.status()) {
+        (_, StatusCode::NOT_FOUND) => a,
+        (StatusCode::NOT_FOUND, _) => b,
+        (_, StatusCode::METHOD_NOT_ALLOWED) => a,
+        (StatusCode::METHOD_NOT_ALLOWED, _) => b,
+        (sa, sb) if sa < sb => b,
+        _ => a,
+    }
+}
 
-        fn combine(self, other: Never) -> Self::Rejection {
+unit_error! {
+    /// Invalid query
+    pub InvalidQuery: "Invalid query string"
+}
+
+unit_error! {
+    /// HTTP method not allowed
+    pub MethodNotAllowed: "HTTP method not allowed"
+}
+
+unit_error! {
+    /// A content-length header is required
+    pub LengthRequired: "A content-length header is required"
+}
+
+unit_error! {
+    /// The request payload is too large
+    pub PayloadTooLarge: "The request payload is too large"
+}
+
+unit_error! {
+    /// The request's content-type is not supported
+    pub UnsupportedMediaType: "The request's content-type is not supported"
+}
+
+/// Missing request header
+#[derive(Debug)]
+pub struct MissingHeader {
+    name: &'static str,
+}
+
+impl MissingHeader {
+    /// Retrieve the name of the header that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
+impl ::std::fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request header {:?}", self.name)
+    }
+}
+
+impl StdError for MissingHeader {}
+
+/// Invalid request header
+#[derive(Debug)]
+pub struct InvalidHeader {
+    name: &'static str,
+}
+
+impl InvalidHeader {
+    /// Retrieve the name of the header that was invalid
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
+impl ::std::fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Invalid request header {:?}", self.name)
+    }
+}
+
+impl StdError for InvalidHeader {}
+
+/// Missing cookie
+#[derive(Debug)]
+pub struct MissingCookie {
+    name: &'static str,
+}
+
+impl MissingCookie {
+    /// Retrieve the name of the cookie that was missing
+    pub fn name(&self) -> &str {
+        self.name
+    }
+}
+
+impl ::std::fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Missing request cookie {:?}", self.name)
+    }
+}
+
+impl StdError for MissingCookie {}
+
+mod sealed {
+    use super::{Reason, Rejection, Rejections};
+    use http::StatusCode;
+    use std::convert::Infallible;
+    use std::fmt;
+
+    // This sealed trait exists to allow Filters to return either `Rejection`
+    // or `!`. There are no other types that make sense, and so it is sealed.
+    pub trait IsReject: fmt::Debug + Send + Sync {
+        fn status(&self) -> StatusCode;
+        fn into_response(&self) -> crate::reply::Response;
+    }
+
+    fn _assert_object_safe() {
+        fn _assert(_: &dyn IsReject) {}
+    }
+
+    // This weird trait is to allow optimizations of propagating when a
+    // rejection can *never* happen (currently with the `Never` type,
+    // eventually to be replaced with `!`).
+    //
+    // Using this trait means the `Never` gets propagated to chained filters,
+    // allowing LLVM to eliminate more code paths. Without it, such as just
+    // requiring that `Rejection::from(Never)` were used in those filters,
+    // would mean that links later in the chain may assume a rejection *could*
+    // happen, and no longer eliminate those branches.
+    pub trait CombineRejection<E>: Send + Sized {
+        /// The type that should be returned when only 1 of the two
+        /// "rejections" occurs.
+        ///
+        /// # For example:
+        ///
+        /// `warp::any().and(warp::path("foo"))` has the following steps:
+        ///
+        /// 1. Since this is `and`, only **one** of the rejections will occur,
+        ///    and as soon as it does, it will be returned.
+        /// 2. `warp::any()` rejects with `Never`. So, it will never return `Never`.
+        /// 3. `warp::path()` rejects with `Rejection`. It may return `Rejection`.
+        ///
+        /// Thus, if the above filter rejects, it will definitely be `Rejection`.
+        type One: IsReject + From<Self> + From<E> + Into<Rejection>;
+
+        /// The type that should be returned when both rejections occur,
+        /// and need to be combined.
+        type Combined: IsReject;
+
+        fn combine(self, other: E) -> Self::Combined;
+    }
+
+    impl CombineRejection<Rejection> for Rejection {
+        type One = Rejection;
+        type Combined = Rejection;
+
+        fn combine(self, other: Rejection) -> Self::Combined {
+            let reason = match (self.reason, other.reason) {
+                (Reason::Other(left), Reason::Other(right)) => {
+                    Reason::Other(Box::new(Rejections::Combined(left, right)))
+                }
+                (Reason::Other(other), Reason::NotFound)
+                | (Reason::NotFound, Reason::Other(other)) => {
+                    // ignore the NotFound
+                    Reason::Other(other)
+                }
+                (Reason::NotFound, Reason::NotFound) => Reason::NotFound,
+            };
+
+            Rejection { reason }
+        }
+    }
+
+    impl CombineRejection<Infallible> for Rejection {
+        type One = Rejection;
+        type Combined = Infallible;
+
+        fn combine(self, other: Infallible) -> Self::Combined {
             match other {}
         }
     }
 
-    impl CombineRejection<Rejection> for Never {
-        type Rejection = Rejection;
+    impl CombineRejection<Rejection> for Infallible {
+        type One = Rejection;
+        type Combined = Infallible;
 
-        fn combine(self, _: Rejection) -> Self::Rejection {
+        fn combine(self, _: Rejection) -> Self::Combined {
             match self {}
         }
     }
 
-    impl CombineRejection<Never> for Never {
-        type Rejection = Never;
+    impl CombineRejection<Infallible> for Infallible {
+        type One = Infallible;
+        type Combined = Infallible;
 
-        fn combine(self, _: Never) -> Self::Rejection {
+        fn combine(self, _: Infallible) -> Self::Combined {
             match self {}
         }
     }
@@ -306,82 +675,145 @@ mod tests {
     use super::*;
     use http::StatusCode;
 
+    #[derive(Debug, PartialEq)]
+    struct Left;
+
+    #[derive(Debug, PartialEq)]
+    struct Right;
+
+    impl Reject for Left {}
+    impl Reject for Right {}
+
     #[test]
     fn rejection_status() {
-        assert_eq!(bad_request().status(), StatusCode::BAD_REQUEST);
-        assert_eq!(forbidden().status(), StatusCode::FORBIDDEN);
         assert_eq!(not_found().status(), StatusCode::NOT_FOUND);
-        assert_eq!(method_not_allowed().status(), StatusCode::METHOD_NOT_ALLOWED);
+        assert_eq!(
+            method_not_allowed().status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
         assert_eq!(length_required().status(), StatusCode::LENGTH_REQUIRED);
         assert_eq!(payload_too_large().status(), StatusCode::PAYLOAD_TOO_LARGE);
-        assert_eq!(unsupported_media_type().status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
-        assert_eq!(server_error().status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            unsupported_media_type().status(),
+            StatusCode::UNSUPPORTED_MEDIA_TYPE
+        );
+        assert_eq!(custom(Left).status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
-    #[test]
-    fn combine_rejections() {
-        let left = bad_request().with("left");
-        let right = server_error().with("right");
+    #[tokio::test]
+    async fn combine_rejection_causes_with_some_left_and_none_right() {
+        let left = custom(Left);
+        let right = not_found();
         let reject = left.combine(right);
+        let resp = reject.into_response();
 
-        assert_eq!(Reason::BAD_REQUEST | Reason::SERVER_ERROR, reject.reason);
-        match reject.cause {
-            Some(err) => assert_eq!("right", err.description()),
-            err => unreachable!("{:?}", err)
-        }
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Left"
+        )
     }
 
-    #[test]
-    fn combine_rejection_causes_with_some_left_and_none_right() {
-        let left = bad_request().with("left");
-        let right = server_error();
+    #[tokio::test]
+    async fn combine_rejection_causes_with_none_left_and_some_right() {
+        let left = not_found();
+        let right = custom(Right);
+        let reject = left.combine(right);
+        let resp = reject.into_response();
 
-        match left.combine(right).cause {
-            None => {},
-            err => unreachable!("{:?}", err)
-        }
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        )
     }
 
-    #[test]
-    fn combine_rejection_causes_with_none_left_and_some_right() {
-        let left = bad_request();
-        let right = server_error().with("right");
+    #[tokio::test]
+    async fn unhandled_customs() {
+        let reject = not_found().combine(custom(Right));
 
-        match left.combine(right).cause {
-            Some(err) => assert_eq!("right", err.description()),
-            err => unreachable!("{:?}", err)
-        }
+        let resp = reject.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        );
+
+        // There's no real way to determine which is worse, since both are a 500,
+        // so pick the first one.
+        let reject = custom(Left).combine(custom(Right));
+
+        let resp = reject.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Left"
+        );
+
+        // With many rejections, custom still is top priority.
+        let reject = not_found()
+            .combine(not_found())
+            .combine(not_found())
+            .combine(custom(Right))
+            .combine(not_found());
+
+        let resp = reject.into_response();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(
+            response_body_string(resp).await,
+            "Unhandled rejection: Right"
+        );
     }
 
-    #[test]
-    fn into_response_with_none_cause() {
-        use http::header::CONTENT_TYPE;
-
-        let resp = bad_request().into_response();
-        assert_eq!(400, resp.status());
-        assert!(resp.headers().get(CONTENT_TYPE).is_none());
-        assert_eq!("", response_body_string(resp))
-    }
-
-    #[test]
-    fn into_response_with_some_cause() {
-        use http::header::{CONTENT_TYPE};
-
-        let resp = server_error().with("boom").into_response();
-        assert_eq!(500, resp.status());
-        assert_eq!("text/plain", resp.headers().get(CONTENT_TYPE).unwrap());
-        assert_eq!("boom", response_body_string(resp))
-    }
-
-    fn response_body_string(resp: ::reply::Response) -> String {
-        use futures::{Future, Stream, Async};
-
+    async fn response_body_string(resp: crate::reply::Response) -> String {
         let (_, body) = resp.into_parts();
-        match body.concat2().poll() {
-            Ok(Async::Ready(chunk)) => {
-                String::from_utf8_lossy(&chunk).to_string()
-            },
-            err => unreachable!("{:?}", err)
+        let body_bytes = hyper::body::to_bytes(body).await.expect("failed concat");
+        String::from_utf8_lossy(&body_bytes).to_string()
+    }
+
+    #[test]
+    fn find_cause() {
+        let rej = custom(Left);
+
+        assert_eq!(rej.find::<Left>(), Some(&Left));
+
+        let rej = rej.combine(method_not_allowed());
+
+        assert_eq!(rej.find::<Left>(), Some(&Left));
+        assert!(rej.find::<MethodNotAllowed>().is_some(), "MethodNotAllowed");
+    }
+
+    #[test]
+    fn size_of_rejection() {
+        assert_eq!(
+            ::std::mem::size_of::<Rejection>(),
+            ::std::mem::size_of::<usize>(),
+        );
+    }
+
+    #[derive(Debug)]
+    struct X(u32);
+    impl Reject for X {}
+
+    fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection
+    where
+        F: Fn(u32) -> R,
+        R: Reject,
+    {
+        let mut rej = not_found();
+
+        for i in 0..n {
+            rej = rej.combine(custom(new_reject(i)));
         }
+
+        rej
+    }
+
+    #[test]
+    fn test_debug() {
+        let rej = combine_n(3, X);
+
+        let s = format!("{:?}", rej);
+        assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
     }
 }

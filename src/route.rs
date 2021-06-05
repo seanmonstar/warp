@@ -1,16 +1,18 @@
+use scoped_tls::scoped_thread_local;
 use std::cell::RefCell;
 use std::mem;
+use std::net::SocketAddr;
 
 use http;
 use hyper::Body;
 
-use ::Request;
+use crate::Request;
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
 
 pub(crate) fn set<F, U>(r: &RefCell<Route>, func: F) -> U
 where
-    F: FnMut() -> U,
+    F: FnOnce() -> U,
 {
     ROUTE.set(r, func)
 }
@@ -21,17 +23,15 @@ pub(crate) fn is_set() -> bool {
 
 pub(crate) fn with<F, R>(func: F) -> R
 where
-    F: Fn(&mut Route) -> R,
+    F: FnOnce(&mut Route) -> R,
 {
-    ROUTE.with(move |route| {
-        func(&mut *route
-            .borrow_mut())
-    })
+    ROUTE.with(move |route| func(&mut *route.borrow_mut()))
 }
 
 #[derive(Debug)]
 pub(crate) struct Route {
     body: BodyState,
+    remote_addr: Option<SocketAddr>,
     req: Request,
     segments_index: usize,
 }
@@ -43,18 +43,19 @@ enum BodyState {
 }
 
 impl Route {
-    pub(crate) fn new(req: Request) -> RefCell<Route> {
-        debug_assert_eq!(
-            req.uri().path().as_bytes()[0],
-            b'/',
-            "path should start with /"
-        );
+    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
+        let segments_index = if req.uri().path().starts_with('/') {
+            // Skip the beginning slash.
+            1
+        } else {
+            0
+        };
 
         RefCell::new(Route {
             body: BodyState::Ready,
+            remote_addr,
             req,
-            // always start at 1, since paths are `/...`.
-            segments_index: 1,
+            segments_index,
         })
     }
 
@@ -68,6 +69,15 @@ impl Route {
 
     pub(crate) fn version(&self) -> http::Version {
         self.req.version()
+    }
+
+    pub(crate) fn extensions(&self) -> &http::Extensions {
+        self.req.extensions()
+    }
+
+    #[cfg(feature = "websocket")]
+    pub(crate) fn extensions_mut(&mut self) -> &mut http::Extensions {
+        self.req.extensions_mut()
     }
 
     pub(crate) fn uri(&self) -> &http::Uri {
@@ -84,17 +94,14 @@ impl Route {
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
         let index = self.segments_index + index;
-
         let path = self.req.uri().path();
-
-        if path.len() == index {
+        if path.is_empty() {
+            // malformed path
+            return;
+        } else if path.len() == index {
             self.segments_index = index;
         } else {
-            debug_assert_eq!(
-                path.as_bytes()[index],
-                b'/',
-            );
-
+            debug_assert_eq!(path.as_bytes()[index], b'/');
             self.segments_index = index + 1;
         }
     }
@@ -117,15 +124,18 @@ impl Route {
         self.segments_index = index;
     }
 
+    pub(crate) fn remote_addr(&self) -> Option<SocketAddr> {
+        self.remote_addr
+    }
+
     pub(crate) fn take_body(&mut self) -> Option<Body> {
         match self.body {
             BodyState::Ready => {
                 let body = mem::replace(self.req.body_mut(), Body::empty());
                 self.body = BodyState::Taken;
                 Some(body)
-            },
+            }
             BodyState::Taken => None,
         }
     }
 }
-

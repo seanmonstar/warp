@@ -1,6 +1,11 @@
-use futures::{Async, Future, Poll};
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use super::{FilterBase, Filter, Func};
+use futures::{ready, TryFuture};
+use pin_project::pin_project;
+
+use super::{Filter, FilterBase, Func, Internal};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Map<T, F> {
@@ -17,16 +22,18 @@ where
     type Error = T::Error;
     type Future = MapFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         MapFuture {
-            extract: self.filter.filter(),
+            extract: self.filter.filter(Internal),
             callback: self.callback.clone(),
         }
     }
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct MapFuture<T: Filter, F> {
+    #[pin]
     extract: T::Future,
     callback: F,
 }
@@ -36,14 +43,17 @@ where
     T: Filter,
     F: Func<T::Extract>,
 {
-    type Item = (F::Output,);
-    type Error = T::Error;
+    type Output = Result<(F::Output,), T::Error>;
 
     #[inline]
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let ex = try_ready!(self.extract.poll());
-        let ex = (self.callback.call(ex),);
-        Ok(Async::Ready(ex))
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let pin = self.project();
+        match ready!(pin.extract.try_poll(cx)) {
+            Ok(ex) => {
+                let ex = (pin.callback.call(ex),);
+                Poll::Ready(Ok(ex))
+            }
+            Err(err) => Poll::Ready(Err(err)),
+        }
     }
 }
-

@@ -8,7 +8,7 @@
 //! Besides them, you can return a type that implements [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
-//! - [`http::Response<impl Into<hyper::Body>`](https://docs.rs/http)
+//! - [`http::Response<impl Into<hyper::Body>>`](https://docs.rs/http)
 //! - `String`
 //! - `&'static str`
 //! - `http::StatusCode`
@@ -29,21 +29,30 @@
 //! });
 //!
 //! // GET requests return the empty 200, POST return the custom.
-//! let routes = warp::get2().and(empty_200)
-//!     .or(warp::post2().and(custom));
+//! let routes = warp::get().and(empty_200)
+//!     .or(warp::post().and(custom));
 //! ```
 
-use http::header::{CONTENT_TYPE, HeaderValue};
+use std::borrow::Cow;
+use std::convert::TryFrom;
+use std::error::Error as StdError;
+use std::fmt;
+
+use crate::generic::{Either, One};
+use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::StatusCode;
+use hyper::Body;
 use serde::Serialize;
 use serde_json;
 
-
-use ::reject::Reject;
 // This re-export just looks weird in docs...
+pub(crate) use self::sealed::Reply_;
+use self::sealed::{BoxedReply, Internal};
 #[doc(hidden)]
-pub use ::filters::reply as with;
-pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
+pub use crate::filters::reply as with;
+
+/// Response type into which types implementing the `Reply` trait are convertable.
+pub type Response = ::http::Response<Body>;
 
 /// Returns an empty `Reply` with status code `200 OK`.
 ///
@@ -60,9 +69,8 @@ pub(crate) use self::sealed::{Reply_, ReplySealed, Response};
 ///     });
 /// ```
 #[inline]
-pub fn reply() -> impl Reply
-{
-   StatusCode::OK
+pub fn reply() -> impl Reply {
+    StatusCode::OK
 }
 
 /// Convert the value into a `Reply` with the value encoded as JSON.
@@ -89,56 +97,141 @@ pub fn reply() -> impl Reply
 /// # Note
 ///
 /// If a type fails to be serialized into JSON, the error is logged at the
-/// `warn` level, and the returned `impl Reply` will be an empty
+/// `error` level, and the returned `impl Reply` will be an empty
 /// `500 Internal Server Error` response.
-pub fn json<T>(val: &T) -> impl Reply
+pub fn json<T>(val: &T) -> Json
 where
     T: Serialize,
 {
     Json {
         inner: serde_json::to_vec(val).map_err(|err| {
-            warn!("reply::json error: {}", err);
+            tracing::error!("reply::json error: {}", err);
         }),
     }
 }
 
+/// A JSON formatted reply.
 #[allow(missing_debug_implementations)]
-struct Json {
+pub struct Json {
     inner: Result<Vec<u8>, ()>,
 }
 
-impl ReplySealed for Json {
+impl Reply for Json {
     #[inline]
     fn into_response(self) -> Response {
         match self.inner {
             Ok(body) => {
                 let mut res = Response::new(body.into());
-                res.headers_mut().insert(
-                    CONTENT_TYPE,
-                    HeaderValue::from_static("application/json")
-                );
+                res.headers_mut()
+                    .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
                 res
-            },
-            Err(()) => {
-                ::reject::server_error()
-                    .into_response()
             }
+            Err(()) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ReplyJsonError;
+
+impl fmt::Display for ReplyJsonError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str("warp::reply::json() failed")
+    }
+}
+
+impl StdError for ReplyJsonError {}
+
+/// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let body = r#"
+/// <html>
+///     <head>
+///         <title>HTML with warp!</title>
+///     </head>
+///     <body>
+///         <h1>warp + HTML = &hearts;</h1>
+///     </body>
+/// </html>
+/// "#;
+///
+/// let route = warp::any()
+///     .map(move || {
+///         warp::reply::html(body)
+///     });
+/// ```
+pub fn html<T>(body: T) -> Html<T>
+where
+    Body: From<T>,
+    T: Send,
+{
+    Html { body }
+}
+
+/// An HTML reply.
+#[allow(missing_debug_implementations)]
+pub struct Html<T> {
+    body: T,
+}
+
+impl<T> Reply for Html<T>
+where
+    Body: From<T>,
+    T: Send,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        let mut res = Response::new(Body::from(self.body));
+        res.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8"),
+        );
+        res
     }
 }
 
 /// Types that can be converted into a `Response`.
 ///
-/// This trait is sealed for now (implementations are only allowed inside
-/// warp), but it is implemented for the following:
+/// This trait is implemented for the following:
 ///
 /// - `http::StatusCode`
 /// - `http::Response<impl Into<hyper::Body>>`
 /// - `String`
 /// - `&'static str`
-//NOTE: This list is duplicated in the module documentation.
-pub trait Reply: ReplySealed {
-    /* 
+///
+/// # Example
+///
+/// ```rust
+/// use warp::{Filter, http::Response};
+///
+/// struct Message {
+///     msg: String
+/// }
+///
+/// impl warp::Reply for Message {
+///     fn into_response(self) -> warp::reply::Response {
+///         Response::new(format!("message: {}", self.msg).into())
+///     }
+/// }
+///
+/// fn handler() -> Message {
+///     Message { msg: "Hello".to_string() }
+/// }
+///
+/// let route = warp::any().map(handler);
+/// ```
+pub trait Reply: BoxedReply + Send {
+    /// Converts the given value into a [`Response`].
+    ///
+    /// [`Response`]: type.Response.html
+    fn into_response(self) -> Response;
+
+    /*
     TODO: Currently unsure about having trait methods here, as it
     requires returning an exact type, which I'd rather not commit to.
     Additionally, it doesn't work great with `Box<Reply>`.
@@ -171,24 +264,24 @@ pub trait Reply: ReplySealed {
     fn with_header<K, V>(self, name: K, value: V) -> Reply_
     where
         Self: Sized,
-        HeaderName: HttpTryFrom<K>,
-        HeaderValue: HttpTryFrom<V>,
+        HeaderName: TryFrom<K>,
+        HeaderValue: TryFrom<V>,
     {
-        match <HeaderName as HttpTryFrom<K>>::try_from(name) {
-            Ok(name) => match <HeaderValue as HttpTryFrom<V>>::try_from(value) {
+        match <HeaderName as TryFrom<K>>::try_from(name) {
+            Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
                 Ok(value) => {
                     let mut res = self.into_response();
                     res.headers_mut().append(name, value);
                     Reply_(res)
                 },
                 Err(err) => {
-                    warn!("with_header value error: {}", err.into());
+                    tracing::error!("with_header value error: {}", err.into());
                     Reply_(::reject::server_error()
                         .into_response())
                 }
             },
             Err(err) => {
-                warn!("with_header name error: {}", err.into());
+                tracing::error!("with_header name error: {}", err.into());
                 Reply_(::reject::server_error()
                     .into_response())
             }
@@ -197,128 +290,295 @@ pub trait Reply: ReplySealed {
     */
 }
 
-impl<T: ReplySealed> Reply for T {}
-
-fn _assert_object_safe() {
-    fn _assert(_: &Reply) {}
+impl<T: Reply + ?Sized> Reply for Box<T> {
+    fn into_response(self) -> Response {
+        self.boxed_into_response(Internal)
+    }
 }
 
-// Seal the `Reply` trait and the `Reply_` wrapper type for now.
+fn _assert_object_safe() {
+    fn _assert(_: &dyn Reply) {}
+}
+
+/// Wrap an `impl Reply` to change its `StatusCode`.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .map(|reply| {
+///         warp::reply::with_status(reply, warp::http::StatusCode::CREATED)
+///     });
+/// ```
+pub fn with_status<T: Reply>(reply: T, status: StatusCode) -> WithStatus<T> {
+    WithStatus { reply, status }
+}
+
+/// Wrap an `impl Reply` to change its `StatusCode`.
+///
+/// Returned by `warp::reply::with_status`.
+#[derive(Debug)]
+pub struct WithStatus<T> {
+    reply: T,
+    status: StatusCode,
+}
+
+impl<T: Reply> Reply for WithStatus<T> {
+    fn into_response(self) -> Response {
+        let mut res = self.reply.into_response();
+        *res.status_mut() = self.status;
+        res
+    }
+}
+
+/// Wrap an `impl Reply` to add a header when rendering.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .map(|reply| {
+///         warp::reply::with_header(reply, "server", "warp")
+///     });
+/// ```
+pub fn with_header<T: Reply, K, V>(reply: T, name: K, value: V) -> WithHeader<T>
+where
+    HeaderName: TryFrom<K>,
+    <HeaderName as TryFrom<K>>::Error: Into<http::Error>,
+    HeaderValue: TryFrom<V>,
+    <HeaderValue as TryFrom<V>>::Error: Into<http::Error>,
+{
+    let header = match <HeaderName as TryFrom<K>>::try_from(name) {
+        Ok(name) => match <HeaderValue as TryFrom<V>>::try_from(value) {
+            Ok(value) => Some((name, value)),
+            Err(err) => {
+                let err = err.into();
+                tracing::error!("with_header value error: {}", err);
+                None
+            }
+        },
+        Err(err) => {
+            let err = err.into();
+            tracing::error!("with_header name error: {}", err);
+            None
+        }
+    };
+
+    WithHeader { header, reply }
+}
+
+/// Wraps an `impl Reply` and adds a header when rendering.
+///
+/// Returned by `warp::reply::with_header`.
+#[derive(Debug)]
+pub struct WithHeader<T> {
+    header: Option<(HeaderName, HeaderValue)>,
+    reply: T,
+}
+
+impl<T: Reply> Reply for WithHeader<T> {
+    fn into_response(self) -> Response {
+        let mut res = self.reply.into_response();
+        if let Some((name, value)) = self.header {
+            res.headers_mut().insert(name, value);
+        }
+        res
+    }
+}
+
+impl<T: Send> Reply for ::http::Response<T>
+where
+    Body: From<T>,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        self.map(Body::from)
+    }
+}
+
+impl Reply for ::http::StatusCode {
+    #[inline]
+    fn into_response(self) -> Response {
+        let mut res = Response::default();
+        *res.status_mut() = self;
+        res
+    }
+}
+
+impl<T> Reply for Result<T, ::http::Error>
+where
+    T: Reply + Send,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        match self {
+            Ok(t) => t.into_response(),
+            Err(e) => {
+                tracing::error!("reply error: {:?}", e);
+                StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        }
+    }
+}
+
+fn text_plain<T: Into<Body>>(body: T) -> Response {
+    let mut response = ::http::Response::new(body.into());
+    response.headers_mut().insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("text/plain; charset=utf-8"),
+    );
+    response
+}
+
+impl Reply for String {
+    #[inline]
+    fn into_response(self) -> Response {
+        text_plain(self)
+    }
+}
+
+impl Reply for Vec<u8> {
+    #[inline]
+    fn into_response(self) -> Response {
+        ::http::Response::builder()
+            .header(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/octet-stream"),
+            )
+            .body(Body::from(self))
+            .unwrap()
+    }
+}
+
+impl Reply for &'static str {
+    #[inline]
+    fn into_response(self) -> Response {
+        text_plain(self)
+    }
+}
+
+impl Reply for Cow<'static, str> {
+    #[inline]
+    fn into_response(self) -> Response {
+        match self {
+            Cow::Borrowed(s) => s.into_response(),
+            Cow::Owned(s) => s.into_response(),
+        }
+    }
+}
+
+impl Reply for &'static [u8] {
+    #[inline]
+    fn into_response(self) -> Response {
+        ::http::Response::builder()
+            .header(
+                CONTENT_TYPE,
+                HeaderValue::from_static("application/octet-stream"),
+            )
+            .body(Body::from(self))
+            .unwrap()
+    }
+}
+
+impl<T, U> Reply for Either<T, U>
+where
+    T: Reply,
+    U: Reply,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        match self {
+            Either::A(a) => a.into_response(),
+            Either::B(b) => b.into_response(),
+        }
+    }
+}
+
+impl<T> Reply for One<T>
+where
+    T: Reply,
+{
+    #[inline]
+    fn into_response(self) -> Response {
+        self.0.into_response()
+    }
+}
+
+impl Reply for std::convert::Infallible {
+    #[inline(always)]
+    fn into_response(self) -> Response {
+        match self {}
+    }
+}
+
 mod sealed {
-    use hyper::Body;
-
-    use ::generic::{Either, One};
-    use ::reject::Reject;
-
-    use super::Reply;
-
-    pub type Response = ::http::Response<Body>;
-
-    // A trait describing the various things that a Warp server can turn into a `Response`.
-    pub trait ReplySealed: Send {
-        fn into_response(self) -> Response;
-    }
-
-    /// ```compile_fail
-    /// use warp::Reply;
-    ///
-    /// let _ = warp::reply().into_response();
-    /// ```
-    pub fn __warp_replysealed_compilefail_doctest() {
-        // Duplicate code to make sure the code is otherwise valid.
-        let _ = ::reply().into_response();
-    }
+    use super::{Reply, Response};
 
     // An opaque type to return `impl Reply` from trait methods.
     #[allow(missing_debug_implementations)]
     pub struct Reply_(pub(crate) Response);
 
-    impl ReplySealed for Reply_ {
+    impl Reply for Reply_ {
         #[inline]
         fn into_response(self) -> Response {
             self.0
         }
     }
 
-    impl<T: Send> ReplySealed for ::http::Response<T>
-    where
-        Body: From<T>,
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            self.map(Body::from)
-        }
+    #[allow(missing_debug_implementations)]
+    pub struct Internal;
+
+    // Implemented for all types that implement `Reply`.
+    //
+    // A user doesn't need to worry about this, it's just trait
+    // hackery to get `Box<dyn Reply>` working.
+    pub trait BoxedReply {
+        fn boxed_into_response(self: Box<Self>, internal: Internal) -> Response;
     }
 
-    impl ReplySealed for ::http::StatusCode {
-        #[inline]
-        fn into_response(self) -> Response {
-            let mut res = Response::default();
-            *res.status_mut() = self;
-            res
-        }
-    }
-
-    impl<T> ReplySealed for Result<T, ::http::Error>
-    where
-        T: Reply + Send,
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            match self {
-                Ok(t) => t.into_response(),
-                Err(e) => {
-                    warn!("reply error: {:?}", e);
-                    ::reject::server_error()
-                        .into_response()
-                }
-            }
-        }
-    }
-
-    impl ReplySealed for String {
-        #[inline]
-        fn into_response(self) -> Response {
-            Response::new(Body::from(self))
-        }
-    }
-
-    impl ReplySealed for &'static str {
-        #[inline]
-        fn into_response(self) -> Response {
-            Response::new(Body::from(self))
-        }
-    }
-
-    impl<T, U> ReplySealed for Either<T, U>
-    where
-        T: Reply,
-        U: Reply,
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            match self {
-                Either::A(a) => a.into_response(),
-                Either::B(b) => b.into_response(),
-            }
-        }
-    }
-
-    impl<T> ReplySealed for One<T>
-    where
-        T: Reply,
-    {
-        #[inline]
-        fn into_response(self) -> Response {
-            self.0.into_response()
-        }
-    }
-
-    impl ReplySealed for ::never::Never {
-        #[inline(always)]
-        fn into_response(self) -> Response {
-            match self {}
+    impl<T: Reply> BoxedReply for T {
+        fn boxed_into_response(self: Box<Self>, _: Internal) -> Response {
+            (*self).into_response()
         }
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    #[test]
+    fn json_serde_error() {
+        // a HashMap<Vec, _> cannot be serialized to JSON
+        let mut map = HashMap::new();
+        map.insert(vec![1, 2], 45);
+
+        let res = json(&map).into_response();
+        assert_eq!(res.status(), 500);
+    }
+
+    #[test]
+    fn response_builder_error() {
+        let res = ::http::Response::builder()
+            .status(1337)
+            .body("woops")
+            .into_response();
+
+        assert_eq!(res.status(), 500);
+    }
+
+    #[test]
+    fn boxed_reply() {
+        let r: Box<dyn Reply> = Box::new(reply());
+        let resp = r.into_response();
+        assert_eq!(resp.status(), 200);
+    }
+}

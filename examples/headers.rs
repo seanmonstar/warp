@@ -1,7 +1,4 @@
 #![deny(warnings)]
-extern crate pretty_env_logger;
-extern crate warp;
-
 use std::net::SocketAddr;
 use warp::Filter;
 
@@ -11,7 +8,8 @@ use warp::Filter;
 /// - `Accept` is exactly `*/*`
 ///
 /// If these conditions don't match, a 404 is returned.
-fn main() {
+#[tokio::main]
+async fn main() {
     pretty_env_logger::init();
 
     // For this example, we assume no DNS was used,
@@ -21,12 +19,9 @@ fn main() {
     // Match when we get `accept: */*` exactly.
     let accept_stars = warp::header::exact("accept", "*/*");
 
-    let routes = host.and(accept_stars)
-        .map(|addr| {
-            format!("accepting stars on {}", addr)
-        });
+    let routes = host
+        .and(accept_stars)
+        .map(|addr| format!("accepting stars on {}", addr));
 
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], 3030));
+    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
-

@@ -1,9 +1,12 @@
-use std::mem;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use futures::{Async, Future, IntoFuture, Poll};
+use futures::{ready, TryFuture};
+use pin_project::pin_project;
 
-use ::reject::CombineRejection;
-use super::{FilterBase, Filter, Func};
+use super::{Filter, FilterBase, Func, Internal};
+use crate::reject::CombineRejection;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AndThen<T, F> {
@@ -15,43 +18,43 @@ impl<T, F> FilterBase for AndThen<T, F>
 where
     T: Filter,
     F: Func<T::Extract> + Clone + Send,
-    F::Output: IntoFuture + Send,
-    <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
-    type Extract = (<F::Output as IntoFuture>::Item,);
-    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
+    type Extract = (<F::Output as TryFuture>::Ok,);
+    type Error = <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One;
     type Future = AndThenFuture<T, F>;
     #[inline]
-    fn filter(&self) -> Self::Future {
+    fn filter(&self, _: Internal) -> Self::Future {
         AndThenFuture {
-            state: State::First(self.filter.filter(), self.callback.clone()),
+            state: State::First(self.filter.filter(Internal), self.callback.clone()),
         }
     }
 }
 
 #[allow(missing_debug_implementations)]
+#[pin_project]
 pub struct AndThenFuture<T: Filter, F>
 where
     T: Filter,
     F: Func<T::Extract>,
-    F::Output: IntoFuture + Send,
-    <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
-    state: State<T, F>,
+    #[pin]
+    state: State<T::Future, F>,
 }
 
+#[pin_project(project = StateProj)]
 enum State<T, F>
 where
-    T: Filter,
-    F: Func<T::Extract>,
-    F::Output: IntoFuture + Send,
-    <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
-    <F::Output as IntoFuture>::Future: Send,
+    T: TryFuture,
+    F: Func<T::Ok>,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
-    First(T::Future, F),
-    Second(<F::Output as IntoFuture>::Future),
+    First(#[pin] T, F),
+    Second(#[pin] F::Output),
     Done,
 }
 
@@ -59,40 +62,49 @@ impl<T, F> Future for AndThenFuture<T, F>
 where
     T: Filter,
     F: Func<T::Extract>,
-    F::Output: IntoFuture + Send,
-    <F::Output as IntoFuture>::Error: CombineRejection<T::Error>,
-    <F::Output as IntoFuture>::Future: Send,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
 {
-    type Item = (<F::Output as IntoFuture>::Item,);
-    type Error = <<F::Output as IntoFuture>::Error as CombineRejection<T::Error>>::Rejection;
+    type Output = Result<
+        (<F::Output as TryFuture>::Ok,),
+        <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One,
+    >;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let ex1 = match self.state {
-            State::First(ref mut first, _) => {
-                try_ready!(first.poll())
-            },
-            State::Second(ref mut second) => {
-                let item = try_ready!(second.poll());
-                return Ok(Async::Ready((item,)));
-            },
-            State::Done => panic!("polled after complete"),
-        };
-
-        let mut second = match mem::replace(&mut self.state, State::Done) {
-            State::First(_, second) => second.call(ex1).into_future(),
-            _ => unreachable!(),
-        };
-
-        match second.poll()? {
-            Async::Ready(item) => {
-                Ok(Async::Ready((item,)))
-            },
-            Async::NotReady => {
-                self.state = State::Second(second);
-                Ok(Async::NotReady)
-            },
-        }
-
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.project().state.poll(cx)
     }
 }
 
+impl<T, F> Future for State<T, F>
+where
+    T: TryFuture,
+    F: Func<T::Ok>,
+    F::Output: TryFuture + Send,
+    <F::Output as TryFuture>::Error: CombineRejection<T::Error>,
+{
+    type Output = Result<
+        (<F::Output as TryFuture>::Ok,),
+        <<F::Output as TryFuture>::Error as CombineRejection<T::Error>>::One,
+    >;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        loop {
+            match self.as_mut().project() {
+                StateProj::First(first, second) => {
+                    let ex1 = ready!(first.try_poll(cx))?;
+                    let fut2 = second.call(ex1);
+                    self.set(State::Second(fut2));
+                }
+                StateProj::Second(second) => {
+                    let ex3 = match ready!(second.try_poll(cx)) {
+                        Ok(item) => Ok((item,)),
+                        Err(err) => Err(From::from(err)),
+                    };
+                    self.set(State::Done);
+                    return Poll::Ready(ex3);
+                }
+                StateProj::Done => panic!("polled after complete"),
+            }
+        }
+    }
+}
