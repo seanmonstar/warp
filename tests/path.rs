@@ -246,6 +246,16 @@ async fn path_macro() {
     let req = warp::test::request().path("/foo/bar/baz");
     let p = path!("foo" / "bar" / ..).and(warp::path!("baz"));
     assert!(req.matches(&p).await);
+
+    // Empty
+
+    let req = warp::test::request().path("/");
+    let p = path!();
+    assert!(req.matches(&p).await);
+
+    let req = warp::test::request().path("/foo");
+    let p = path!();
+    assert!(!req.matches(&p).await);
 }
 
 #[tokio::test]

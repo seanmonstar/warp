@@ -198,5 +198,5 @@ async fn stream() {
     let bufs = bufs.unwrap();
 
     assert_eq!(bufs.len(), 1);
-    assert_eq!(bufs[0].bytes(), b"foo=bar");
+    assert_eq!(bufs[0].chunk(), b"foo=bar");
 }

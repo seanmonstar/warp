@@ -7,6 +7,7 @@ use std::sync::{
 
 use futures::{FutureExt, StreamExt};
 use tokio::sync::{mpsc, RwLock};
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
 use warp::Filter;
 
@@ -59,6 +60,7 @@ async fn user_connected(ws: WebSocket, users: Users) {
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the websocket...
     let (tx, rx) = mpsc::unbounded_channel();
+    let rx = UnboundedReceiverStream::new(rx);
     tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
         if let Err(e) = result {
             eprintln!("websocket send error: {}", e);
@@ -70,9 +72,6 @@ async fn user_connected(ws: WebSocket, users: Users) {
 
     // Return a `Future` that is basically a state machine managing
     // this specific user's connection.
-
-    // Make an extra clone to give to our disconnection handler...
-    let users2 = users.clone();
 
     // Every time the user sends a message, broadcast it to
     // all other users...
@@ -89,7 +88,7 @@ async fn user_connected(ws: WebSocket, users: Users) {
 
     // user_ws_rx stream will keep processing as long as the user stays
     // connected. Once they disconnect, then...
-    user_disconnected(my_id, &users2).await;
+    user_disconnected(my_id, &users).await;
 }
 
 async fn user_message(my_id: usize, msg: Message, users: &Users) {
