@@ -16,6 +16,17 @@ async fn query() {
 }
 
 #[tokio::test]
+async fn query_with_space() {
+    let as_map = warp::query::<HashMap<String, String>>();
+
+    let req = warp::test::request().path("/?foo=foo%20bar&baz=quux");
+
+    let extracted = req.filter(&as_map).await.unwrap();
+    assert_eq!(extracted["foo"], "foo bar");
+    assert_eq!(extracted["baz"], "quux");
+}
+
+#[tokio::test]
 async fn query_struct() {
     let as_struct = warp::query::<MyArgs>();
 
