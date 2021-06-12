@@ -51,6 +51,7 @@
 //!         !warp::test::request()
 //!             .path("/1/-5")
 //!             .matches(&filter)
+//!             .await
 //!     );
 //! }
 //! ```
