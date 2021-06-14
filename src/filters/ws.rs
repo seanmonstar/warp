@@ -10,7 +10,7 @@ use super::header;
 use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
+use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt, StreamExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use hyper::upgrade::OnUpgrade;
@@ -179,8 +179,7 @@ fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection
 /// `WebSocket`.
 ///
 /// **Note!**
-/// If you are not reading from `Stream` part of the `WebSocket`, ping won't be handled.
-
+/// Due to rust futures nature, pings won't be handled until read part of `WebSocket` is polled
 
 pub struct WebSocket {
     inner: WebSocketStream<hyper::upgrade::Upgraded>,
