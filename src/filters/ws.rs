@@ -10,7 +10,7 @@ use super::header;
 use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt, StreamExt};
+use futures::{future, ready, FutureExt, Sink, Stream, StreamExt, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
 use hyper::upgrade::OnUpgrade;
