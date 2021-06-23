@@ -551,68 +551,68 @@ macro_rules! __internal_path {
     (@start) => (
         $crate::path::end()
     );
-    (@start ..) => ({
+    (@start ..) => (
         compile_error!("'..' cannot be the only segment")
-    });
+    );
 
-    (@start $first:tt $(/ $tail:tt)*) => ({
+    (@start $first:tt $(/ $tail:tt)*) => (
         $crate::__internal_path!(@munch_concat [] [] [$first] $(/ $tail)*)
-    });
+    );
 
     // Found a token, forward to munch_concat to see how we concatenate it in the filter
-    (@munch [$($groups: expr),*] [$($literals: literal)*] / $first:tt $(/ $tail:tt)*) => ({
+    (@munch [$($groups: expr),*] [$($literals: literal)*] / $first:tt $(/ $tail:tt)*) => (
         $crate::__internal_path!(@munch_concat [$($groups),*] [$($literals)*] [$first] $(/ $tail)*)
-    });
+    );
     // Join the trailing literals
-    (@munch [$($groups: expr),*] [$($literals: literal)+]) => ({
+    (@munch [$($groups: expr),*] [$($literals: literal)+]) => (
         $crate::__internal_path!(@join [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)])
-    });
-    (@munch [$($groups: expr),*] []) => ({
+    );
+    (@munch [$($groups: expr),*] []) => (
         $crate::__internal_path!(@join [$($groups),*])
-    });
+    );
 
     // When we find a type, concat the current literal group, then continue
-    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [$cur:ty] $(/ $tail:tt)*) => ({
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [$cur:ty] $(/ $tail:tt)*) => (
         $crate::__internal_path!(@munch
             [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*), $crate::path::param::<$cur>() ]
             []
             $(/ $tail)*
         )
-    });
+    );
 
     // No literals to join
-    (@munch_concat [$($groups: expr),*] [] [$cur:ty] $(/ $tail:tt)*) => ({
+    (@munch_concat [$($groups: expr),*] [] [$cur:ty] $(/ $tail:tt)*) => (
         $crate::__internal_path!(@munch
             [$($groups,)* $crate::__internal_path!(@segment $cur) ]
             []
             $(/ $tail)*
         )
-    });
+    );
 
     // Add a literal to the current group
-    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:literal] $(/ $tail:tt)*) => ({
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:literal] $(/ $tail:tt)*) => (
         $crate::__internal_path!(@munch
             [$($groups),*]
             [$($literals)* $cur]
             $(/ $tail)*
         )
-    });
+    );
 
     // Handle .. at the end
-    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [..]) => ({
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [..]) => (
         $crate::__internal_path!(@join
             [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)] ..
         )
-    });
-    (@munch_concat [$($groups: expr),*] [] [..]) => ({
+    );
+    (@munch_concat [$($groups: expr),*] [] [..]) => (
         $crate::__internal_path!(@join
             [$($groups),*] ..
         )
-    });
+    );
 
-    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:tt] $(/ $tail:tt)*) => ({
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:tt] $(/ $tail:tt)*) => (
         $crate::__internal_path!($cur)
-    });
+    );
 
     (@join [$first: expr $(, $groups:expr)*]) => ({
         let filter = $first;
