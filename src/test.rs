@@ -99,7 +99,6 @@ use http::{
     header::{HeaderName, HeaderValue},
     Response,
 };
-use hyper::Body;
 use serde::Serialize;
 use serde_json;
 #[cfg(feature = "websocket")]
@@ -272,22 +271,6 @@ impl RequestBuilder {
         let len = body.len();
         *self.req.body_mut() = body.into();
         self.header("content-length", len.to_string())
-    }
-
-    /// Set the `Body` of this request body.
-    ///
-    /// Default is an empty body.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let body = warp::hyper::Body::from("foo=bar&baz=quux");
-    /// let req = warp::test::request()
-    ///     .raw_body(body);
-    /// ```
-    pub fn raw_body(mut self, body: Body) -> Self {
-        *self.req.body_mut() = body;
-        self
     }
 
     /// Set the bytes of this request body by serializing a value into JSON.
