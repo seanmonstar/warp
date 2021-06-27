@@ -183,9 +183,7 @@ mod internal {
             use std::io::{Error, ErrorKind};
 
             let pin = self.project();
-            // TODO: Use `.map_err()` (https://github.com/rust-lang/rust/issues/63514) once it is stabilized
-            S::poll_next(pin.body, cx)
-                .map(|e| e.map(|res| res.map_err(|_| Error::from(ErrorKind::InvalidData))))
+            S::poll_next(pin.body, cx).map_err(|_| Error::from(ErrorKind::InvalidData))
         }
     }
 
