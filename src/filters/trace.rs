@@ -6,7 +6,7 @@
 //! spans. [`Spans`] can be used to associate individual events  with a request,
 //! and track contexts through the application.
 //!
-//! [`tracing`]: https://crates.io/tracing
+//! [`tracing`]: https://crates.io/crates/tracing
 //! [`Spans`]: https://docs.rs/tracing/latest/tracing/#spans
 use tracing::Span;
 
@@ -126,7 +126,7 @@ pub fn named(name: &'static str) -> Trace<impl Fn(Info<'_>) -> Span + Copy> {
 /// Decorates a [`Filter`](crate::Filter) to create a [`tracing`] [span] for
 /// requests and responses.
 ///
-/// [`tracing`]: https://crates.io/tracing
+/// [`tracing`]: https://crates.io/crates/tracing
 /// [span]: https://docs.rs/tracing/latest/tracing/#spans
 #[derive(Clone, Copy, Debug)]
 pub struct Trace<F> {
@@ -234,8 +234,8 @@ mod internal {
         pub(super) trace: Trace<FN>,
     }
 
+    use tracing::instrument::{Instrument, Instrumented};
     use tracing::Span;
-    use tracing_futures::{Instrument, Instrumented};
 
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
         match reply {

@@ -7,7 +7,7 @@ use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{buf::BufExt, Buf, Bytes};
+use bytes::{Buf, Bytes};
 use futures::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
@@ -131,8 +131,8 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 /// fn full_body(mut body: impl Buf) {
 ///     // It could have several non-contiguous slices of memory...
 ///     while body.has_remaining() {
-///         println!("slice = {:?}", body.bytes());
-///         let cnt = body.bytes().len();
+///         println!("slice = {:?}", body.chunk());
+///         let cnt = body.chunk().len();
 ///         body.advance(cnt);
 ///     }
 /// }
@@ -232,7 +232,7 @@ impl Decode for Json {
     const WITH_NO_CONTENT_TYPE: bool = true;
 
     fn decode<B: Buf, T: DeserializeOwned>(mut buf: B) -> Result<T, BoxError> {
-        serde_json::from_slice(&buf.to_bytes()).map_err(Into::into)
+        serde_json::from_slice(&buf.copy_to_bytes(buf.remaining())).map_err(Into::into)
     }
 }
 
