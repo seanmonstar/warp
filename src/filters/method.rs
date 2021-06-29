@@ -12,6 +12,7 @@ use http::Method;
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use std::convert::Infallible;
+use std::str::FromStr;
 
 /// Create a `Filter` that requires the request method to be `GET`.
 ///
@@ -22,8 +23,8 @@ use std::convert::Infallible;
 ///
 /// let get_only = warp::get().map(warp::reply);
 /// ```
-pub fn get() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::GET)
+pub fn get() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::GET.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `POST`.
@@ -35,8 +36,8 @@ pub fn get() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let post_only = warp::post().map(warp::reply);
 /// ```
-pub fn post() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::POST)
+pub fn post() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::POST.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `PUT`.
@@ -48,8 +49,8 @@ pub fn post() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let put_only = warp::put().map(warp::reply);
 /// ```
-pub fn put() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::PUT)
+pub fn put() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::PUT.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `DELETE`.
@@ -61,8 +62,8 @@ pub fn put() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let delete_only = warp::delete().map(warp::reply);
 /// ```
-pub fn delete() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::DELETE)
+pub fn delete() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::DELETE.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `HEAD`.
@@ -74,8 +75,8 @@ pub fn delete() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let head_only = warp::head().map(warp::reply);
 /// ```
-pub fn head() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::HEAD)
+pub fn head() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::HEAD.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `OPTIONS`.
@@ -87,8 +88,8 @@ pub fn head() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let options_only = warp::options().map(warp::reply);
 /// ```
-pub fn options() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::OPTIONS)
+pub fn options() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::OPTIONS.clone())
 }
 
 /// Create a `Filter` that requires the request method to be `PATCH`.
@@ -100,8 +101,25 @@ pub fn options() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 ///
 /// let patch_only = warp::patch().map(warp::reply);
 /// ```
-pub fn patch() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    method_is(|| &Method::PATCH)
+pub fn patch() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    method_is(|| Method::PATCH.clone())
+}
+
+/// Create a `Filter` for a custom method.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let mkcol_only = warp::custom_method("MKCOL").map(warp::reply);
+/// ```
+pub fn custom_method<S>(name: S) -> impl Filter<Extract = (), Error = Rejection> + Clone
+where
+    S: AsRef<str>,
+{
+    let method = Method::from_str(name.as_ref()).expect("not a legal method name");
+    method_is(move || method.clone())
 }
 
 /// Extract the `Method` from the request.
@@ -125,9 +143,9 @@ pub fn method() -> impl Filter<Extract = One<Method>, Error = Infallible> + Copy
 // NOTE: This takes a static function instead of `&'static Method` directly
 // so that the `impl Filter` can be zero-sized. Moving it around should be
 // cheaper than holding a single static pointer (which would make it 1 word).
-fn method_is<F>(func: F) -> impl Filter<Extract = (), Error = Rejection> + Copy
+fn method_is<F>(func: F) -> impl Filter<Extract = (), Error = Rejection> + Clone
 where
-    F: Fn() -> &'static Method + Copy,
+    F: Fn() -> Method + Clone,
 {
     filter_fn(move |route| {
         let method = func();

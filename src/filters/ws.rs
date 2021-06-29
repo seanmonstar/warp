@@ -40,7 +40,7 @@ use tokio_tungstenite::{
 /// - Header `connection: upgrade`
 /// - Header `upgrade: websocket`
 /// - Header `sec-websocket-accept` with the hash value of the received key.
-pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
+pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Clone {
     let connection_has_upgrade = header::header2()
         .and_then(|conn: ::headers::Connection| {
             if conn.contains("upgrade") {

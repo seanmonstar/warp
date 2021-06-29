@@ -136,7 +136,7 @@ pub use self::filters::{
     log,
     // log() function
     log::log,
-    method::{delete, get, head, method, options, patch, post, put},
+    method::{custom_method, delete, get, head, method, options, patch, post, put},
     path,
     // path() function and macro
     path::path,
