@@ -192,7 +192,7 @@ impl Builder {
     ///
     /// # Warning
     ///
-    /// This can allow websites you didn't instead to access this resource,
+    /// This can allow websites you didn't intend to access this resource,
     /// it is usually better to set an explicit list.
     pub fn allow_any_origin(mut self) -> Self {
         self.origins = None;
@@ -383,7 +383,7 @@ impl Configured {
                         .to_str()
                         .map_err(|_| Forbidden::HeaderNotAllowed)?;
                     for header in headers.split(',') {
-                        if !self.is_header_allowed(header) {
+                        if !self.is_header_allowed(header.trim()) {
                             return Err(Forbidden::HeaderNotAllowed);
                         }
                     }

@@ -12,7 +12,7 @@ use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tracing_futures::Instrument;
+use tracing::Instrument;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -165,7 +165,7 @@ where
     }
 
     /// Bind to a socket address, returning a `Future` that can be
-    /// executed on any runtime.
+    /// executed on the current runtime.
     ///
     /// # Panics
     ///
@@ -201,7 +201,7 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Panics
     ///
@@ -226,7 +226,7 @@ where
     /// underlying error.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     pub fn try_bind_ephemeral(
         self,
         addr: impl Into<SocketAddr>,
@@ -248,7 +248,7 @@ where
     /// process.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Example
     ///
@@ -313,7 +313,7 @@ where
     ///
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
+    /// Returns a `Future` that can be executed on the current runtime.
     pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()>
     where
         I: TryStream + Send,
@@ -333,7 +333,7 @@ where
     /// When the signal completes, the server will start the graceful shutdown
     /// process.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
+    /// Returns a `Future` that can be executed on the current runtime.
     pub fn serve_incoming_with_graceful_shutdown<I>(
         self,
         incoming: I,
@@ -416,26 +416,76 @@ where
     // TLS config methods
 
     /// Specify the file path to read the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.key_path(path))
     }
 
     /// Specify the file path to read the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.cert_path(path))
     }
 
+    /// Specify the file path to read the trust anchor for optional client authentication.
+    ///
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional_path(path))
+    }
+
+    /// Specify the file path to read the trust anchor for required client authentication.
+    ///
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required_path(path))
+    }
+
     /// Specify the in-memory contents of the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key(self, key: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.key(key.as_ref()))
     }
 
     /// Specify the in-memory contents of the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert(self, cert: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.cert(cert.as_ref()))
     }
 
+    /// Specify the in-memory contents of the trust anchor for optional client authentication.
+    ///
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional(trust_anchor.as_ref()))
+    }
+
+    /// Specify the in-memory contents of the trust anchor for required client authentication.
+    ///
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required(trust_anchor.as_ref()))
+    }
+
     /// Specify the DER-encoded OCSP response.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
     }
@@ -474,7 +524,7 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// *This function requires the `"tls"` feature.*
     pub fn bind_ephemeral(
