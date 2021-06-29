@@ -1,3 +1,7 @@
+### v0.x.x (TBD)
+- **Features**:
+  - Add `route` filter.
+
 ### v0.3.1 (March 24, 2021)
 
 - **Features**:

@@ -143,6 +143,7 @@ pub use self::filters::{
     query,
     // query() function
     query::query,
+    route::route,
     sse,
     trace,
     // trace() function

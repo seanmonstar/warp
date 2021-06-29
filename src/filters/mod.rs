@@ -21,6 +21,7 @@ pub mod multipart;
 pub mod path;
 pub mod query;
 pub mod reply;
+pub mod route;
 pub mod sse;
 pub mod trace;
 #[cfg(feature = "websocket")]
