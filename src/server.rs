@@ -12,7 +12,7 @@ use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tracing_futures::Instrument;
+use tracing::Instrument;
 
 use crate::filter::Filter;
 use crate::reject::IsReject;
@@ -128,7 +128,7 @@ where
     <F::Future as TryFuture>::Error: IsReject,
 {
     /// Run this `Server` forever on the current thread.
-    pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("Server::run", ?addr);
         tracing::info!(parent: &span, "listening on http://{}", addr);
@@ -165,7 +165,7 @@ where
     }
 
     /// Bind to a socket address, returning a `Future` that can be
-    /// executed on any runtime.
+    /// executed on the current runtime.
     ///
     /// # Panics
     ///
@@ -180,7 +180,7 @@ where
     ///
     /// In case we are unable to bind to the specified address, resolves to an
     /// error and logs the reason.
-    pub async fn try_bind(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn try_bind(self, addr: impl Into<SocketAddr>) {
         let addr = addr.into();
         let srv = match try_bind!(self, &addr) {
             Ok((_, srv)) => srv,
@@ -201,14 +201,14 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Panics
     ///
     /// Panics if we are unable to bind to the provided address.
     pub fn bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
         let (addr, srv) = bind!(self, addr);
         let srv = srv.map(|result| {
@@ -226,10 +226,10 @@ where
     /// underlying error.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     pub fn try_bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error> {
         let addr = addr.into();
         let (addr, srv) = try_bind!(self, &addr).map_err(crate::Error::new)?;
@@ -248,7 +248,7 @@ where
     /// process.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Example
     ///
@@ -313,10 +313,10 @@ where
     ///
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
-    pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()> + 'static
+    /// Returns a `Future` that can be executed on the current runtime.
+    pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()>
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -333,14 +333,14 @@ where
     /// When the signal completes, the server will start the graceful shutdown
     /// process.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
+    /// Returns a `Future` that can be executed on the current runtime.
     pub fn serve_incoming_with_graceful_shutdown<I>(
         self,
         incoming: I,
         signal: impl Future<Output = ()> + Send + 'static,
-    ) -> impl Future<Output = ()> + 'static
+    ) -> impl Future<Output = ()>
     where
-        I: TryStream + Send + 'static,
+        I: TryStream + Send,
         I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
@@ -416,23 +416,78 @@ where
     // TLS config methods
 
     /// Specify the file path to read the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.key_path(path))
     }
 
     /// Specify the file path to read the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert_path(self, path: impl AsRef<Path>) -> Self {
         self.with_tls(|tls| tls.cert_path(path))
     }
 
+    /// Specify the file path to read the trust anchor for optional client authentication.
+    ///
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional_path(path))
+    }
+
+    /// Specify the file path to read the trust anchor for required client authentication.
+    ///
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required_path(self, path: impl AsRef<Path>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required_path(path))
+    }
+
     /// Specify the in-memory contents of the private key.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn key(self, key: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.key(key.as_ref()))
     }
 
     /// Specify the in-memory contents of the certificate.
+    ///
+    /// *This function requires the `"tls"` feature.*
     pub fn cert(self, cert: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.cert(cert.as_ref()))
+    }
+
+    /// Specify the in-memory contents of the trust anchor for optional client authentication.
+    ///
+    /// Anonymous and authenticated clients will be accepted. If no trust anchor is provided by any
+    /// of the `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_optional(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_optional(trust_anchor.as_ref()))
+    }
+
+    /// Specify the in-memory contents of the trust anchor for required client authentication.
+    ///
+    /// Only authenticated clients will be accepted. If no trust anchor is provided by any of the
+    /// `client_auth_` methods, then client authentication is disabled by default.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn client_auth_required(self, trust_anchor: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.client_auth_required(trust_anchor.as_ref()))
+    }
+
+    /// Specify the DER-encoded OCSP response.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
+        self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
     }
 
     fn with_tls<Func>(self, func: Func) -> Self
@@ -449,7 +504,7 @@ where
     /// Run this `TlsServer` forever on the current thread.
     ///
     /// *This function requires the `"tls"` feature.*
-    pub async fn run(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("TlsServer::run", %addr);
         tracing::info!(parent: &span, "listening on https://{}", addr);
@@ -461,7 +516,7 @@ where
     /// executed on a runtime.
     ///
     /// *This function requires the `"tls"` feature.*
-    pub async fn bind(self, addr: impl Into<SocketAddr> + 'static) {
+    pub async fn bind(self, addr: impl Into<SocketAddr>) {
         let (_, fut) = self.bind_ephemeral(addr);
         fut.await;
     }
@@ -469,12 +524,12 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// *This function requires the `"tls"` feature.*
     pub fn bind_ephemeral(
         self,
-        addr: impl Into<SocketAddr> + 'static,
+        addr: impl Into<SocketAddr>,
     ) -> (SocketAddr, impl Future<Output = ()> + 'static) {
         let (addr, srv) = bind!(tls: self, addr);
         let srv = srv.map(|result| {

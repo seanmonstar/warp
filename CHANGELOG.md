@@ -1,3 +1,45 @@
+### v0.3.1 (March 24, 2021)
+
+- **Features**:
+  - Add `pong` constructor to websocket messages.
+  - Add `redirect::see_other` and `redirect::permanent` helpers.
+- **Fixes**:
+  - Fix `fs` filters sometimes having an off-by-one error with range requests.
+  - Fix CORS to allow spaces when checking `Access-Control-Request-Headers`.
+
+## v0.3.0 (January 19, 2021)
+
+- **Features**:
+  - Add TLS client authentication support.
+  - Add TLS OCSP stapling support.
+  - Add `From<Reject>` for `Rejection`.
+  - Add `close_frame` accessor to `ws::Message`.
+- **Changes**:
+  - Update to Tokio v1.
+  - Update to Bytes v1.
+  - Update to hyper v0.14.
+  - Rework `sse` filter to be more like `ws`, with a single `Event` type and builder.
+  - Change `cookie` filter to extract a generic `FromStr` value.
+
+
+### v0.2.5 (August 31, 2020)
+
+- **Features**:
+  - Add `wrap_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
+  - Add `warp::host` filters to deal with `Host`/`:authority` headers.
+  - Relax some lifetime bounds on `Server`.
+- **Fixes**:
+  - Fix panic when URI doesn't have a slash (for example, `CONNECT foo.bar`).
+
+### v0.2.4 (July 20, 2020)
+
+- **Features**:
+  - Add `tracing` internals in place of `log` (log is still emitted for backwards compatibility).
+  - Add `warp::trace` module set of filters to customize `tracing` dianostics.
+  - Add `path` method to `warp::fs::File` reply.
+  - Add `source` implementation for `BodyDeserializeError`.
+  - Make `warp::ws::MissingConnectionUpgrade` rejection public.
+
 ### v0.2.3 (May 19, 2020)
 
 - **Features**:

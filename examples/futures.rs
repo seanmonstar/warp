@@ -16,7 +16,7 @@ async fn main() {
 }
 
 async fn sleepy(Seconds(seconds): Seconds) -> Result<impl warp::Reply, Infallible> {
-    tokio::time::delay_for(Duration::from_secs(seconds)).await;
+    tokio::time::sleep(Duration::from_secs(seconds)).await;
     Ok(format!("I waited {} seconds!", seconds))
 }
 

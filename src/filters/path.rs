@@ -369,7 +369,7 @@ pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Infallible> + Copy {
     })
 }
 
-/// Represents that tail part of a request path, returned by the `tail()` filter.
+/// Represents the tail part of a request path, returned by the [`tail()`] filter.
 pub struct Tail {
     path: PathAndQuery,
     start_index: usize,
@@ -418,7 +418,7 @@ pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Infallible> + Copy {
     })
 }
 
-/// Represents that tail part of a request path, returned by the `tail()` filter.
+/// Represents the tail part of a request path, returned by the [`peek()`] filter.
 pub struct Peek {
     path: PathAndQuery,
     start_index: usize,
@@ -477,7 +477,7 @@ pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Infallible> + Copy
     filter_fn(move |route| future::ok(one(FullPath(path_and_query(&route)))))
 }
 
-/// Represents the full request path, returned by the `full()` filter.
+/// Represents the full request path, returned by the [`full()`] filter.
 pub struct FullPath(PathAndQuery);
 
 impl FullPath {
@@ -535,7 +535,7 @@ fn path_and_query(route: &Route) -> PathAndQuery {
 /// Any number of either type identifiers or string expressions can be passed,
 /// each separated by a forward slash (`/`). Strings will be used to match
 /// path segments exactly, and type identifiers are used just like
-/// [`param`](filters::path::param) filters.
+/// [`param`](crate::path::param) filters.
 ///
 /// # Example
 ///
@@ -596,6 +596,9 @@ macro_rules! path {
 #[macro_export]
 // not public API
 macro_rules! __internal_path {
+    (@start) => (
+        $crate::path::end()
+    );
     (@start ..) => ({
         compile_error!("'..' cannot be the only segment")
     });

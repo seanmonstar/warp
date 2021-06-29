@@ -43,6 +43,9 @@ async fn dir() {
     assert_eq!(res.headers()["accept-ranges"], "bytes");
 
     assert_eq!(res.body(), &*contents);
+
+    let malformed_req = warp::test::request().path("todos.rs");
+    assert_eq!(malformed_req.reply(&file).await.status(), 404);
 }
 
 #[tokio::test]
@@ -225,4 +228,44 @@ async fn byte_ranges() {
     assert_eq!(res.status(), 200);
     assert_eq!(res.headers()["content-length"], contents.len().to_string());
     assert_eq!(res.headers().get("content-range"), None);
+}
+
+#[tokio::test]
+async fn byte_ranges_with_excluded_file_size() {
+    let _ = pretty_env_logger::try_init();
+
+    let contents = fs::read("README.md").expect("fs::read README.md");
+    let file = warp::fs::file("README.md");
+
+    // range including end of file (non-inclusive result)
+    let res = warp::test::request()
+        .header("range", format!("bytes=100-{}", contents.len()))
+        .reply(&file)
+        .await;
+    assert_eq!(res.status(), 206);
+    assert_eq!(
+        res.headers()["content-range"],
+        format!("bytes 100-{}/{}", contents.len() - 1, contents.len())
+    );
+    assert_eq!(
+        res.headers()["content-length"],
+        format!("{}", contents.len() - 100)
+    );
+    assert_eq!(res.body(), &contents[100..=contents.len() - 1]);
+
+    // range with 1 byte to end yields same result as above. (inclusive result)
+    let res = warp::test::request()
+        .header("range", format!("bytes=100-{}", contents.len() - 1))
+        .reply(&file)
+        .await;
+    assert_eq!(res.status(), 206);
+    assert_eq!(
+        res.headers()["content-range"],
+        format!("bytes 100-{}/{}", contents.len() - 1, contents.len())
+    );
+    assert_eq!(
+        res.headers()["content-length"],
+        format!("{}", contents.len() - 100)
+    );
+    assert_eq!(res.body(), &contents[100..=contents.len() - 1]);
 }

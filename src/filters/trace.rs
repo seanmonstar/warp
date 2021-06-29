@@ -6,7 +6,7 @@
 //! spans. [`Spans`] can be used to associate individual events  with a request,
 //! and track contexts through the application.
 //!
-//! [`tracing`]: https://crates.io/tracing
+//! [`tracing`]: https://crates.io/crates/tracing
 //! [`Spans`]: https://docs.rs/tracing/latest/tracing/#spans
 use tracing::Span;
 
@@ -60,10 +60,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             span.record("referer", &display(referer));
         }
 
-        // The the headers are, potentially, quite long, so let's record them in
-        // an event within the generated span, rather than including them as
-        // context on *every* request.
-        tracing::debug!(parent: &span, headers = ?info.headers(), "received request");
+        tracing::debug!(parent: &span, "received request");
 
         span
     })
@@ -129,7 +126,7 @@ pub fn named(name: &'static str) -> Trace<impl Fn(Info<'_>) -> Span + Copy> {
 /// Decorates a [`Filter`](crate::Filter) to create a [`tracing`] [span] for
 /// requests and responses.
 ///
-/// [`tracing`]: https://crates.io/tracing
+/// [`tracing`]: https://crates.io/crates/tracing
 /// [span]: https://docs.rs/tracing/latest/tracing/#spans
 #[derive(Clone, Copy, Debug)]
 pub struct Trace<F> {
@@ -205,7 +202,7 @@ impl<'a> Info<'a> {
     }
 
     /// View the request headers.
-    pub fn headers(&self) -> &http::HeaderMap {
+    pub fn request_headers(&self) -> &http::HeaderMap {
         self.route.headers()
     }
 }
@@ -237,8 +234,8 @@ mod internal {
         pub(super) trace: Trace<FN>,
     }
 
+    use tracing::instrument::{Instrument, Instrumented};
     use tracing::Span;
-    use tracing_futures::{Instrument, Instrumented};
 
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
         match reply {
