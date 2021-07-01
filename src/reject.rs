@@ -23,13 +23,12 @@
 //! # Example
 //!
 //! ```
-//! use warp::{Reply, Filter, reject, Rejection, http::StatusCode};
+//! use warp::{reply, Reply, Filter, reject, Rejection, http::StatusCode};
 //!
 //! #[derive(Debug)]
 //! struct InvalidParameter;
 //!
 //! impl reject::Reject for InvalidParameter {};
-//! impl std::error::Error for InvalidParameter {};
 //!
 //! // Custom rejection handler that maps rejections into responses.
 //! async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
@@ -38,8 +37,7 @@
 //!     } else if let Some(e) = err.find::<InvalidParameter>() {
 //!         Ok(reply::with_status("BAD_REQUEST", StatusCode::BAD_REQUEST))
 //!     } else {
-//!         // Could use eprintln! if not using logging crate
-//!         error!("unhandled rejection: {:?}", err);
+//!         eprintln!("unhandled rejection: {:?}", err);
 //!         Ok(reply::with_status("INTERNAL_SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR))
 //!     }
 //! }
@@ -54,12 +52,12 @@
 //!             if id == 0 {
 //!                 Err(warp::reject::custom(InvalidParameter))
 //!             } else {
-//!                 Ok("something since id is valid")
+//!                 Ok("id is valid")
 //!             }
 //!         })
 //!         .recover(handle_rejection);
 //!
-//!     warp::serve(route).run(([127.0.0.1], 3030)).await;
+//!     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 //! }
 //! ```
 
