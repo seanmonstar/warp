@@ -62,3 +62,7 @@ Hooray! `warp` also includes built-in support for WebSockets
 ### Debugging
 
 - [`tracing.rs`](./tracing.rs) - Warp has built-in support for rich diagnostics with [`tracing`](https://docs.rs/tracing)!
+
+## Custom HTTP Methods
+
+- [`custom_methods.rs`](./custom_methods.rs) - It is also possible to use Warp with custom HTTP methods.
