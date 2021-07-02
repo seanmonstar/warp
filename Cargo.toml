@@ -26,7 +26,7 @@ hyper = { version = "0.14", features = ["stream", "server", "http1", "tcp", "cli
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
-multipart = { version = "0.18", default-features = false, features = ["server"], optional = true }
+multiparty = { version = "0.1", features = ["server", "futures03"], optional = true } 
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
@@ -53,6 +53,7 @@ listenfd = "0.3"
 
 [features]
 default = ["multipart", "websocket", "trace-log", "http2"]
+multipart = ["multiparty"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
 compression = ["async-compression"]
