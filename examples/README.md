@@ -26,6 +26,7 @@ You can run other examples with `cargo run --example [example name]`:
 - [`hello.rs`](./hello.rs) - Just a basic "Hello World" API
 - [`routing.rs`](./routing.rs) - Builds up a more complex set of routes and shows how to combine filters
 - [`body.rs`](./body.rs) - What's a good API without parsing data from the request body?
+- [`form.rs`](./form.rs) - Parsing form data
 - [`headers.rs`](./headers.rs) - Parsing data from the request headers
 - [`rejections.rs`](./rejections.rs) - Your APIs are obviously perfect, but for silly others who call them incorrectly you'll want to define errors for them
 - [`futures.rs`](./futures.rs) - Wait, wait! ... Or how to integrate futures into filters
