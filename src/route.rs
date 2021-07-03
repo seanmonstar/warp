@@ -2,8 +2,10 @@ use scoped_tls::scoped_thread_local;
 use std::cell::RefCell;
 use std::mem;
 use std::net::SocketAddr;
+use std::str::FromStr;
 
 use http;
+use http::uri::Authority;
 use hyper::Body;
 
 use crate::Request;
@@ -41,6 +43,9 @@ enum BodyState {
     Ready,
     Taken,
 }
+
+#[derive(Debug)]
+pub(crate) struct HostError;
 
 impl Route {
     pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
@@ -136,6 +141,38 @@ impl Route {
                 Some(body)
             }
             BodyState::Taken => None,
+        }
+    }
+
+    /// The authority can be sent by clients in various ways:
+    ///
+    ///  1) in the "target URI"
+    ///    a) serialized in the start line (HTTP/1.1 proxy requests)
+    ///    b) serialized in `:authority` pseudo-header (HTTP/2 generated - "SHOULD")
+    ///  2) in the `Host` header (HTTP/1.1 origin requests, HTTP/2 converted)
+    ///
+    /// Hyper transparently handles 1a/1b, but not 2, so we must look at both.
+    pub(crate) fn host(&self) -> Result<Option<Authority>, HostError> {
+        let from_uri = self.req.uri().authority();
+        let from_header = self.req.headers().get(http::header::HOST).map(|value|
+                // Header present, parse it
+                value.to_str().map_err(|_| HostError)
+                    .and_then(|value| Authority::from_str(value).map_err(|_| HostError)));
+
+        match (from_uri, from_header) {
+            // no authority in the request (HTTP/1.0 or non-conforming)
+            (None, None) => Ok(None),
+
+            // authority specified in either or both matching
+            (Some(a), None) => Ok(Some(a.clone())),
+            (None, Some(Ok(a))) => Ok(Some(a)),
+            (Some(a), Some(Ok(b))) if *a == b => Ok(Some(b)),
+
+            // mismatch
+            (Some(_), Some(Ok(_))) => Err(HostError),
+
+            // parse error
+            (_, Some(Err(r))) => Err(r),
         }
     }
 }
