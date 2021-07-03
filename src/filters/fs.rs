@@ -369,23 +369,21 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
     let ret = range
         .iter()
         .map(|(start, end)| {
-            let start = match start {
-                Bound::Unbounded => 0,
-                Bound::Included(s) => s,
-                Bound::Excluded(s) => s + 1,
-            };
-
-            let end = match end {
-                Bound::Unbounded => max_len,
-                Bound::Included(s) => {
+            let (start, end) = match (start, end) {
+                (Bound::Unbounded, Bound::Unbounded) => (0, max_len),
+                (Bound::Included(b), Bound::Included(e)) => {
                     // For the special case where s == the file size
-                    if s == max_len {
-                        s
-                    } else {
-                        s + 1
-                    }
+                    let e = if e == max_len { e } else { e + 1 };
+                    (b, e)
                 }
-                Bound::Excluded(s) => s,
+                (Bound::Included(b), Bound::Unbounded) => (b, max_len),
+                (Bound::Unbounded, Bound::Included(e)) => {
+                    if e > max_len {
+                        return Err(BadRange);
+                    }
+                    (max_len - e, max_len)
+                }
+                _ => unreachable!(),
             };
 
             if start < end && end <= max_len {
