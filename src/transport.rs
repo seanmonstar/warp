@@ -6,7 +6,10 @@ use std::task::{Context, Poll};
 use hyper::server::conn::AddrStream;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
+/// impl Transport for your custom `Incoming`
+/// to ensure `ws::addr::remote` return meaningful value
 pub trait Transport: AsyncRead + AsyncWrite {
+    /// get underline stream's remote addr
     fn remote_addr(&self) -> Option<SocketAddr>;
 }
 
@@ -16,7 +19,10 @@ impl Transport for AddrStream {
     }
 }
 
-pub(crate) struct LiftIo<T>(pub(crate) T);
+/// LiftIo to support `Transport`
+/// default always return None for `ws::addr::remote`
+#[allow(missing_debug_implementations)]
+pub struct LiftIo<T>(pub T);
 
 impl<T: AsyncRead + Unpin> AsyncRead for LiftIo<T> {
     fn poll_read(
