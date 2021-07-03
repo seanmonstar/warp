@@ -17,7 +17,7 @@ use crate::filter::{Filter, WrapSealed};
 use crate::reject::{CombineRejection, Rejection};
 use crate::reply::Reply;
 
-use self::internal::{CorsFilter, IntoOrigin, Seconds};
+use self::internal::{wildcard_header, CorsFilter, IntoOrigin, Seconds};
 
 /// Create a wrapping filter that exposes [CORS][] behavior for a wrapped
 /// filter.
@@ -422,7 +422,7 @@ impl Configured {
 
     fn is_origin_allowed(&self, origin: &HeaderValue) -> bool {
         if let Some(ref allowed) = self.cors.origins {
-            allowed.contains(origin)
+            allowed.contains(origin) || allowed.contains(&wildcard_header())
         } else {
             true
         }
@@ -459,15 +459,25 @@ mod internal {
     use std::task::{Context, Poll};
 
     use futures::{future, ready, TryFuture};
-    use headers::Origin;
     use http::header;
     use pin_project::pin_project;
 
-    use super::{Configured, CorsForbidden, Validated};
+    use super::{Configured, CorsForbidden, HeaderValue, Validated};
     use crate::filter::{Filter, FilterBase, Internal, One};
     use crate::generic::Either;
     use crate::reject::{CombineRejection, Rejection};
     use crate::route;
+
+    /// The `"*"` value in `Access-Control-Allow-Origin: *`.
+    ///
+    /// ## Specification
+    ///
+    /// For requests without credentials, the literal value "*" can be specified, as a wildcard;
+    /// the value tells browsers to allow requesting code from any origin to access the resource.
+    /// Attempting to use the wildcard with credentials will result in an error.
+    ///
+    /// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin
+    const WILDCARD_ORIGIN: &str = "*";
 
     #[derive(Clone, Debug)]
     pub struct CorsFilter<F> {
@@ -609,17 +619,45 @@ mod internal {
         }
     }
 
+    #[derive(Debug)]
+    pub enum Origin {
+        Origin(headers::Origin),
+        Wildcard,
+    }
+
     pub trait IntoOrigin {
         fn into_origin(self) -> Origin;
     }
 
     impl<'a> IntoOrigin for &'a str {
         fn into_origin(self) -> Origin {
-            let mut parts = self.splitn(2, "://");
-            let scheme = parts.next().expect("missing scheme");
-            let rest = parts.next().expect("missing scheme");
+            if self == WILDCARD_ORIGIN {
+                Origin::Wildcard
+            } else {
+                let mut parts = self.splitn(2, "://");
+                let scheme = parts.next().expect("missing scheme");
+                let rest = parts.next().expect("missing scheme");
 
-            Origin::try_from_parts(scheme, rest, None).expect("invalid Origin")
+                Origin::Origin(
+                    headers::Origin::try_from_parts(scheme, rest, None).expect("invalid Origin"),
+                )
+            }
         }
+    }
+
+    impl ToString for Origin {
+        fn to_string(&self) -> String {
+            match self {
+                Origin::Origin(origin) => origin.to_string(),
+                Origin::Wildcard => WILDCARD_ORIGIN.to_string(),
+            }
+        }
+    }
+
+    pub fn wildcard_header() -> HeaderValue {
+        WILDCARD_ORIGIN
+            .to_string()
+            .parse()
+            .expect("Asterisk is always a valid HeaderValue")
     }
 }
