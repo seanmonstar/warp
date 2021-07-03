@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 mod and;
 mod and_then;
 mod boxed;
