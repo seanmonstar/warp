@@ -113,6 +113,12 @@ pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
     known(MissingCookie { name })
 }
 
+/// Rejects request with `401 Unauthorized`.
+#[inline]
+pub fn unauthorized() -> Rejection {
+    known(Unauthorized { _p: () })
+}
+
 // 405 Method Not Allowed
 #[inline]
 pub(crate) fn method_not_allowed() -> Rejection {
@@ -277,6 +283,7 @@ macro_rules! enum_known {
 }
 
 enum_known! {
+    Unauthorized(Unauthorized),
     MethodNotAllowed(MethodNotAllowed),
     InvalidHeader(InvalidHeader),
     MissingHeader(MissingHeader),
@@ -443,6 +450,7 @@ impl Rejections {
                 Known::FileOpenError(_)
                 | Known::MissingExtension(_)
                 | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
+                Known::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
             Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
@@ -521,6 +529,11 @@ fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
 unit_error! {
     /// Invalid query
     pub InvalidQuery: "Invalid query string"
+}
+
+unit_error! {
+    /// HTTP Unauthorized
+    pub Unauthorized: "Unauthorized status"
 }
 
 unit_error! {
