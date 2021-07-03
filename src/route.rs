@@ -75,7 +75,6 @@ impl Route {
         self.req.extensions()
     }
 
-    #[cfg(feature = "websocket")]
     pub(crate) fn extensions_mut(&mut self) -> &mut http::Extensions {
         self.req.extensions_mut()
     }

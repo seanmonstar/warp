@@ -26,3 +26,18 @@ async fn get_missing() {
     assert_eq!(res.status(), 500);
     assert_eq!(res.body(), "Missing request extension");
 }
+
+#[tokio::test]
+async fn provide_and_get() {
+    fn reply_with(data: Ext1) -> String {
+        data.0.to_string()
+    }
+
+    let ext = warp::ext::get::<Ext1>()
+        .map(reply_with)
+        .with(warp::ext::provide(Ext1(55)));
+
+    let extracted = warp::test::request().filter(&ext).await.unwrap();
+
+    assert_eq!(extracted, "55");
+}
