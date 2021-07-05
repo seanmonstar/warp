@@ -2,6 +2,7 @@ mod and;
 mod and_then;
 mod boxed;
 mod map;
+mod map_async;
 mod map_err;
 mod or;
 mod or_else;
@@ -23,6 +24,7 @@ pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
+use self::map_async::MapAsync;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
@@ -197,12 +199,44 @@ pub trait Filter: FilterBase {
         }
     }
 
-    /// Composes this `Filter` with a function receiving the extracted value.
+    /// Composes this `Filter` with an async function receiving
+    /// the extracted value.
+    ///
+    /// The function should return some `Future` type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// // Map `/:id`
+    /// warp::path::param().map_async(|id: u64| async move {
+    ///   format!("Hello #{}", id)
+    /// });
+    /// ```
+    fn map_async<F>(self, fun: F) -> MapAsync<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone,
+        F::Output: Future + Send,
+    {
+        MapAsync {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Composes this `Filter` with an async function receiving
+    /// the extracted value.
     ///
     /// The function should return some `TryFuture` type.
     ///
     /// The `Error` type of the return `Future` needs be a `Rejection`, which
     /// means most futures will need to have their error mapped into one.
+    ///
+    /// Rejections are meant to say "this filter didn't accept the request,
+    /// maybe another can". So for application-level errors, consider using
+    /// [`Filter::map_async`] instead.
     ///
     /// # Example
     ///
