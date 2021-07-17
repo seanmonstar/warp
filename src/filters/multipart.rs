@@ -8,7 +8,6 @@ use std::io::{Cursor, Read};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{Buf, Bytes};
 use futures::{future, Stream};
 use headers::ContentType;
 use mime::Mime;
@@ -42,7 +41,7 @@ pub struct Part {
     name: String,
     filename: Option<String>,
     content_type: Option<String>,
-    data: Option<Vec<u8>>,
+    data: Vec<u8>,
 }
 
 /// Create a `Filter` to extract a `multipart/form-data` body from a request.
@@ -120,7 +119,7 @@ impl Stream for FormData {
                     name: field.headers.name.to_string(),
                     filename: field.headers.filename,
                     content_type: field.headers.content_type.map(|m| m.to_string()),
-                    data: Some(data),
+                    data,
                 })))
             }
             Ok(None) => Poll::Ready(None),
@@ -147,18 +146,9 @@ impl Part {
         self.content_type.as_ref().map(|s| &**s)
     }
 
-    /// Asynchronously get some of the data for this `Part`.
-    pub async fn data(&mut self) -> Option<Result<impl Buf, crate::Error>> {
-        self.take_data()
-    }
-
-    /// Convert this `Part` into a `Stream` of `Buf`s.
-    pub fn stream(self) -> impl Stream<Item = Result<impl Buf, crate::Error>> {
-        PartStream(self)
-    }
-
-    fn take_data(&mut self) -> Option<Result<Bytes, crate::Error>> {
-        self.data.take().map(|vec| Ok(vec.into()))
+    /// Get some of the data for this `Part`.
+    pub fn data(&mut self) -> &[u8] {
+        self.data.as_slice()
     }
 }
 
@@ -176,15 +166,5 @@ impl fmt::Debug for Part {
         }
 
         builder.finish()
-    }
-}
-
-struct PartStream(Part);
-
-impl Stream for PartStream {
-    type Item = Result<Bytes, crate::Error>;
-
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
-        Poll::Ready(self.0.take_data())
     }
 }
