@@ -11,20 +11,54 @@
 //! new custom [`Filter`](../trait.Filter.html)s and still want other routes to be
 //! matchable in the case a predicate doesn't hold.
 //!
+//! As a request is processed by a Filter chain, the rejections are accumulated into
+//! a list contained by the [`Rejection`](struct.Rejection.html) type. Rejections from
+//! filters can be handled using [`Filter::recover`](../trait.Filter.html#method.recover).
+//! This is a convenient way to map rejections into a [`Reply`](../reply/trait.Reply.html).
+//!
+//! For a more complete example see the
+//! [Rejection Example](https://github.com/seanmonstar/warp/blob/master/examples/rejections.rs)
+//! from the repository.
+//!
 //! # Example
 //!
 //! ```
-//! use warp::Filter;
+//! use warp::{reply, Reply, Filter, reject, Rejection, http::StatusCode};
 //!
-//! // Filter on `/:id`, but reject with 404 if the `id` is `0`.
-//! let route = warp::path::param()
-//!     .and_then(|id: u32| async move {
-//!         if id == 0 {
-//!             Err(warp::reject::not_found())
-//!         } else {
-//!             Ok("something since id is valid")
-//!         }
-//!     });
+//! #[derive(Debug)]
+//! struct InvalidParameter;
+//!
+//! impl reject::Reject for InvalidParameter {};
+//!
+//! // Custom rejection handler that maps rejections into responses.
+//! async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
+//!     if err.is_not_found() {
+//!         Ok(reply::with_status("NOT_FOUND", StatusCode::NOT_FOUND))
+//!     } else if let Some(e) = err.find::<InvalidParameter>() {
+//!         Ok(reply::with_status("BAD_REQUEST", StatusCode::BAD_REQUEST))
+//!     } else {
+//!         eprintln!("unhandled rejection: {:?}", err);
+//!         Ok(reply::with_status("INTERNAL_SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR))
+//!     }
+//! }
+//!
+//! #[tokio::main]
+//! async fn main() {
+//!
+//!     // Filter on `/:id`, but reject with InvalidParameter if the `id` is `0`.
+//!     // Recover from this rejection using a custom rejection handler.
+//!     let route = warp::path::param()
+//!         .and_then(|id: u32| async move {
+//!             if id == 0 {
+//!                 Err(warp::reject::custom(InvalidParameter))
+//!             } else {
+//!                 Ok("id is valid")
+//!             }
+//!         })
+//!         .recover(handle_rejection);
+//!
+//!     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
+//! }
 //! ```
 
 use std::any::Any;
