@@ -165,7 +165,7 @@ where
     }
 
     /// Bind to a socket address, returning a `Future` that can be
-    /// executed on any runtime.
+    /// executed on the current runtime.
     ///
     /// # Panics
     ///
@@ -201,7 +201,7 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Panics
     ///
@@ -226,7 +226,7 @@ where
     /// underlying error.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     pub fn try_bind_ephemeral(
         self,
         addr: impl Into<SocketAddr>,
@@ -248,7 +248,7 @@ where
     /// process.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// # Example
     ///
@@ -313,7 +313,7 @@ where
     ///
     /// This can be used for Unix Domain Sockets, or TLS, etc.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
+    /// Returns a `Future` that can be executed on the current runtime.
     pub fn serve_incoming<I>(self, incoming: I) -> impl Future<Output = ()>
     where
         I: TryStream + Send,
@@ -333,7 +333,7 @@ where
     /// When the signal completes, the server will start the graceful shutdown
     /// process.
     ///
-    /// Returns a `Future` that can be executed on any runtime.
+    /// Returns a `Future` that can be executed on the current runtime.
     pub fn serve_incoming_with_graceful_shutdown<I>(
         self,
         incoming: I,
@@ -524,7 +524,7 @@ where
     /// Bind to a possibly ephemeral socket address.
     ///
     /// Returns the bound address and a `Future` that can be executed on
-    /// any runtime.
+    /// the current runtime.
     ///
     /// *This function requires the `"tls"` feature.*
     pub fn bind_ephemeral(
