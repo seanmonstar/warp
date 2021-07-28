@@ -5,7 +5,7 @@ use std::sync::{
     Arc,
 };
 
-use futures::{FutureExt, StreamExt};
+use futures::{SinkExt, StreamExt, TryFutureExt};
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};
@@ -18,7 +18,7 @@ static NEXT_USER_ID: AtomicUsize = AtomicUsize::new(1);
 ///
 /// - Key is their id
 /// - Value is a sender of `warp::ws::Message`
-type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>>;
+type Users = Arc<RwLock<HashMap<usize, mpsc::UnboundedSender<Message>>>>;
 
 #[tokio::main]
 async fn main() {
@@ -55,17 +55,23 @@ async fn user_connected(ws: WebSocket, users: Users) {
     eprintln!("new chat user: {}", my_id);
 
     // Split the socket into a sender and receive of messages.
-    let (user_ws_tx, mut user_ws_rx) = ws.split();
+    let (mut user_ws_tx, mut user_ws_rx) = ws.split();
 
     // Use an unbounded channel to handle buffering and flushing of messages
     // to the websocket...
     let (tx, rx) = mpsc::unbounded_channel();
-    let rx = UnboundedReceiverStream::new(rx);
-    tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
-        if let Err(e) = result {
-            eprintln!("websocket send error: {}", e);
+    let mut rx = UnboundedReceiverStream::new(rx);
+
+    tokio::task::spawn(async move {
+        while let Some(message) = rx.next().await {
+            user_ws_tx
+                .send(message)
+                .unwrap_or_else(|e| {
+                    eprintln!("websocket send error: {}", e);
+                })
+                .await;
         }
-    }));
+    });
 
     // Save the sender in our list of connected users.
     users.write().await.insert(my_id, tx);
@@ -104,7 +110,7 @@ async fn user_message(my_id: usize, msg: Message, users: &Users) {
     // New message from this user, send it to everyone else (except same uid)...
     for (&uid, tx) in users.read().await.iter() {
         if my_id != uid {
-            if let Err(_disconnected) = tx.send(Ok(Message::text(new_msg.clone()))) {
+            if let Err(_disconnected) = tx.send(Message::text(new_msg.clone())) {
                 // The tx is disconnected, our `user_disconnected` code
                 // should be happening in another task, nothing more to
                 // do here.
