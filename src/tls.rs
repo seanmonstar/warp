@@ -15,7 +15,7 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use crate::transport::Transport;
 use tokio_rustls::rustls::{
     AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth,
-    RootCertStore, ServerConfig, TLSError,
+    RootCertStore, ServerConfig, SupportedCipherSuite, TLSError, ALL_CIPHERSUITES,
 };
 
 /// Represents errors that can occur building the TlsConfig
@@ -65,6 +65,7 @@ pub(crate) struct TlsConfigBuilder {
     key: Box<dyn Read + Send + Sync>,
     client_auth: TlsClientAuth,
     ocsp_resp: Vec<u8>,
+    ciphersuites: Vec<&'static SupportedCipherSuite>,
 }
 
 impl std::fmt::Debug for TlsConfigBuilder {
@@ -81,6 +82,7 @@ impl TlsConfigBuilder {
             cert: Box::new(io::empty()),
             client_auth: TlsClientAuth::Off,
             ocsp_resp: Vec::new(),
+            ciphersuites: ALL_CIPHERSUITES.to_vec(),
         }
     }
 
@@ -166,6 +168,12 @@ impl TlsConfigBuilder {
         self
     }
 
+    /// sets the ciphersuites in preference order
+    pub(crate) fn ciphersuites(mut self, ciphersuites: &[&'static SupportedCipherSuite]) -> Self {
+        self.ciphersuites = Vec::from(ciphersuites);
+        self
+    }
+
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
         let cert = tokio_rustls::rustls::internal::pemfile::certs(&mut cert_rdr)
@@ -225,7 +233,8 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::new(client_auth);
+        let ciphersuites = self.ciphersuites.as_ref();
+        let mut config = ServerConfig::with_ciphersuites(client_auth, ciphersuites);
         config
             .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(|err| TlsConfigError::InvalidKey(err))?;
