@@ -22,7 +22,8 @@ use hyper::Body;
 use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
-use tokio::io::AsyncRead;
+use tokio::io::AsyncSeekExt;
+use tokio_util::io::poll_read_buf;
 
 use crate::filter::{Filter, FilterClone, One};
 use crate::reject::{self, Rejection};
@@ -80,6 +81,8 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
 pub fn dir(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, Error = Rejection> {
     let base = Arc::new(path.into());
     crate::get()
+        .or(crate::head())
+        .unify()
         .and(path_from_tail(base))
         .and(conditionals())
         .and_then(file_reply)
@@ -374,7 +377,14 @@ fn bytes_range(range: Option<Range>, max_len: u64) -> Result<(u64, u64), BadRang
 
             let end = match end {
                 Bound::Unbounded => max_len,
-                Bound::Included(s) => s + 1,
+                Bound::Included(s) => {
+                    // For the special case where s == the file size
+                    if s == max_len {
+                        s
+                    } else {
+                        s + 1
+                    }
+                }
                 Bound::Excluded(s) => s,
             };
 
@@ -419,7 +429,7 @@ fn file_stream(
                 }
                 reserve_at_least(&mut buf, buf_size);
 
-                let n = match ready!(Pin::new(&mut f).poll_read_buf(cx, &mut buf)) {
+                let n = match ready!(poll_read_buf(Pin::new(&mut f), cx, &mut buf)) {
                     Ok(n) => n as u64,
                     Err(err) => {
                         tracing::debug!("file read error: {}", err);
