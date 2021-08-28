@@ -49,7 +49,10 @@ serde_derive = "1.0"
 handlebars = "4.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "io-util"] }
 tokio-stream = { version = "0.1.1", features = ["net"] }
+tokio-postgres = "0.7"
 listenfd = "0.3"
+bb8 = "0.7"
+bb8-postgres = "0.7"
 
 [features]
 default = ["multipart", "websocket", "trace-log", "http2"]
