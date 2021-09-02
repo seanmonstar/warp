@@ -7,6 +7,7 @@ mod or;
 mod or_else;
 mod recover;
 pub(crate) mod service;
+mod tuple_all;
 mod unify;
 mod untuple_one;
 mod wrap;
@@ -27,6 +28,7 @@ pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
+use self::tuple_all::TupleAll;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub use self::wrap::wrap_fn;
@@ -339,6 +341,37 @@ pub trait Filter: FilterBase {
         T: Tuple,
     {
         UntupleOne { filter: self }
+    }
+
+    /// Wraps up the extracted arguments into a tuple.
+    ///
+    /// This is the inverse of `untuple_one`. It is mainly useful in generic code
+    /// that works on arbitrary filters, without knowing how many arguments the
+    /// filter has extracted.
+    ///
+    /// # Example
+    ///
+    /// ```
+    ///# use warp::Filter;
+    ///
+    /// let filter = warp::path!(u32 / String);
+    ///
+    /// // Normally
+    /// filter.map(|amount: u32, currency: String| {
+    ///     format!("got {} {}", amount, currency);
+    /// });
+    ///
+    /// // With tuple_all
+    /// filter.tuple_all().map(|tup: (u32, String)| {
+    ///     let (amount, currency) = tup;
+    ///     format!("got {} {} as a tuple", amount, currency);
+    /// });
+    /// ```
+    fn tuple_all(self) -> TupleAll<Self>
+    where
+        Self: Sized,
+    {
+        TupleAll { filter: self }
     }
 
     /// Wraps the current filter with some wrapper.
