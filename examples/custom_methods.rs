@@ -9,15 +9,14 @@ use warp::{hyper::Method, reject, Filter, Rejection, Reply};
 struct MethodError;
 impl reject::Reject for MethodError {}
 
-fn method(name: &str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    let method =
-        Method::from_str(name).expect(&format!("Method name {} could not be converted", name));
+const FOO_METHOD: &'static str = "FOO";
+const BAR_METHOD: &'static str = "BAR";
 
+fn method(name: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
     warp::method()
         .and_then(move |m: Method| {
-            let method = method.clone();
             async move {
-                if m == method {
+                if m == name {
                     Ok(())
                 } else {
                     Err(reject::custom(MethodError))
@@ -47,12 +46,12 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address: SocketAddr = "[::]:3030".parse()?;
 
-    let foo_route = method("FOO")
+    let foo_route = method(FOO_METHOD)
         .and(warp::path!("foo"))
         .map(|| "Success")
         .recover(handle_not_found);
 
-    let bar_route = method("BAR")
+    let bar_route = method(BAR_METHOD)
         .and(warp::path!("bar"))
         .map(|| "Success")
         .recover(handle_not_found);
