@@ -73,7 +73,7 @@ use http::{
 };
 use hyper::Body;
 
-pub(crate) use self::sealed::{CombineRejection, IsReject};
+pub(crate) use self::sealed::{CombineRejection};
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
@@ -606,18 +606,20 @@ impl ::std::fmt::Display for MissingCookie {
 
 impl StdError for MissingCookie {}
 
+/// Allows propagation of warp builtin rejections in case of custom error handling
+pub trait IsReject: fmt::Debug + Send + Sync {
+    /// Retrieve the status code of the rejection
+    fn status(&self) -> StatusCode;
+    /// Convert into a response
+    fn into_response(&self) -> crate::reply::Response;
+}
+
 mod sealed {
     use super::{Reason, Rejection, Rejections};
     use http::StatusCode;
     use std::convert::Infallible;
     use std::fmt;
-
-    // This sealed trait exists to allow Filters to return either `Rejection`
-    // or `!`. There are no other types that make sense, and so it is sealed.
-    pub trait IsReject: fmt::Debug + Send + Sync {
-        fn status(&self) -> StatusCode;
-        fn into_response(&self) -> crate::reply::Response;
-    }
+    use super::IsReject;
 
     fn _assert_object_safe() {
         fn _assert(_: &dyn IsReject) {}
