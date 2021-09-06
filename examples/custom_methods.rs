@@ -14,13 +14,11 @@ const BAR_METHOD: &'static str = "BAR";
 
 fn method(name: &'static str) -> impl Filter<Extract = (), Error = Rejection> + Clone {
     warp::method()
-        .and_then(move |m: Method| {
-            async move {
-                if m == name {
-                    Ok(())
-                } else {
-                    Err(reject::custom(MethodError))
-                }
+        .and_then(move |m: Method| async move {
+            if m == name {
+                Ok(())
+            } else {
+                Err(reject::custom(MethodError))
             }
         })
         .untuple_one()
