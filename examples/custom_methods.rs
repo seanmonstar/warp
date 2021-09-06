@@ -1,6 +1,5 @@
 #![deny(warnings)]
 use std::net::SocketAddr;
-use std::str::FromStr;
 
 use warp::hyper::StatusCode;
 use warp::{hyper::Method, reject, Filter, Rejection, Reply};
