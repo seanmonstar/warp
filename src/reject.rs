@@ -616,9 +616,7 @@ pub trait IsReject: fmt::Debug + Send + Sync {
 
 mod sealed {
     use super::{Reason, Rejection, Rejections};
-    use http::StatusCode;
     use std::convert::Infallible;
-    use std::fmt;
     use super::IsReject;
 
     fn _assert_object_safe() {
