@@ -14,7 +14,7 @@ async fn uses_tracing() {
     tracing_log::LogTracer::init().unwrap();
 
     // Start a span with some metadata (fields)
-    let span = tracing::info_span!("app", domain = "www.example.org");
+    let span = tracing::info_span!("app");
     let _guard = span.enter();
 
     log::info!("logged using log macro");
@@ -37,12 +37,14 @@ async fn uses_tracing() {
     tracing::info!("logged using tracing macro");
 
     // Send a request for /
-    let req = warp::test::request();
+    let req = warp::test::request().header("host", "www.example.org");
     let resp = req.reply(&ok);
     assert_eq!(resp.await.status(), 404);
 
     // Send a request for /aa
-    let req = warp::test::request().path("/aa");
+    let req = warp::test::request()
+        .header("host", "www.example.org")
+        .path("/aa");
     let resp = req.reply(&ok);
     assert_eq!(resp.await.status(), 200);
 }

@@ -4,7 +4,7 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-use http::{self, header, StatusCode};
+use http::{self, header, uri::Authority, StatusCode};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -156,11 +156,8 @@ impl<'a> Info<'a> {
     }
 
     /// View the host of the request
-    pub fn host(&self) -> Option<&str> {
-        self.route
-            .headers()
-            .get(header::HOST)
-            .and_then(|v| v.to_str().ok())
+    pub fn host(&self) -> Option<Authority> {
+        self.route.host().unwrap_or(None)
     }
 
     /// Access the full headers of the request

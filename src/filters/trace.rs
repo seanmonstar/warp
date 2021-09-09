@@ -12,7 +12,7 @@ use tracing::Span;
 
 use std::net::SocketAddr;
 
-use http::{self, header};
+use http::{self, header, uri::Authority};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -46,12 +46,17 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             "request",
             remote.addr = Empty,
             method = %info.method(),
+            host = Empty,
             path = %info.path(),
             version = ?info.route.version(),
             referer = Empty,
         );
 
         // Record optional fields.
+        if let Some(authority) = info.host() {
+            span.record("host", &display(authority));
+        }
+
         if let Some(remote_addr) = info.remote_addr() {
             span.record("remote.addr", &display(remote_addr));
         }
@@ -194,11 +199,8 @@ impl<'a> Info<'a> {
     }
 
     /// View the host of the request
-    pub fn host(&self) -> Option<&str> {
-        self.route
-            .headers()
-            .get(header::HOST)
-            .and_then(|v| v.to_str().ok())
+    pub fn host(&self) -> Option<Authority> {
+        self.route.host().unwrap_or(None)
     }
 
     /// View the request headers.
