@@ -345,11 +345,7 @@ impl Rejection {
     /// assert!(rejection.is_not_found());
     /// ```
     pub fn is_not_found(&self) -> bool {
-        if let Reason::NotFound = self.reason {
-            true
-        } else {
-            false
-        }
+        matches!(self.reason, Reason::NotFound)
     }
 }
 

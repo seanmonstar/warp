@@ -111,7 +111,7 @@ impl Ws {
     /// Set the maximum frame size (defaults to 16 megabytes)
     pub fn max_frame_size(mut self, max: usize) -> Self {
         self.config
-            .get_or_insert_with(|| WebSocketConfig::default())
+            .get_or_insert_with(WebSocketConfig::default)
             .max_frame_size = Some(max);
         self
     }
@@ -388,9 +388,9 @@ impl fmt::Debug for Message {
     }
 }
 
-impl Into<Vec<u8>> for Message {
-    fn into(self) -> Vec<u8> {
-        self.into_bytes()
+impl From<Message> for Vec<u8> {
+    fn from(m: Message) -> Self {
+        m.into_bytes()
     }
 }
 
