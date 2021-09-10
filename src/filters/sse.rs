@@ -112,7 +112,7 @@ impl Event {
     /// Set Server-sent event retry
     /// Retry timeout field ("retry:<timeout>")
     pub fn retry(mut self, duration: Duration) -> Event {
-        self.retry = Some(duration.into());
+        self.retry = Some(duration);
         self
     }
 

@@ -139,12 +139,12 @@ impl Part {
 
     /// Get the filename of this part, if present.
     pub fn filename(&self) -> Option<&str> {
-        self.filename.as_ref().map(|s| &**s)
+        self.filename.as_deref()
     }
 
     /// Get the content-type of this part, if present.
     pub fn content_type(&self) -> Option<&str> {
-        self.content_type.as_ref().map(|s| &**s)
+        self.content_type.as_deref()
     }
 
     /// Asynchronously get some of the data for this `Part`.
