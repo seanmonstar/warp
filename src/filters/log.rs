@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use http::{self, header, StatusCode};
+use log::Level;
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -13,7 +14,8 @@ use crate::route::Route;
 
 use self::internal::WithLog;
 
-/// Create a wrapping filter with the specified `name` as the `target`.
+/// Create a wrapping filter with the specified `name` as the `target` using the
+/// [info](Level::Info) log level.
 ///
 /// This uses the default access logging format, and log records produced
 /// will have their `target` set to `name`.
@@ -31,11 +33,35 @@ use self::internal::WithLog;
 ///     .with(log);
 /// ```
 pub fn log(name: &'static str) -> Log<impl Fn(Info) + Copy> {
+    with_level(name, Level::Info)
+}
+
+/// Create a wrapping filter with the specified `name` as the `target` using the
+/// log level specified by `level`.
+///
+/// This uses the default access logging format, and log records produced
+/// will have their `target` set to `name`.
+///
+/// # Example
+///
+/// ```
+/// use log::Level;
+/// use warp::Filter;
+///
+/// // If using something like `pretty_env_logger`,
+/// // view logs by setting `RUST_LOG=example::api=debug`.
+/// let log = warp::log::with_level("example::api", Level::Debug);
+/// let route = warp::any()
+///     .map(warp::reply)
+///     .with(log);
+/// ```
+pub fn with_level(name: &'static str, level: Level) -> Log<impl Fn(Info) + Copy> {
     let func = move |info: Info| {
         // TODO?
         // - response content length?
-        log::info!(
+        log::log!(
             target: name,
+            level,
             "{} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
             OptFmt(info.route.remote_addr()),
             info.method(),
