@@ -72,7 +72,6 @@ enum DataType {
 /// Server-sent event
 #[derive(Default, Debug)]
 pub struct Event {
-    name: Option<String>,
     id: Option<String>,
     data: Option<DataType>,
     event: Option<String>,
