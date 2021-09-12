@@ -62,7 +62,7 @@ where
 {
     type Output = Result<(<F::Output as Future>::Output,), T::Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.project().state.poll(cx)
     }
 }
@@ -75,7 +75,7 @@ where
 {
     type Output = Result<(<F::Output as Future>::Output,), T::Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             match self.as_mut().project() {
                 StateProj::First(first, second) => {

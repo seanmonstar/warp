@@ -100,7 +100,7 @@ impl FilterBase for FormOptions {
 // ===== impl FormData =====
 
 impl fmt::Debug for FormData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FormData").finish()
     }
 }
@@ -108,7 +108,7 @@ impl fmt::Debug for FormData {
 impl Stream for FormData {
     type Item = Result<Part, crate::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match (*self).inner.read_entry() {
             Ok(Some(mut field)) => {
                 let mut data = Vec::new();
@@ -163,7 +163,7 @@ impl Part {
 }
 
 impl fmt::Debug for Part {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("Part");
         builder.field("name", &self.name);
 
@@ -184,7 +184,7 @@ struct PartStream(Part);
 impl Stream for PartStream {
     type Item = Result<Bytes, crate::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(self.0.take_data())
     }
 }

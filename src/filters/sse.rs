@@ -125,7 +125,7 @@ impl Event {
 }
 
 impl Display for Event {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(ref comment) = &self.comment {
             ":".fmt(f)?;
             comment.fmt(f)?;
@@ -466,7 +466,7 @@ where
 {
     type Item = Result<Event, SseError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut pin = self.project();
         match pin.event_stream.try_poll_next(cx) {
             Poll::Pending => match Pin::new(&mut pin.alive_timer).poll(cx) {
@@ -503,7 +503,7 @@ mod sealed {
     pub struct SseError;
 
     impl Display for SseError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
             write!(f, "sse error")
         }
     }

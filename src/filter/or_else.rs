@@ -77,7 +77,7 @@ where
 {
     type Output = Result<<F::Output as TryFuture>::Ok, <F::Output as TryFuture>::Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let pin = self.as_mut().project();
             let (err, second) = match pin.state.project() {

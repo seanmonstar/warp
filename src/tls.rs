@@ -68,7 +68,7 @@ pub(crate) struct TlsConfigBuilder {
 }
 
 impl std::fmt::Debug for TlsConfigBuilder {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.debug_struct("TlsConfigBuilder").finish()
     }
 }
@@ -294,8 +294,8 @@ impl TlsStream {
 impl AsyncRead for TlsStream {
     fn poll_read(
         self: Pin<&mut Self>,
-        cx: &mut Context,
-        buf: &mut ReadBuf,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
