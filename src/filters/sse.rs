@@ -42,7 +42,7 @@
 use serde::Serialize;
 use std::borrow::Cow;
 use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Write};
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -123,8 +123,8 @@ impl Event {
     }
 }
 
-impl Display for Event {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref comment) = &self.comment {
             ":".fmt(f)?;
             comment.fmt(f)?;
@@ -501,8 +501,8 @@ mod sealed {
     #[derive(Debug)]
     pub struct SseError;
 
-    impl Display for SseError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+    impl fmt::Display for SseError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "sse error")
         }
     }
