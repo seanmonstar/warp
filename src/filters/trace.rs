@@ -39,9 +39,9 @@ use self::internal::WithTrace;
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
 /// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
-pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
+pub fn request() -> Trace<impl Fn(Info<'_>) -> Span + Clone> {
     use tracing::field::{display, Empty};
-    trace(|info: Info| {
+    trace(|info: Info<'_>| {
         let span = tracing::info_span!(
             "request",
             remote.addr = Empty,
@@ -90,7 +90,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 pub fn trace<F>(func: F) -> Trace<F>
 where
-    F: Fn(Info) -> Span + Clone,
+    F: Fn(Info<'_>) -> Span + Clone,
 {
     Trace { func }
 }
@@ -141,7 +141,7 @@ pub struct Info<'a> {
 
 impl<FN, F> WrapSealed<F> for Trace<FN>
 where
-    FN: Fn(Info) -> Span + Clone + Send,
+    FN: Fn(Info<'_>) -> Span + Clone + Send,
     F: Filter + Clone + Send,
     F::Extract: Reply,
     F::Error: IsReject,
@@ -276,7 +276,7 @@ mod internal {
 
     impl<FN, F> FilterBase for WithTrace<FN, F>
     where
-        FN: Fn(Info) -> Span + Clone + Send,
+        FN: Fn(Info<'_>) -> Span + Clone + Send,
         F: Filter + Clone + Send,
         F::Extract: Reply,
         F::Error: IsReject,

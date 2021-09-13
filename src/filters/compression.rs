@@ -263,7 +263,7 @@ mod internal {
     {
         type Output = Result<(Compressed,), F::Error>;
 
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let pin = self.as_mut().project();
             let result = ready!(pin.future.try_poll(cx));
             match result {

@@ -118,7 +118,7 @@ impl Ws {
 }
 
 impl fmt::Debug for Ws {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Ws").finish()
     }
 }
@@ -205,7 +205,7 @@ impl WebSocket {
 impl Stream for WebSocket {
     type Item = Result<Message, crate::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
             Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
             Some(Err(e)) => {
@@ -240,14 +240,14 @@ impl Sink<Message> for WebSocket {
         }
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match ready!(Pin::new(&mut self.inner).poll_flush(cx)) {
             Ok(()) => Poll::Ready(Ok(())),
             Err(e) => Poll::Ready(Err(crate::Error::new(e))),
         }
     }
 
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match ready!(Pin::new(&mut self.inner).poll_close(cx)) {
             Ok(()) => Poll::Ready(Ok(())),
             Err(err) => {
@@ -259,7 +259,7 @@ impl Sink<Message> for WebSocket {
 }
 
 impl fmt::Debug for WebSocket {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WebSocket").finish()
     }
 }
@@ -383,7 +383,7 @@ impl Message {
 }
 
 impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, f)
     }
 }
@@ -401,7 +401,7 @@ impl From<Message> for Vec<u8> {
 pub struct MissingConnectionUpgrade;
 
 impl ::std::fmt::Display for MissingConnectionUpgrade {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         write!(f, "Connection header did not include 'upgrade'")
     }
 }

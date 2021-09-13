@@ -61,7 +61,7 @@ where
         <U::Error as CombineRejection<T::Error>>::One,
     >;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.project().state.poll(cx)
     }
 }
@@ -76,7 +76,7 @@ where
 {
     type Output = Result<CombinedTuples<TE, U::Extract>, <U::Error as CombineRejection<E>>::One>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             match self.as_mut().project() {
                 StateProj::First(first, second) => {

@@ -321,13 +321,13 @@ enum Forbidden {
 }
 
 impl ::std::fmt::Debug for CorsForbidden {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.debug_tuple("CorsForbidden").field(&self.kind).finish()
     }
 }
 
 impl ::std::fmt::Display for CorsForbidden {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         let detail = match self.kind {
             Forbidden::OriginNotAllowed => "origin not allowed",
             Forbidden::MethodNotAllowed => "request-method not allowed",
@@ -572,7 +572,7 @@ mod internal {
             <F::Error as CombineRejection<Rejection>>::One,
         >;
 
-        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let pin = self.project();
             match ready!(pin.inner.try_poll(cx)) {
                 Ok(inner) => {

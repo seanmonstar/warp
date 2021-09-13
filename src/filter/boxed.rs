@@ -61,7 +61,7 @@ impl<T: Tuple> Clone for BoxedFilter<T> {
 }
 
 impl<T: Tuple> fmt::Debug for BoxedFilter<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BoxedFilter").finish()
     }
 }
