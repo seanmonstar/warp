@@ -400,8 +400,8 @@ impl From<Message> for Vec<u8> {
 #[derive(Debug)]
 pub struct MissingConnectionUpgrade;
 
-impl ::std::fmt::Display for MissingConnectionUpgrade {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for MissingConnectionUpgrade {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connection header did not include 'upgrade'")
     }
 }

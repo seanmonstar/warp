@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs::File;
 use std::future::Future;
 use std::io::{self, BufReader, Cursor, Read};
@@ -34,8 +35,8 @@ pub(crate) enum TlsConfigError {
     InvalidKey(TLSError),
 }
 
-impl std::fmt::Display for TlsConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TlsConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TlsConfigError::Io(err) => err.fmt(f),
             TlsConfigError::CertParseError => write!(f, "certificate parse error"),
@@ -67,8 +68,8 @@ pub(crate) struct TlsConfigBuilder {
     ocsp_resp: Vec<u8>,
 }
 
-impl std::fmt::Debug for TlsConfigBuilder {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Debug for TlsConfigBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TlsConfigBuilder").finish()
     }
 }

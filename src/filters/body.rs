@@ -332,8 +332,8 @@ impl StdError for BodyDeserializeError {
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
 
-impl ::std::fmt::Display for BodyReadError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for BodyReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Request body read error: {}", self.0)
     }
 }

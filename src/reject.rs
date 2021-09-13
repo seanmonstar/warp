@@ -552,8 +552,8 @@ impl MissingHeader {
     }
 }
 
-impl ::std::fmt::Display for MissingHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request header {:?}", self.name)
     }
 }
@@ -573,8 +573,8 @@ impl InvalidHeader {
     }
 }
 
-impl ::std::fmt::Display for InvalidHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid request header {:?}", self.name)
     }
 }
@@ -594,8 +594,8 @@ impl MissingCookie {
     }
 }
 
-impl ::std::fmt::Display for MissingCookie {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+impl fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request cookie {:?}", self.name)
     }
 }
