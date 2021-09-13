@@ -21,7 +21,7 @@ async-compression = { version = "0.3.7", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
-headers = "0.3"
+headers = { version = "0.3", git = "https://github.com/kazk/headers", branch = "sec-websocket-extensions" }
 http = "0.2"
 hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
@@ -37,7 +37,7 @@ tokio-stream = "0.1.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.17", optional = true }
+tokio-tungstenite = { git = "https://github.com/kazk/tokio-tungstenite", branch = "feature/permessage-deflate", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.23", optional = true }
@@ -55,7 +55,8 @@ listenfd = "0.3"
 
 [features]
 default = ["multipart", "websocket"]
-websocket = ["tokio-tungstenite"]
+# TODO Separate feature for permessage-deflate?
+websocket = ["tokio-tungstenite/deflate"]
 tls = ["tokio-rustls"]
 
 # Enable compression-related filters

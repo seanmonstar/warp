@@ -11,11 +11,16 @@ use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
 use futures_util::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
-use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
+use headers::{
+    Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketExtensions, SecWebsocketKey, Upgrade,
+};
 use http;
 use hyper::upgrade::OnUpgrade;
 use tokio_tungstenite::{
-    tungstenite::protocol::{self, WebSocketConfig},
+    tungstenite::{
+        self,
+        protocol::{self, WebSocketConfig},
+    },
     WebSocketStream,
 };
 
@@ -58,11 +63,13 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         //.and(header::exact2(Upgrade::websocket()))
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
+        .and(header::optional2::<SecWebsocketExtensions>())
         .and(on_upgrade())
         .map(
-            move |key: SecWebsocketKey, on_upgrade: Option<OnUpgrade>| Ws {
+            move |key: SecWebsocketKey, extensions, on_upgrade: Option<OnUpgrade>| Ws {
                 config: None,
                 key,
+                extensions,
                 on_upgrade,
             },
         )
@@ -72,6 +79,7 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
 pub struct Ws {
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
+    extensions: Option<SecWebsocketExtensions>,
     on_upgrade: Option<OnUpgrade>,
 }
 
@@ -115,6 +123,14 @@ impl Ws {
             .max_frame_size = Some(max);
         self
     }
+
+    /// Enable `permessage-deflate` support.
+    pub fn with_compression(mut self) -> Self {
+        self.config
+            .get_or_insert_with(WebSocketConfig::default)
+            .compression = Some(tungstenite::extensions::DeflateConfig::default());
+        self
+    }
 }
 
 impl fmt::Debug for Ws {
@@ -129,19 +145,44 @@ struct WsReply<F> {
     on_upgrade: F,
 }
 
+impl<F> WsReply<F> {
+    // Accept extension negotiation offers
+    fn accept_offers(
+        &self,
+    ) -> Option<(SecWebsocketExtensions, tungstenite::extensions::Extensions)> {
+        if let Some(extensions) = &self.ws.extensions {
+            self.ws.config.and_then(|c| c.accept_offers(extensions))
+        } else {
+            None
+        }
+    }
+}
+
 impl<F, U> Reply for WsReply<F>
 where
     F: FnOnce(WebSocket) -> U + Send + 'static,
     U: Future<Output = ()> + Send + 'static,
 {
     fn into_response(self) -> Response {
+        let (agreed_params, extensions) = if let Some((agreed, extensions)) = self.accept_offers() {
+            (Some(agreed), Some(extensions))
+        } else {
+            (None, None)
+        };
+
         if let Some(on_upgrade) = self.ws.on_upgrade {
             let on_upgrade_cb = self.on_upgrade;
             let config = self.ws.config;
             let fut = on_upgrade
                 .and_then(move |upgraded| {
                     tracing::trace!("websocket upgrade complete");
-                    WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
+                    WebSocket::from_raw_socket_with_extensions(
+                        upgraded,
+                        protocol::Role::Server,
+                        config,
+                        extensions,
+                    )
+                    .map(Ok)
                 })
                 .and_then(move |socket| on_upgrade_cb(socket).map(Ok))
                 .map(|result| {
@@ -162,6 +203,9 @@ where
         res.headers_mut().typed_insert(Upgrade::websocket());
         res.headers_mut()
             .typed_insert(SecWebsocketAccept::from(self.ws.key));
+        if let Some(agreed) = agreed_params {
+            res.headers_mut().typed_insert(agreed);
+        }
 
         res
     }
@@ -192,6 +236,17 @@ impl WebSocket {
         config: Option<protocol::WebSocketConfig>,
     ) -> Self {
         WebSocketStream::from_raw_socket(upgraded, role, config)
+            .map(|inner| WebSocket { inner })
+            .await
+    }
+
+    pub(crate) async fn from_raw_socket_with_extensions(
+        upgraded: hyper::upgrade::Upgraded,
+        role: protocol::Role,
+        config: Option<protocol::WebSocketConfig>,
+        extensions: Option<tungstenite::extensions::Extensions>,
+    ) -> Self {
+        WebSocketStream::from_raw_socket_with_extensions(upgraded, role, config, extensions)
             .map(|inner| WebSocket { inner })
             .await
     }
