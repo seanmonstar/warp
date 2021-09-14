@@ -46,7 +46,7 @@ where
     type Output = Result<(F::Output,), T::Error>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let pin = self.project();
         match ready!(pin.extract.try_poll(cx)) {
             Ok(ex) => {

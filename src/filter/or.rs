@@ -70,7 +70,7 @@ where
 {
     type Output = Result<(Either<T::Extract, U::Extract>,), Combined<U::Error, T::Error>>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let pin = self.as_mut().project();
             let (err1, fut2) = match pin.state.project() {

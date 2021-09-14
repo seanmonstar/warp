@@ -606,7 +606,7 @@ impl WsClient {
 
 #[cfg(feature = "websocket")]
 impl fmt::Debug for WsClient {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WsClient").finish()
     }
 }
@@ -623,7 +623,7 @@ impl WsError {
 }
 
 impl fmt::Display for WsError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "websocket error: {}", self.cause)
     }
 }

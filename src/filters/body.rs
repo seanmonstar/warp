@@ -295,7 +295,7 @@ struct BodyStream {
 impl Stream for BodyStream {
     type Item = Result<Bytes, crate::Error>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
         match opt_item {
@@ -318,7 +318,7 @@ pub struct BodyDeserializeError {
 }
 
 impl fmt::Display for BodyDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Request body deserialize error: {}", self.cause)
     }
 }
@@ -332,8 +332,8 @@ impl StdError for BodyDeserializeError {
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
 
-impl ::std::fmt::Display for BodyReadError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for BodyReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Request body read error: {}", self.0)
     }
 }

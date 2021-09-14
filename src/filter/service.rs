@@ -120,7 +120,7 @@ where
     type Output = Result<Response, Infallible>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
         let pin = self.project();

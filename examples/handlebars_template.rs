@@ -11,7 +11,7 @@ struct WithTemplate<T: Serialize> {
     value: T,
 }
 
-fn render<T>(template: WithTemplate<T>, hbs: Arc<Handlebars>) -> impl warp::Reply
+fn render<T>(template: WithTemplate<T>, hbs: Arc<Handlebars<'_>>) -> impl warp::Reply
 where
     T: Serialize,
 {
