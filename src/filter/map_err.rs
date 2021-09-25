@@ -48,7 +48,7 @@ where
     type Output = Result<T::Extract, E>;
 
     #[inline]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.as_mut()
             .project()
             .extract

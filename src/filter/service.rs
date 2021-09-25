@@ -120,12 +120,12 @@ where
     type Output = Result<Response, Infallible>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
         let pin = self.project();
         let fut = pin.future;
-        match route::set(&pin.route, || fut.try_poll(cx)) {
+        match route::set(pin.route, || fut.try_poll(cx)) {
             Poll::Ready(Ok(ok)) => Poll::Ready(Ok(ok.into_response())),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(err)) => {

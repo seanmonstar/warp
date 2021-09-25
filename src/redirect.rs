@@ -28,6 +28,22 @@ pub fn redirect(uri: impl AsLocation) -> impl Reply {
     )
 }
 
+/// A simple `302` found redirect to a different location
+///
+/// # Example
+///
+/// ```
+/// use warp::{http::Uri, Filter};
+///
+/// let route = warp::path("v1")
+///     .map(|| {
+///         warp::redirect::found(Uri::from_static("/v2"))
+///     });
+/// ```
+pub fn found(uri: impl AsLocation) -> impl Reply {
+    reply::with_header(StatusCode::FOUND, header::LOCATION, uri.header_value())
+}
+
 /// A simple `303` redirect to a different location.
 ///
 /// The HTTP method of the request to the new location will always be `GET`.

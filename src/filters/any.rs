@@ -70,7 +70,7 @@ impl Future for AnyFut {
     type Output = Result<(), Infallible>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(()))
     }
 }

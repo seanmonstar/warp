@@ -243,7 +243,7 @@ macro_rules! enum_known {
         }
 
         impl fmt::Debug for Known {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match *self {
                     $(
                     $(#[$attr])*
@@ -254,7 +254,7 @@ macro_rules! enum_known {
         }
 
         impl fmt::Display for Known {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match *self {
                     $(
                     $(#[$attr])*
@@ -345,11 +345,7 @@ impl Rejection {
     /// assert!(rejection.is_not_found());
     /// ```
     pub fn is_not_found(&self) -> bool {
-        if let Reason::NotFound = self.reason {
-            true
-        } else {
-            false
-        }
+        matches!(self.reason, Reason::NotFound)
     }
 }
 
@@ -398,13 +394,13 @@ impl IsReject for Rejection {
 }
 
 impl fmt::Debug for Rejection {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Rejection").field(&self.reason).finish()
     }
 }
 
 impl fmt::Debug for Reason {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Reason::NotFound => f.write_str("NotFound"),
             Reason::Other(ref other) => match **other {
@@ -556,8 +552,8 @@ impl MissingHeader {
     }
 }
 
-impl ::std::fmt::Display for MissingHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request header {:?}", self.name)
     }
 }
@@ -577,8 +573,8 @@ impl InvalidHeader {
     }
 }
 
-impl ::std::fmt::Display for InvalidHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid request header {:?}", self.name)
     }
 }
@@ -598,8 +594,8 @@ impl MissingCookie {
     }
 }
 
-impl ::std::fmt::Display for MissingCookie {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request cookie {:?}", self.name)
     }
 }

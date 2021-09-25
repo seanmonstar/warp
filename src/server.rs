@@ -568,7 +568,7 @@ impl<F> ::std::fmt::Debug for TlsServer<F>
 where
     F: ::std::fmt::Debug,
 {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.debug_struct("TlsServer")
             .field("server", &self.server)
             .finish()

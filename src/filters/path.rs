@@ -293,7 +293,7 @@ pub fn param<T: FromStr + Send + 'static>(
 /// ```
 pub fn tail() -> impl Filter<Extract = One<Tail>, Error = Infallible> + Copy {
     filter_fn(move |route| {
-        let path = path_and_query(&route);
+        let path = path_and_query(route);
         let idx = route.matched_path_index();
 
         // Giving the user the full tail means we assume the full path
@@ -322,7 +322,7 @@ impl Tail {
 }
 
 impl fmt::Debug for Tail {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }
@@ -347,7 +347,7 @@ impl fmt::Debug for Tail {
 /// ```
 pub fn peek() -> impl Filter<Extract = One<Peek>, Error = Infallible> + Copy {
     filter_fn(move |route| {
-        let path = path_and_query(&route);
+        let path = path_and_query(route);
         let idx = route.matched_path_index();
 
         future::ok(one(Peek {
@@ -376,7 +376,7 @@ impl Peek {
 }
 
 impl fmt::Debug for Peek {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }
@@ -413,7 +413,7 @@ impl fmt::Debug for Peek {
 ///     });
 /// ```
 pub fn full() -> impl Filter<Extract = One<FullPath>, Error = Infallible> + Copy {
-    filter_fn(move |route| future::ok(one(FullPath(path_and_query(&route)))))
+    filter_fn(move |route| future::ok(one(FullPath(path_and_query(route)))))
 }
 
 /// Represents the full request path, returned by the [`full()`] filter.
@@ -422,12 +422,12 @@ pub struct FullPath(PathAndQuery);
 impl FullPath {
     /// Get the `&str` representation of the request path.
     pub fn as_str(&self) -> &str {
-        &self.0.path()
+        self.0.path()
     }
 }
 
 impl fmt::Debug for FullPath {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }

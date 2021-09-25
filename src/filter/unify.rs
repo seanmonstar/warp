@@ -42,7 +42,7 @@ where
     type Output = Result<T, F::Error>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(match ready!(self.project().inner.try_poll(cx))? {
             (Either::A(x),) | (Either::B(x),) => Ok(x),
         })

@@ -381,8 +381,7 @@ impl RequestBuilder {
                     }
                 };
                 let (parts, body) = res.into_parts();
-                hyper::body::to_bytes(body)
-                    .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
+                hyper::body::to_bytes(body).map_ok(|chunk| Response::from_parts(parts, chunk))
             }),
         );
 
@@ -519,7 +518,7 @@ impl WsBuilder {
             let upgrade = ::hyper::Client::builder()
                 .build(AddrConnect(addr))
                 .request(req)
-                .and_then(|res| hyper::upgrade::on(res));
+                .and_then(hyper::upgrade::on);
 
             let upgraded = match upgrade.await {
                 Ok(up) => {
@@ -607,7 +606,7 @@ impl WsClient {
 
 #[cfg(feature = "websocket")]
 impl fmt::Debug for WsClient {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WsClient").finish()
     }
 }
@@ -624,7 +623,7 @@ impl WsError {
 }
 
 impl fmt::Display for WsError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "websocket error: {}", self.cause)
     }
 }

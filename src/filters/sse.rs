@@ -42,7 +42,7 @@
 use serde::Serialize;
 use std::borrow::Cow;
 use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Write};
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
@@ -72,7 +72,6 @@ enum DataType {
 /// Server-sent event
 #[derive(Default, Debug)]
 pub struct Event {
-    name: Option<String>,
     id: Option<String>,
     data: Option<DataType>,
     event: Option<String>,
@@ -112,7 +111,7 @@ impl Event {
     /// Set Server-sent event retry
     /// Retry timeout field ("retry:<timeout>")
     pub fn retry(mut self, duration: Duration) -> Event {
-        self.retry = Some(duration.into());
+        self.retry = Some(duration);
         self
     }
 
@@ -124,8 +123,8 @@ impl Event {
     }
 }
 
-impl Display for Event {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref comment) = &self.comment {
             ":".fmt(f)?;
             comment.fmt(f)?;
@@ -466,7 +465,7 @@ where
 {
     type Item = Result<Event, SseError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut pin = self.project();
         match pin.event_stream.try_poll_next(cx) {
             Poll::Pending => match Pin::new(&mut pin.alive_timer).poll(cx) {
@@ -502,8 +501,8 @@ mod sealed {
     #[derive(Debug)]
     pub struct SseError;
 
-    impl Display for SseError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    impl fmt::Display for SseError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "sse error")
         }
     }
