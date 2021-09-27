@@ -207,7 +207,7 @@ impl Stream for WebSocket {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
-            Some(Ok(item)) => Poll::Ready(Some(Ok(Message::from_tungstenite(item)))),
+            Some(Ok(item)) => Poll::Ready(Some(Ok(Message::from(item)))),
             Some(Err(e)) => {
                 tracing::debug!("websocket poll error: {}", e);
                 Poll::Ready(Some(Err(crate::Error::new(e))))
@@ -231,7 +231,7 @@ impl Sink<Message> for WebSocket {
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Message) -> Result<(), Self::Error> {
-        match Pin::new(&mut self.inner).start_send(item.into_tungstenite()) {
+        match Pin::new(&mut self.inner).start_send(item.into()) {
             Ok(()) => Ok(()),
             Err(e) => {
                 tracing::debug!("websocket start_send error: {}", e);
@@ -379,8 +379,10 @@ impl Message {
             Message::Close(None) => Vec::new(),
         }
     }
+}
 
-    fn from_tungstenite(message: protocol::Message) -> Self {
+impl From<protocol::Message> for Message {
+    fn from(message: protocol::Message) -> Self {
         use protocol::Message::*;
 
         match message {
@@ -394,11 +396,13 @@ impl Message {
             Close(None) => Message::Close(None),
         }
     }
+}
 
-    fn into_tungstenite(self) -> protocol::Message {
+impl From<Message> for protocol::Message {
+    fn from(message: Message) -> Self {
         use protocol::Message::*;
 
-        match self {
+        match message {
             Message::Text(string) => Text(string),
             Message::Binary(bytes) => Binary(bytes),
             Message::Ping(bytes) => Ping(bytes),
