@@ -2,7 +2,7 @@
 //!
 use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::{self, Rejection};
-use futures::future;
+use futures_util::future;
 pub use http::uri::Authority;
 use std::str::FromStr;
 

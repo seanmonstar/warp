@@ -19,7 +19,7 @@ all-features = true
 [dependencies]
 async-compression = { version = "0.3.7", features = ["brotli", "deflate", "gzip", "tokio"], optional = true }
 bytes = "1.0"
-futures = { version = "0.3", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3", default-features = false }
 headers = "0.3"
 http = "0.2"
 hyper = { version = "0.14", features = ["stream", "server", "http1", "tcp", "client"] }

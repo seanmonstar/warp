@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::future::TryFuture;
+use futures_util::future::TryFuture;
 use hyper::service::Service;
 use pin_project::pin_project;
 

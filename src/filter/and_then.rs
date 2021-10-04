@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{ready, TryFuture};
+use futures_util::{ready, TryFuture};
 use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Func, Internal};

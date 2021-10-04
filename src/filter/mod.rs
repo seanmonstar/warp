@@ -14,7 +14,7 @@ mod wrap;
 
 use std::future::Future;
 
-use futures::{future, TryFuture, TryFutureExt};
+use futures_util::{future, TryFuture, TryFutureExt};
 
 pub(crate) use crate::generic::{one, Combine, Either, Func, One, Tuple};
 use crate::reject::{CombineRejection, IsReject, Rejection};

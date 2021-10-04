@@ -208,7 +208,7 @@ impl<'a> Info<'a> {
 }
 
 mod internal {
-    use futures::{future::Inspect, future::MapOk, FutureExt, TryFutureExt};
+    use futures_util::{future::Inspect, future::MapOk, FutureExt, TryFutureExt};
 
     use super::{Info, Trace};
     use crate::filter::{Filter, FilterBase, Internal};

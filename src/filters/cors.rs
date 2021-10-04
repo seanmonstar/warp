@@ -459,7 +459,7 @@ mod internal {
     use std::sync::Arc;
     use std::task::{Context, Poll};
 
-    use futures::{future, ready, TryFuture};
+    use futures_util::{future, ready, TryFuture};
     use headers::Origin;
     use http::header;
     use pin_project::pin_project;

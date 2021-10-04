@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, Bytes};
-use futures::{future, Stream};
+use futures_util::{future, Stream};
 use headers::ContentType;
 use mime::Mime;
 use multipart::server::Multipart;

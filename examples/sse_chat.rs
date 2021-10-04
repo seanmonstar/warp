@@ -1,4 +1,4 @@
-use futures::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},

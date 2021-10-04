@@ -5,7 +5,7 @@ use std::sync::{
     Arc,
 };
 
-use futures::{SinkExt, StreamExt, TryFutureExt};
+use futures_util::{SinkExt, StreamExt, TryFutureExt};
 use tokio::sync::{mpsc, RwLock};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use warp::ws::{Message, WebSocket};

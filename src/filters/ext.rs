@@ -2,7 +2,7 @@
 
 use std::convert::Infallible;
 
-use futures::future;
+use futures_util::future;
 
 use crate::filter::{filter_fn_one, Filter};
 use crate::reject::{self, Rejection};

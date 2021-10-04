@@ -1,4 +1,4 @@
-use futures::StreamExt;
+use futures_util::StreamExt;
 use std::convert::Infallible;
 use std::time::Duration;
 use tokio::time::interval;
