@@ -623,31 +623,31 @@ impl fmt::Debug for WsClient {
 
 #[cfg(feature = "websocket")]
 impl Sink<crate::ws::Message> for WsClient {
-    type Error = ();
+    type Error = WsError;
 
     fn poll_ready(
         self: Pin<&mut Self>,
         context: &mut Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.pinned_tx().poll_ready(context).map_err(|_| ())
+        self.pinned_tx().poll_ready(context).map_err(WsError::new)
     }
 
     fn start_send(self: Pin<&mut Self>, message: Message) -> Result<(), Self::Error> {
-        self.pinned_tx().start_send(message).map_err(|_| ())
+        self.pinned_tx().start_send(message).map_err(WsError::new)
     }
 
     fn poll_flush(
         self: Pin<&mut Self>,
         context: &mut Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.pinned_tx().poll_flush(context).map_err(|_| ())
+        self.pinned_tx().poll_flush(context).map_err(WsError::new)
     }
 
     fn poll_close(
         self: Pin<&mut Self>,
         context: &mut Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
-        self.pinned_tx().poll_close(context).map_err(|_| ())
+        self.pinned_tx().poll_close(context).map_err(WsError::new)
     }
 }
 
