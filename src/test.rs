@@ -88,11 +88,13 @@ use std::future::Future;
 use std::net::SocketAddr;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
+#[cfg(feature = "websocket")]
 use std::task::Context;
 #[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
 use bytes::Bytes;
+#[cfg(feature = "websocket")]
 use futures_channel::mpsc;
 #[cfg(feature = "websocket")]
 use futures_util::StreamExt;
@@ -107,11 +109,14 @@ use serde_json;
 use tokio::sync::oneshot;
 
 use crate::filter::Filter;
+#[cfg(feature = "websocket")]
 use crate::filters::ws::Message;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
-use crate::{Request, Sink};
+use crate::Request;
+#[cfg(feature = "websocket")]
+use crate::{Sink, Stream};
 
 use self::inner::OneOrTuple;
 
@@ -643,6 +648,21 @@ impl Sink<crate::ws::Message> for WsClient {
         context: &mut Context<'_>,
     ) -> Poll<Result<(), Self::Error>> {
         self.pinned_tx().poll_close(context).map_err(|_| ())
+    }
+}
+
+#[cfg(feature = "websocket")]
+impl Stream for WsClient {
+    type Item = Result<crate::ws::Message, WsError>;
+
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = Pin::into_inner(self);
+        let rx = Pin::new(&mut this.rx);
+        match rx.poll_next(context) {
+            Poll::Ready(Some(result)) => Poll::Ready(Some(result.map_err(WsError::new))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
