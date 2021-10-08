@@ -88,6 +88,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
+use std::task::Context;
 #[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
@@ -106,10 +107,11 @@ use serde_json;
 use tokio::sync::oneshot;
 
 use crate::filter::Filter;
+use crate::filters::ws::Message;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
-use crate::Request;
+use crate::{Request, Sink};
 
 use self::inner::OneOrTuple;
 
@@ -600,12 +602,47 @@ impl WsClient {
                 Ok(())
             })
     }
+
+    fn pinned_tx(self: Pin<&mut Self>) -> Pin<&mut mpsc::UnboundedSender<crate::ws::Message>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.tx)
+    }
 }
 
 #[cfg(feature = "websocket")]
 impl fmt::Debug for WsClient {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WsClient").finish()
+    }
+}
+
+#[cfg(feature = "websocket")]
+impl Sink<crate::ws::Message> for WsClient {
+    type Error = ();
+
+    fn poll_ready(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_ready(context).map_err(|_| ())
+    }
+
+    fn start_send(self: Pin<&mut Self>, message: Message) -> Result<(), Self::Error> {
+        self.pinned_tx().start_send(message).map_err(|_| ())
+    }
+
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_flush(context).map_err(|_| ())
+    }
+
+    fn poll_close(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_close(context).map_err(|_| ())
     }
 }
 
