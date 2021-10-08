@@ -82,6 +82,21 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn wsclient_sink_and_stream() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    let message = warp::ws::Message::text("hello");
+    SinkExt::send(&mut client, message.clone()).await.unwrap();
+    let received_message = client.next().await.unwrap().unwrap();
+    assert_eq!(message, received_message);
+}
+
+#[tokio::test]
 async fn close_frame() {
     let _ = pretty_env_logger::try_init();
 
