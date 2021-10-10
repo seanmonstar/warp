@@ -7,7 +7,7 @@
 //! use std::time::Duration;
 //! use std::convert::Infallible;
 //! use warp::{Filter, sse::Event};
-//! use futures::{stream::iter, Stream};
+//! use futures_util::{stream::iter, Stream};
 //!
 //! fn sse_events() -> impl Stream<Item = Result<Event, Infallible>> {
 //!     iter(vec![
@@ -49,7 +49,7 @@ use std::str::FromStr;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{future, Stream, TryStream, TryStreamExt};
+use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use pin_project::pin_project;
@@ -244,8 +244,8 @@ where
 /// ```
 ///
 /// use std::time::Duration;
-/// use futures::Stream;
-/// use futures::stream::iter;
+/// use futures_util::Stream;
+/// use futures_util::stream::iter;
 /// use std::convert::Infallible;
 /// use warp::{Filter, sse::Event};
 /// use serde_derive::Serialize;
@@ -419,7 +419,7 @@ struct SseKeepAlive<S> {
 /// ```
 /// use std::time::Duration;
 /// use std::convert::Infallible;
-/// use futures::StreamExt;
+/// use futures_util::StreamExt;
 /// use tokio::time::interval;
 /// use tokio_stream::wrappers::IntervalStream;
 /// use warp::{Filter, Stream, sse::Event};

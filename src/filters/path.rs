@@ -129,7 +129,7 @@ use std::convert::Infallible;
 use std::fmt;
 use std::str::FromStr;
 
-use futures::future;
+use futures_util::future;
 use http::uri::PathAndQuery;
 
 use self::internal::Opaque;

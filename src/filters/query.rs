@@ -1,6 +1,6 @@
 //! Query Filters
 
-use futures::future;
+use futures_util::future;
 use serde::de::DeserializeOwned;
 use serde_urlencoded;
 

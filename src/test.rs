@@ -93,8 +93,8 @@ use std::task::{self, Poll};
 
 use bytes::Bytes;
 #[cfg(feature = "websocket")]
-use futures::StreamExt;
-use futures::{future, FutureExt, TryFutureExt};
+use futures_util::StreamExt;
+use futures_util::{future, FutureExt, TryFutureExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
@@ -460,7 +460,7 @@ impl WsBuilder {
     /// # Example
     ///
     /// ```no_run
-    /// use futures::future;
+    /// use futures_util::future;
     /// use warp::Filter;
     /// #[tokio::main]
     /// # async fn main() {

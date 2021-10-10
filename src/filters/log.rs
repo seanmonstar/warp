@@ -187,7 +187,7 @@ mod internal {
     use std::task::{Context, Poll};
     use std::time::Instant;
 
-    use futures::{ready, TryFuture};
+    use futures_util::{ready, TryFuture};
     use pin_project::pin_project;
 
     use super::{Info, Log};

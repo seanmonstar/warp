@@ -3,7 +3,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::TryFutureExt;
+use futures_util::TryFutureExt;
 
 use super::{Filter, FilterBase, Internal, Tuple};
 use crate::reject::Rejection;

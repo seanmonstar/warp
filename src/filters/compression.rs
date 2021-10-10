@@ -149,7 +149,7 @@ mod internal {
     use std::task::{Context, Poll};
 
     use bytes::Bytes;
-    use futures::{ready, Stream, TryFuture};
+    use futures_util::{ready, Stream, TryFuture};
     use hyper::Body;
     use pin_project::pin_project;
 

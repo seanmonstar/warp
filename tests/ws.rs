@@ -1,6 +1,6 @@
 #![deny(warnings)]
 
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, StreamExt};
 use serde_derive::Deserialize;
 use warp::ws::Message;
 use warp::Filter;

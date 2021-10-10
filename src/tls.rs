@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use futures::ready;
+use futures_util::ready;
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 
