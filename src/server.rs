@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
 
-use futures::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
+use futures_util::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
@@ -254,7 +254,7 @@ where
     ///
     /// ```no_run
     /// use warp::Filter;
-    /// use futures::future::TryFutureExt;
+    /// use futures_util::future::TryFutureExt;
     /// use tokio::sync::oneshot;
     ///
     /// # fn main() {
@@ -568,7 +568,7 @@ impl<F> ::std::fmt::Debug for TlsServer<F>
 where
     F: ::std::fmt::Debug,
 {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         f.debug_struct("TlsServer")
             .field("server", &self.server)
             .finish()

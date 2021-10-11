@@ -1,6 +1,6 @@
 //! Cookie Filters
 
-use futures::future;
+use futures_util::future;
 use headers::Cookie;
 
 use super::header;

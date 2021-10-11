@@ -1,7 +1,7 @@
 #![deny(warnings)]
 
 use bytes::Buf;
-use futures::TryStreamExt;
+use futures_util::TryStreamExt;
 use warp::Filter;
 
 #[tokio::test]

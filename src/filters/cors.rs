@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
+use std::fmt;
 use std::sync::Arc;
 
 use headers::{
@@ -320,14 +321,14 @@ enum Forbidden {
     HeaderNotAllowed,
 }
 
-impl ::std::fmt::Debug for CorsForbidden {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Debug for CorsForbidden {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("CorsForbidden").field(&self.kind).finish()
     }
 }
 
-impl ::std::fmt::Display for CorsForbidden {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for CorsForbidden {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let detail = match self.kind {
             Forbidden::OriginNotAllowed => "origin not allowed",
             Forbidden::MethodNotAllowed => "request-method not allowed",
@@ -458,7 +459,7 @@ mod internal {
     use std::sync::Arc;
     use std::task::{Context, Poll};
 
-    use futures::{future, ready, TryFuture};
+    use futures_util::{future, ready, TryFuture};
     use headers::Origin;
     use http::header;
     use pin_project::pin_project;
@@ -572,7 +573,7 @@ mod internal {
             <F::Error as CombineRejection<Rejection>>::One,
         >;
 
-        fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let pin = self.project();
             match ready!(pin.inner.try_poll(cx)) {
                 Ok(inner) => {

@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs::File;
 use std::future::Future;
 use std::io::{self, BufReader, Cursor, Read};
@@ -8,7 +9,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use futures::ready;
+use futures_util::ready;
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
 
@@ -34,8 +35,8 @@ pub(crate) enum TlsConfigError {
     InvalidKey(TLSError),
 }
 
-impl std::fmt::Display for TlsConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TlsConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TlsConfigError::Io(err) => err.fmt(f),
             TlsConfigError::CertParseError => write!(f, "certificate parse error"),
@@ -67,8 +68,8 @@ pub(crate) struct TlsConfigBuilder {
     ocsp_resp: Vec<u8>,
 }
 
-impl std::fmt::Debug for TlsConfigBuilder {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Debug for TlsConfigBuilder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("TlsConfigBuilder").finish()
     }
 }
@@ -294,8 +295,8 @@ impl TlsStream {
 impl AsyncRead for TlsStream {
     fn poll_read(
         self: Pin<&mut Self>,
-        cx: &mut Context,
-        buf: &mut ReadBuf,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {

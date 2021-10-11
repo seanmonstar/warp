@@ -7,7 +7,7 @@
 //! use std::time::Duration;
 //! use std::convert::Infallible;
 //! use warp::{Filter, sse::Event};
-//! use futures::{stream::iter, Stream};
+//! use futures_util::{stream::iter, Stream};
 //!
 //! fn sse_events() -> impl Stream<Item = Result<Event, Infallible>> {
 //!     iter(vec![
@@ -42,14 +42,14 @@
 use serde::Serialize;
 use std::borrow::Cow;
 use std::error::Error as StdError;
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Write};
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{future, Stream, TryStream, TryStreamExt};
+use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use pin_project::pin_project;
@@ -72,7 +72,6 @@ enum DataType {
 /// Server-sent event
 #[derive(Default, Debug)]
 pub struct Event {
-    name: Option<String>,
     id: Option<String>,
     data: Option<DataType>,
     event: Option<String>,
@@ -112,7 +111,7 @@ impl Event {
     /// Set Server-sent event retry
     /// Retry timeout field ("retry:<timeout>")
     pub fn retry(mut self, duration: Duration) -> Event {
-        self.retry = Some(duration.into());
+        self.retry = Some(duration);
         self
     }
 
@@ -124,8 +123,8 @@ impl Event {
     }
 }
 
-impl Display for Event {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl fmt::Display for Event {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref comment) = &self.comment {
             ":".fmt(f)?;
             comment.fmt(f)?;
@@ -245,8 +244,8 @@ where
 /// ```
 ///
 /// use std::time::Duration;
-/// use futures::Stream;
-/// use futures::stream::iter;
+/// use futures_util::Stream;
+/// use futures_util::stream::iter;
 /// use std::convert::Infallible;
 /// use warp::{Filter, sse::Event};
 /// use serde_derive::Serialize;
@@ -420,7 +419,7 @@ struct SseKeepAlive<S> {
 /// ```
 /// use std::time::Duration;
 /// use std::convert::Infallible;
-/// use futures::StreamExt;
+/// use futures_util::StreamExt;
 /// use tokio::time::interval;
 /// use tokio_stream::wrappers::IntervalStream;
 /// use warp::{Filter, Stream, sse::Event};
@@ -466,7 +465,7 @@ where
 {
     type Item = Result<Event, SseError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut pin = self.project();
         match pin.event_stream.try_poll_next(cx) {
             Poll::Pending => match Pin::new(&mut pin.alive_timer).poll(cx) {
@@ -502,8 +501,8 @@ mod sealed {
     #[derive(Debug)]
     pub struct SseError;
 
-    impl Display for SseError {
-        fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    impl fmt::Display for SseError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(f, "sse error")
         }
     }

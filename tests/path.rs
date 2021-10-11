@@ -2,7 +2,7 @@
 #[macro_use]
 extern crate warp;
 
-use futures::future;
+use futures_util::future;
 use warp::Filter;
 
 #[tokio::test]

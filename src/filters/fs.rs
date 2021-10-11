@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::task::Poll;
 
 use bytes::{Bytes, BytesMut};
-use futures::future::Either;
-use futures::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
+use futures_util::future::Either;
+use futures_util::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
     AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
     IfUnmodifiedSince, LastModified, Range,
@@ -53,7 +53,7 @@ pub fn file(path: impl Into<PathBuf>) -> impl FilterClone<Extract = One<File>, E
             ArcPath(path.clone())
         })
         .and(conditionals())
-        .and_then(|path, conditionals| file_reply(path, conditionals))
+        .and_then(file_reply)
 }
 
 /// Creates a `Filter` that serves a directory at the base `path` joined

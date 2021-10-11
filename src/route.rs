@@ -3,7 +3,6 @@ use std::cell::RefCell;
 use std::mem;
 use std::net::SocketAddr;
 
-use http;
 use hyper::Body;
 
 use crate::Request;

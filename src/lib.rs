@@ -1,6 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/warp/0.3.1")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
+#![deny(rust_2018_idioms)]
 #![cfg_attr(test, deny(warnings))]
 
 //! # warp
@@ -172,7 +173,7 @@ pub use hyper;
 #[doc(hidden)]
 pub use bytes::Buf;
 #[doc(hidden)]
-pub use futures::{Future, Sink, Stream};
+pub use futures_util::{Future, Sink, Stream};
 #[doc(hidden)]
 
 pub(crate) type Request = http::Request<hyper::Body>;
