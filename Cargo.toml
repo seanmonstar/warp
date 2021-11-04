@@ -17,7 +17,7 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { version = "0.3.7", features = ["brotli", "deflate", "gzip", "tokio"], optional = true }
+async-compression = { version = "0.3.7", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
@@ -56,7 +56,11 @@ listenfd = "0.3"
 default = ["multipart", "websocket"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
-compression = ["async-compression"]
+
+# Enable compression-related filters
+compression = ["compression-brotli", "compression-gzip"]
+compression-brotli = ["async-compression/brotli"]
+compression-gzip = ["async-compression/deflate", "async-compression/gzip"]
 
 [profile.release]
 codegen-units = 1
