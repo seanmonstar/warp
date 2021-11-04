@@ -23,7 +23,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 futures-channel = { version = "0.3.17", features = ["sink"]}
 headers = "0.3"
 http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "tcp", "client"] }
+hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -32,7 +32,7 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7"
-tokio = { version = "1.0", features = ["fs", "sync", "time", "io-util"] }
+tokio = { version = "1.0", features = ["fs", "sync", "time"] }
 tokio-stream = "0.1.1"
 tokio-util = { version = "0.6", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["std"] }
@@ -48,17 +48,16 @@ tracing-subscriber = "0.2.7"
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "4.0"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "io-util"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1.1", features = ["net"] }
 listenfd = "0.3"
 
 [features]
-default = ["multipart", "websocket", "trace-log", "http2"]
+default = ["multipart", "websocket", "trace-log"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
 compression = ["async-compression"]
 trace-log = ["tracing/log"]
-http2 = ["hyper/http2"]
 
 [profile.release]
 codegen-units = 1
