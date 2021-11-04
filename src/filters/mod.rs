@@ -6,7 +6,7 @@
 pub mod addr;
 pub mod any;
 pub mod body;
-#[cfg(feature = "compression")]
+#[cfg(any(feature = "compression-brotli", feature = "compression-gzip"))]
 pub mod compression;
 pub mod cookie;
 pub mod cors;
