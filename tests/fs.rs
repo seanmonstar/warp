@@ -140,7 +140,7 @@ async fn not_modified() {
 
     // clearly too old
     let res = warp::test::request()
-        .header("if-modified-since", "Sun, 07 Nov 1994 01:00:00 GMT")
+        .header("if-modified-since", "Mon, 07 Nov 1994 01:00:00 GMT")
         .reply(&file)
         .await;
     assert_eq!(res.status(), 200);
@@ -167,7 +167,7 @@ async fn precondition() {
 
     // clearly too old
     let res = warp::test::request()
-        .header("if-unmodified-since", "Sun, 07 Nov 1994 01:00:00 GMT")
+        .header("if-unmodified-since", "Mon, 07 Nov 1994 01:00:00 GMT")
         .reply(&file)
         .await;
     assert_eq!(res.status(), 412);
@@ -222,7 +222,7 @@ async fn byte_ranges() {
     // if-range too old
     let res = warp::test::request()
         .header("range", "bytes=100-200")
-        .header("if-range", "Sun, 07 Nov 1994 01:00:00 GMT")
+        .header("if-range", "Mon, 07 Nov 1994 01:00:00 GMT")
         .reply(&file)
         .await;
     assert_eq!(res.status(), 200);
