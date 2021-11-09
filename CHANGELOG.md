@@ -1,3 +1,16 @@
+### v0.3.2 (November 9, 2021)
+
+- **Features**:
+  - Add `Filter::then()`, which is like `Filter::map()` in that it's infallible, but is async like `Filter::and_then()`.
+  - Add `redirect::found()` reply helper that returns `302 Found`.
+  - Add `compression-brotli` and `compression-gzip` cargo features to enable only the compression you need.
+  - Allow `HEAD` requests to be served to `fs::dir()` filters.
+  - Allow `path!()` with no arguments.
+- **Fixes**:
+  - Update private dependencies Tungstenite and Multipart.
+  - Replaces uses of `futures` with `futures-util`, which is a smaller dependency.
+
+
 ### v0.3.1 (March 24, 2021)
 
 - **Features**:
