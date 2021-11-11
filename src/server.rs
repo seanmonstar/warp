@@ -12,6 +12,8 @@ use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "tls")]
+use tokio_rustls::rustls::SupportedCipherSuite;
 use tracing::Instrument;
 
 use crate::filter::Filter;
@@ -488,6 +490,13 @@ where
     /// *This function requires the `"tls"` feature.*
     pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
+    }
+
+    /// Specify the ciphersuites to use in preference order.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn ciphersuites(self, ciphersuites: impl AsRef<[&'static SupportedCipherSuite]>) -> Self {
+        self.with_tls(|tls| tls.ciphersuites(ciphersuites.as_ref()))
     }
 
     fn with_tls<Func>(self, func: Func) -> Self
