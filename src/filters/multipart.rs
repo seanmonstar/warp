@@ -25,7 +25,7 @@ const DEFAULT_FORM_DATA_MAX_LENGTH: u64 = 1024 * 1024 * 2;
 /// Create with the `warp::multipart::form()` function.
 #[derive(Debug, Clone)]
 pub struct FormOptions {
-    max_length: u64,
+    max_length: Option<u64>,
 }
 
 /// A `Stream` of multipart/form-data `Part`s.
@@ -51,7 +51,7 @@ pub struct Part {
 /// in turn is a `Stream` of bytes.
 pub fn form() -> FormOptions {
     FormOptions {
-        max_length: DEFAULT_FORM_DATA_MAX_LENGTH,
+        max_length: Some(DEFAULT_FORM_DATA_MAX_LENGTH),
     }
 }
 
@@ -62,7 +62,13 @@ impl FormOptions {
     ///
     /// Defaults to 2MB.
     pub fn max_length(mut self, max: u64) -> Self {
-        self.max_length = max;
+        self.max_length = Some(max);
+        self
+    }
+
+    /// Set no limit to maximum byte length for the body.
+    pub fn no_max_length(mut self) -> Self {
+        self.max_length = None;
         self
     }
 }
@@ -84,16 +90,21 @@ impl FilterBase for FormOptions {
             future::ready(mime)
         });
 
-        let filt = super::body::content_length_limit(self.max_length)
-            .and(boundary)
+        let filt = boundary
             .and(super::body::bytes())
             .map(|boundary, body| FormData {
                 inner: Multipart::with_body(Cursor::new(body), boundary),
             });
 
-        let fut = filt.filter(Internal);
-
-        Box::pin(fut)
+        if let Some(max_length) = self.max_length {
+            Box::pin(
+                super::body::content_length_limit(max_length)
+                    .and(filt)
+                    .filter(Internal)
+            )
+        } else {
+            Box::pin(filt.filter(Internal))
+        }
     }
 }
 
