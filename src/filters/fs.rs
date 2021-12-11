@@ -132,12 +132,14 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
     Ok(buf)
 }
 
-#[derive(Debug)]
-struct Conditionals {
-    if_modified_since: Option<IfModifiedSince>,
-    if_unmodified_since: Option<IfUnmodifiedSince>,
-    if_range: Option<IfRange>,
-    range: Option<Range>,
+/// Conditionals that define certain aspects of file serving. These are usually based on the headers of a request, though they can be manually constructed.
+#[allow(missing_docs)] // TODO add docs for these (consult @seanmonstar)
+#[derive(Debug, Default)] // We derive `Default` as well to make constructing this manually easier
+pub struct Conditionals {
+    pub if_modified_since: Option<IfModifiedSince>,
+    pub if_unmodified_since: Option<IfUnmodifiedSince>,
+    pub if_range: Option<IfRange>,
+    pub range: Option<Range>,
 }
 
 enum Cond {
@@ -195,7 +197,8 @@ impl Conditionals {
     }
 }
 
-fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
+/// A filter for extracting certain headers related to static file serving.
+pub fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
     crate::header::optional2()
         .and(crate::header::optional2())
         .and(crate::header::optional2())
@@ -242,9 +245,9 @@ impl File {
     }
 }
 
-// Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
+/// A wrapper for `Arc<PathBuf>` that implements `AsRef<Path>`.
 #[derive(Clone, Debug)]
-struct ArcPath(Arc<PathBuf>);
+pub struct ArcPath(pub Arc<PathBuf>);
 
 impl AsRef<Path> for ArcPath {
     fn as_ref(&self) -> &Path {
@@ -258,7 +261,9 @@ impl Reply for File {
     }
 }
 
-fn file_reply(
+/// An internal helper for serving static files. Usually, you'll want to use this with `warp::fs::file`, but if the file's path is based on something extracted with a filter,
+/// you'll need to use this manually.
+pub fn file_reply(
     path: ArcPath,
     conditionals: Conditionals,
 ) -> impl Future<Output = Result<File, Rejection>> + Send {
