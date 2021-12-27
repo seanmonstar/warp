@@ -16,7 +16,7 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use crate::transport::Transport;
 use tokio_rustls::rustls::{
     server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth},
-    Error as TlsError, RootCertStore, ServerConfig,
+    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
 };
 
 /// Represents errors that can occur building the TlsConfig
@@ -169,8 +169,11 @@ impl TlsConfigBuilder {
 
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
-        let cert =
-            rustls_pemfile::certs(&mut cert_rdr).map_err(|_e| TlsConfigError::CertParseError)?;
+        let cert = rustls_pemfile::certs(&mut cert_rdr)
+            .map_err(|_e| TlsConfigError::CertParseError)?
+            .into_iter()
+            .map(Certificate)
+            .collect();
 
         let key = {
             // convert it to Vec<u8> to allow reading it again if key is RSA
@@ -187,13 +190,13 @@ impl TlsConfigBuilder {
                 .map_err(|_e| TlsConfigError::Pkcs8ParseError)?;
 
             if !pkcs8.is_empty() {
-                pkcs8.remove(0)
+                PrivateKey(pkcs8.remove(0))
             } else {
                 let mut rsa = rustls_pemfile::rsa_private_keys(&mut key_vec.as_slice())
                     .map_err(|_e| TlsConfigError::RsaParseError)?;
 
                 if !rsa.is_empty() {
-                    rsa.remove(0)
+                    PrivateKey(rsa.remove(0))
                 } else {
                     return Err(TlsConfigError::EmptyKey);
                 }
@@ -209,7 +212,7 @@ impl TlsConfigBuilder {
             };
 
             let mut store = RootCertStore::empty();
-            let (added, skipped) = store.add_parsable_certificates(&trust_anchors);
+            let (added, _skipped) = store.add_parsable_certificates(&trust_anchors);
             if added == 0 {
                 return Err(TlsConfigError::CertParseError);
             }
@@ -227,11 +230,12 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::new(client_auth);
-        config
-            .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
-            .map_err(|err| TlsConfigError::InvalidKey(err))?;
-        config.set_protocols(&["h2".into(), "http/1.1".into()]);
+        let mut config = ServerConfig::builder()
+            .with_safe_defaults()
+            .with_client_cert_verifier(client_auth.into())
+            .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
+            .map_err(TlsConfigError::InvalidKey)?;
+        config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
         Ok(config)
     }
 }
