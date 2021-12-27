@@ -28,7 +28,7 @@
 //! #[derive(Debug)]
 //! struct InvalidParameter;
 //!
-//! impl reject::Reject for InvalidParameter {};
+//! impl reject::Reject for InvalidParameter {}
 //!
 //! // Custom rejection handler that maps rejections into responses.
 //! async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
