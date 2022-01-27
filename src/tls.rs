@@ -15,8 +15,8 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 
 use crate::transport::Transport;
 use tokio_rustls::rustls::{
-    AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth,
-    RootCertStore, ServerConfig, TLSError,
+    server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth},
+    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
 };
 
 /// Represents errors that can occur building the TlsConfig
@@ -32,7 +32,7 @@ pub(crate) enum TlsConfigError {
     /// An error from an empty key
     EmptyKey,
     /// An error from an invalid key
-    InvalidKey(TLSError),
+    InvalidKey(TlsError),
 }
 
 impl fmt::Display for TlsConfigError {
@@ -169,8 +169,11 @@ impl TlsConfigBuilder {
 
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
-        let cert = tokio_rustls::rustls::internal::pemfile::certs(&mut cert_rdr)
-            .map_err(|()| TlsConfigError::CertParseError)?;
+        let cert = rustls_pemfile::certs(&mut cert_rdr)
+            .map_err(|_e| TlsConfigError::CertParseError)?
+            .into_iter()
+            .map(Certificate)
+            .collect();
 
         let key = {
             // convert it to Vec<u8> to allow reading it again if key is RSA
@@ -183,21 +186,17 @@ impl TlsConfigBuilder {
                 return Err(TlsConfigError::EmptyKey);
             }
 
-            let mut pkcs8 = tokio_rustls::rustls::internal::pemfile::pkcs8_private_keys(
-                &mut key_vec.as_slice(),
-            )
-            .map_err(|()| TlsConfigError::Pkcs8ParseError)?;
+            let mut pkcs8 = rustls_pemfile::pkcs8_private_keys(&mut key_vec.as_slice())
+                .map_err(|_e| TlsConfigError::Pkcs8ParseError)?;
 
             if !pkcs8.is_empty() {
-                pkcs8.remove(0)
+                PrivateKey(pkcs8.remove(0))
             } else {
-                let mut rsa = tokio_rustls::rustls::internal::pemfile::rsa_private_keys(
-                    &mut key_vec.as_slice(),
-                )
-                .map_err(|()| TlsConfigError::RsaParseError)?;
+                let mut rsa = rustls_pemfile::rsa_private_keys(&mut key_vec.as_slice())
+                    .map_err(|_e| TlsConfigError::RsaParseError)?;
 
                 if !rsa.is_empty() {
-                    rsa.remove(0)
+                    PrivateKey(rsa.remove(0))
                 } else {
                     return Err(TlsConfigError::EmptyKey);
                 }
@@ -207,13 +206,18 @@ impl TlsConfigBuilder {
         fn read_trust_anchor(
             trust_anchor: Box<dyn Read + Send + Sync>,
         ) -> Result<RootCertStore, TlsConfigError> {
-            let mut reader = BufReader::new(trust_anchor);
+            let trust_anchors = {
+                let mut reader = BufReader::new(trust_anchor);
+                rustls_pemfile::certs(&mut reader).map_err(TlsConfigError::Io)?
+            };
+
             let mut store = RootCertStore::empty();
-            if let Ok((0, _)) | Err(()) = store.add_pem_file(&mut reader) {
-                Err(TlsConfigError::CertParseError)
-            } else {
-                Ok(store)
+            let (added, _skipped) = store.add_parsable_certificates(&trust_anchors);
+            if added == 0 {
+                return Err(TlsConfigError::CertParseError);
             }
+
+            Ok(store)
         }
 
         let client_auth = match self.client_auth {
@@ -226,11 +230,12 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::new(client_auth);
-        config
-            .set_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
-            .map_err(|err| TlsConfigError::InvalidKey(err))?;
-        config.set_protocols(&["h2".into(), "http/1.1".into()]);
+        let mut config = ServerConfig::builder()
+            .with_safe_defaults()
+            .with_client_cert_verifier(client_auth.into())
+            .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
+            .map_err(TlsConfigError::InvalidKey)?;
+        config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
         Ok(config)
     }
 }

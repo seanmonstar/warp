@@ -28,7 +28,7 @@
 //! #[derive(Debug)]
 //! struct InvalidParameter;
 //!
-//! impl reject::Reject for InvalidParameter {};
+//! impl reject::Reject for InvalidParameter {}
 //!
 //! // Custom rejection handler that maps rejections into responses.
 //! async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
@@ -42,23 +42,18 @@
 //!     }
 //! }
 //!
-//! #[tokio::main]
-//! async fn main() {
 //!
-//!     // Filter on `/:id`, but reject with InvalidParameter if the `id` is `0`.
-//!     // Recover from this rejection using a custom rejection handler.
-//!     let route = warp::path::param()
-//!         .and_then(|id: u32| async move {
-//!             if id == 0 {
-//!                 Err(warp::reject::custom(InvalidParameter))
-//!             } else {
-//!                 Ok("id is valid")
-//!             }
-//!         })
-//!         .recover(handle_rejection);
-//!
-//!     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
-//! }
+//! // Filter on `/:id`, but reject with InvalidParameter if the `id` is `0`.
+//! // Recover from this rejection using a custom rejection handler.
+//! let route = warp::path::param()
+//!     .and_then(|id: u32| async move {
+//!         if id == 0 {
+//!             Err(warp::reject::custom(InvalidParameter))
+//!         } else {
+//!             Ok("id is valid")
+//!         }
+//!     })
+//!     .recover(handle_rejection);
 //! ```
 
 use std::any::Any;

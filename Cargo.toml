@@ -40,7 +40,8 @@ tower-service = "0.3"
 tokio-tungstenite = { version = "0.15", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-tokio-rustls = { version = "0.22", optional = true }
+tokio-rustls = { version = "0.23", optional = true }
+rustls-pemfile = "0.2"
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
