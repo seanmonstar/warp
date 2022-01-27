@@ -134,7 +134,7 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
 
 /// Conditionals that define certain aspects of file serving. These are usually based on the headers of a request, though they can be manually constructed.
 #[allow(missing_docs)] // TODO add docs for these (consult @seanmonstar)
-#[derive(Debug, Default)] // We derive `Default` as well to make constructing this manually easier
+#[derive(Debug, Default)]
 pub struct Conditionals {
     pub if_modified_since: Option<IfModifiedSince>,
     pub if_unmodified_since: Option<IfUnmodifiedSince>,
@@ -261,7 +261,9 @@ impl Reply for File {
     }
 }
 
-/// An internal helper for serving static files. Usually, you'll want to use this with `warp::fs::file`, but if the file's path is based on something extracted with a filter,
+/// An internal helper for serving static files.
+///
+/// Usually, you'll want to use this with `warp::fs::file`, but if the file's path is based on something extracted with a filter,
 /// you'll need to use this manually.
 pub fn file_reply(
     path: ArcPath,
