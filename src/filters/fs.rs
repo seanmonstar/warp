@@ -133,12 +133,17 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
 }
 
 /// Conditionals that define certain aspects of file serving. These are usually based on the headers of a request, though they can be manually constructed.
-#[allow(missing_docs)] // TODO add docs for these (consult @seanmonstar)
 #[derive(Debug, Default)]
 pub struct Conditionals {
+    /// Only respond with the file if it has been modified since this date. [See MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Modified-Since).
     pub if_modified_since: Option<IfModifiedSince>,
+    /// Only respond with the file if it hasn't been modified since this date. [See MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Unmodified-Since).
     pub if_unmodified_since: Option<IfUnmodifiedSince>,
+    /// The `range` conditional should only be used if the document has not been modified since the `Last Modified` header
+    /// or the last ETag creation date. This is typically used to resume downloads after a pause to make sure that the requested
+    /// resource hasn't been changed since the first partial download. [See MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Range).
     pub if_range: Option<IfRange>,
+    /// The part of the file that should be responded with. [See MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Range).
     pub range: Option<Range>,
 }
 
