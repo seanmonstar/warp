@@ -112,6 +112,9 @@ pub use self::filters::compression;
 #[cfg(feature = "multipart")]
 #[doc(hidden)]
 pub use self::filters::multipart;
+#[cfg(feature = "tls")]
+#[doc(hidden)]
+pub use self::filters::mtls;
 #[cfg(feature = "websocket")]
 #[doc(hidden)]
 pub use self::filters::ws;

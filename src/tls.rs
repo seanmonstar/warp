@@ -15,7 +15,7 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use tokio_rustls::rustls::server::WebPkiClientVerifier;
 use tokio_rustls::rustls::{Error as TlsError, RootCertStore, ServerConfig};
 
-use crate::transport::Transport;
+use crate::transport::{PeerCertificates, Transport};
 
 /// Represents errors that can occur building the TlsConfig
 #[derive(Debug)]
@@ -284,6 +284,10 @@ impl Transport for TlsStream {
     fn remote_addr(&self) -> Option<SocketAddr> {
         Some(self.remote_addr)
     }
+
+    fn peer_certificates(&self) -> PeerCertificates {
+        self.peer_certs.clone()
+    }
 }
 
 enum State {
@@ -297,6 +301,7 @@ enum State {
 pub(crate) struct TlsStream {
     state: State,
     remote_addr: SocketAddr,
+    peer_certs: PeerCertificates,
 }
 
 impl TlsStream {
@@ -306,6 +311,7 @@ impl TlsStream {
         TlsStream {
             state: State::Handshaking(accept),
             remote_addr,
+            peer_certs: Default::default(),
         }
     }
 }
@@ -320,6 +326,10 @@ impl AsyncRead for TlsStream {
         match pin.state {
             State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
                 Ok(mut stream) => {
+                    let (_, conn) = stream.get_ref();
+                    *pin.peer_certs.write().unwrap() =
+                        conn.peer_certificates().map(|certs| certs.to_vec());
+
                     let result = Pin::new(&mut stream).poll_read(cx, buf);
                     pin.state = State::Streaming(stream);
                     result
