@@ -115,6 +115,7 @@ use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
 use crate::Request;
+use crate::transport::PeerInfo;
 #[cfg(feature = "websocket")]
 use crate::{Sink, Stream};
 
@@ -122,10 +123,7 @@ use self::inner::OneOrTuple;
 
 /// Starts a new test `RequestBuilder`.
 pub fn request() -> RequestBuilder {
-    RequestBuilder {
-        remote_addr: None,
-        req: Request::default(),
-    }
+    Default::default()
 }
 
 /// Starts a new test `WsBuilder`.
@@ -138,9 +136,9 @@ pub fn ws() -> WsBuilder {
 ///
 /// See [module documentation](crate::test) for an overview.
 #[must_use = "RequestBuilder does nothing on its own"]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct RequestBuilder {
-    remote_addr: Option<SocketAddr>,
+    peer_info: PeerInfo,
     req: Request,
 }
 
@@ -249,7 +247,21 @@ impl RequestBuilder {
     ///     .remote_addr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080));
     /// ```
     pub fn remote_addr(mut self, addr: SocketAddr) -> Self {
-        self.remote_addr = Some(addr);
+        self.peer_info.remote_addr = Some(addr);
+        self
+    }
+
+    /// Set the peer certificates of this request.
+    /// Default is no peer certificates.
+    ///
+    /// # Example
+    /// ```
+    /// let req = warp::test::request()
+    ///     .peer_certificates([tokio_rustls::rustls::Certificate(b"FAKE CERT".to_vec())]);
+    /// ```
+    #[cfg(feature = "tls")]
+    pub fn peer_certificates(self, certs: impl Into<Vec<tokio_rustls::rustls::Certificate>>) -> Self {
+        *self.peer_info.peer_certificates.write().unwrap() = Some(certs.into());
         self
     }
 
@@ -376,7 +388,7 @@ impl RequestBuilder {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.peer_info);
         let mut fut = Box::pin(
             route::set(&route, move || f.filter(crate::filter::Internal)).then(|result| {
                 let res = match result {
@@ -405,7 +417,7 @@ impl RequestBuilder {
     {
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.peer_info);
         let mut fut = Box::pin(route::set(&route, move || {
             f.filter(crate::filter::Internal)
         }));

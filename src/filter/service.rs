@@ -1,6 +1,5 @@
 use std::convert::Infallible;
 use std::future::Future;
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -11,6 +10,7 @@ use pin_project::pin_project;
 use crate::reject::IsReject;
 use crate::reply::{Reply, Response};
 use crate::route::{self, Route};
+use crate::transport::PeerInfo;
 use crate::{Filter, Request};
 
 /// Convert a `Filter` into a `Service`.
@@ -70,14 +70,14 @@ where
     <F::Future as TryFuture>::Error: IsReject,
 {
     #[inline]
-    pub(crate) fn call_with_addr(
+    pub(crate) fn call_with_peer_info(
         &self,
         req: Request,
-        remote_addr: Option<SocketAddr>,
+        peer_info: PeerInfo,
     ) -> FilteredFuture<F::Future> {
         debug_assert!(!route::is_set(), "nested route::set calls");
 
-        let route = Route::new(req, remote_addr);
+        let route = Route::new(req, peer_info);
         let fut = route::set(&route, || self.filter.filter(super::Internal));
         FilteredFuture { future: fut, route }
     }
@@ -99,7 +99,7 @@ where
 
     #[inline]
     fn call(&mut self, req: Request) -> Self::Future {
-        self.call_with_addr(req, None)
+        self.call_with_peer_info(req, Default::default())
     }
 }
 

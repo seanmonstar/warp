@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use hyper::Body;
 
 use crate::Request;
+use crate::transport::PeerInfo;
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
 
@@ -30,7 +31,7 @@ where
 #[derive(Debug)]
 pub(crate) struct Route {
     body: BodyState,
-    remote_addr: Option<SocketAddr>,
+    peer_info: PeerInfo,
     req: Request,
     segments_index: usize,
 }
@@ -42,7 +43,7 @@ enum BodyState {
 }
 
 impl Route {
-    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
+    pub(crate) fn new(req: Request, peer_info: PeerInfo) -> RefCell<Route> {
         let segments_index = if req.uri().path().starts_with('/') {
             // Skip the beginning slash.
             1
@@ -52,7 +53,7 @@ impl Route {
 
         RefCell::new(Route {
             body: BodyState::Ready,
-            remote_addr,
+            peer_info,
             req,
             segments_index,
         })
@@ -124,7 +125,12 @@ impl Route {
     }
 
     pub(crate) fn remote_addr(&self) -> Option<SocketAddr> {
-        self.remote_addr
+        self.peer_info.remote_addr
+    }
+
+    #[cfg(feature = "tls")]
+    pub(crate) fn peer_certificates(&self) -> crate::transport::PeerCertificates {
+        self.peer_info.peer_certificates.clone()
     }
 
     pub(crate) fn take_body(&mut self) -> Option<Body> {
