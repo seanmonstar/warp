@@ -15,8 +15,11 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 
 use crate::transport::Transport;
 use tokio_rustls::rustls::{
-    server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth},
-    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
+    server::{
+        AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth,
+        ResolvesServerCert, WantsServerCert,
+    },
+    Certificate, ConfigBuilder, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
 };
 
 /// Represents errors that can occur building the TlsConfig
@@ -60,12 +63,83 @@ pub(crate) enum TlsClientAuth {
     Required(Box<dyn Read + Send + Sync>),
 }
 
+pub(crate) struct OCSPKeyCert {
+    key: Box<dyn Read + Send + Sync>,
+    cert: Box<dyn Read + Send + Sync>,
+    ocsp_resp: Vec<u8>,
+}
+
+impl Default for OCSPKeyCert {
+    fn default() -> Self {
+        Self {
+            key: Box::new(io::empty()),
+            cert: Box::new(io::empty()),
+            ocsp_resp: Vec::new(),
+        }
+    }
+}
+
+pub(crate) enum CertResolver {
+    OCSPKeyCert(OCSPKeyCert),
+    Custom(Arc<dyn ResolvesServerCert>),
+}
+
+impl CertResolver {
+    fn inject(
+        self,
+        config: ConfigBuilder<ServerConfig, WantsServerCert>,
+    ) -> Result<ServerConfig, TlsConfigError> {
+        let config = match self {
+            Self::Custom(custom) => config.with_cert_resolver(custom),
+            Self::OCSPKeyCert(OCSPKeyCert {
+                mut key,
+                cert,
+                ocsp_resp,
+            }) => {
+                let mut cert_rdr = BufReader::new(cert);
+                let cert = rustls_pemfile::certs(&mut cert_rdr)
+                    .map_err(|_e| TlsConfigError::CertParseError)?
+                    .into_iter()
+                    .map(Certificate)
+                    .collect();
+                let key = {
+                    // convert it to Vec<u8> to allow reading it again if key is RSA
+                    let mut key_vec = Vec::new();
+                    key.read_to_end(&mut key_vec).map_err(TlsConfigError::Io)?;
+
+                    if key_vec.is_empty() {
+                        return Err(TlsConfigError::EmptyKey);
+                    }
+
+                    let mut pkcs8 = rustls_pemfile::pkcs8_private_keys(&mut key_vec.as_slice())
+                        .map_err(|_e| TlsConfigError::Pkcs8ParseError)?;
+
+                    if !pkcs8.is_empty() {
+                        PrivateKey(pkcs8.remove(0))
+                    } else {
+                        let mut rsa = rustls_pemfile::rsa_private_keys(&mut key_vec.as_slice())
+                            .map_err(|_e| TlsConfigError::RsaParseError)?;
+
+                        if !rsa.is_empty() {
+                            PrivateKey(rsa.remove(0))
+                        } else {
+                            return Err(TlsConfigError::EmptyKey);
+                        }
+                    }
+                };
+                config
+                    .with_single_cert_with_ocsp_and_sct(cert, key, ocsp_resp, Vec::new())
+                    .map_err(TlsConfigError::InvalidKey)?
+            }
+        };
+        Ok(config)
+    }
+}
+
 /// Builder to set the configuration for the Tls server.
 pub(crate) struct TlsConfigBuilder {
-    cert: Box<dyn Read + Send + Sync>,
-    key: Box<dyn Read + Send + Sync>,
     client_auth: TlsClientAuth,
-    ocsp_resp: Vec<u8>,
+    cert_resolver: CertResolver,
 }
 
 impl fmt::Debug for TlsConfigBuilder {
@@ -78,40 +152,56 @@ impl TlsConfigBuilder {
     /// Create a new TlsConfigBuilder
     pub(crate) fn new() -> TlsConfigBuilder {
         TlsConfigBuilder {
-            key: Box::new(io::empty()),
-            cert: Box::new(io::empty()),
             client_auth: TlsClientAuth::Off,
-            ocsp_resp: Vec::new(),
+            cert_resolver: CertResolver::OCSPKeyCert(OCSPKeyCert::default()),
         }
     }
 
     /// sets the Tls key via File Path, returns `TlsConfigError::IoError` if the file cannot be open
-    pub(crate) fn key_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.key = Box::new(LazyFile {
+    pub(crate) fn key_path(self, path: impl AsRef<Path>) -> Self {
+        let key = Box::new(LazyFile {
             path: path.as_ref().into(),
             file: None,
         });
-        self
+        self.box_key(key)
     }
 
     /// sets the Tls key via bytes slice
-    pub(crate) fn key(mut self, key: &[u8]) -> Self {
-        self.key = Box::new(Cursor::new(Vec::from(key)));
+    pub(crate) fn key(self, key: &[u8]) -> Self {
+        let key = Box::new(Cursor::new(Vec::from(key)));
+        self.box_key(key)
+    }
+
+    fn box_key(mut self, key: Box<dyn Read + Send + Sync>) -> Self {
+        let current = match self.cert_resolver {
+            CertResolver::OCSPKeyCert(okc) => okc,
+            _ => Default::default(),
+        };
+        self.cert_resolver = CertResolver::OCSPKeyCert(OCSPKeyCert { key, ..current });
         self
     }
 
     /// Specify the file path for the TLS certificate to use.
-    pub(crate) fn cert_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.cert = Box::new(LazyFile {
+    pub(crate) fn cert_path(self, path: impl AsRef<Path>) -> Self {
+        let cert = Box::new(LazyFile {
             path: path.as_ref().into(),
             file: None,
         });
-        self
+        self.box_cert(cert)
     }
 
     /// sets the Tls certificate via bytes slice
-    pub(crate) fn cert(mut self, cert: &[u8]) -> Self {
-        self.cert = Box::new(Cursor::new(Vec::from(cert)));
+    pub(crate) fn cert(self, cert: &[u8]) -> Self {
+        let cert = Box::new(Cursor::new(Vec::from(cert)));
+        self.box_cert(cert)
+    }
+
+    fn box_cert(mut self, cert: Box<dyn Read + Send + Sync>) -> Self {
+        let current = match self.cert_resolver {
+            CertResolver::OCSPKeyCert(okc) => okc,
+            _ => Default::default(),
+        };
+        self.cert_resolver = CertResolver::OCSPKeyCert(OCSPKeyCert { cert, ..current });
         self
     }
 
@@ -163,46 +253,29 @@ impl TlsConfigBuilder {
 
     /// sets the DER-encoded OCSP response
     pub(crate) fn ocsp_resp(mut self, ocsp_resp: &[u8]) -> Self {
-        self.ocsp_resp = Vec::from(ocsp_resp);
+        let ocsp_resp = Vec::from(ocsp_resp);
+        let current = match self.cert_resolver {
+            CertResolver::OCSPKeyCert(okc) => okc,
+            _ => Default::default(),
+        };
+        self.cert_resolver = CertResolver::OCSPKeyCert(OCSPKeyCert {
+            ocsp_resp,
+            ..current
+        });
         self
     }
 
-    pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
-        let mut cert_rdr = BufReader::new(self.cert);
-        let cert = rustls_pemfile::certs(&mut cert_rdr)
-            .map_err(|_e| TlsConfigError::CertParseError)?
-            .into_iter()
-            .map(Certificate)
-            .collect();
+    /// Sets a custom cert resolver to pass through to the ServerConfig.
+    ///
+    /// When this is set it overrides the ocsp_resp, key and cert attributes and moves the
+    /// cert resolution entirely to the custom cert resolver.
+    /// When using a single certificate set key() cert() and ocsp_resp() instead.
+    pub(crate) fn cert_resolver(mut self, resolver: Arc<dyn ResolvesServerCert>) -> Self {
+        self.cert_resolver = CertResolver::Custom(resolver);
+        self
+    }
 
-        let key = {
-            // convert it to Vec<u8> to allow reading it again if key is RSA
-            let mut key_vec = Vec::new();
-            self.key
-                .read_to_end(&mut key_vec)
-                .map_err(TlsConfigError::Io)?;
-
-            if key_vec.is_empty() {
-                return Err(TlsConfigError::EmptyKey);
-            }
-
-            let mut pkcs8 = rustls_pemfile::pkcs8_private_keys(&mut key_vec.as_slice())
-                .map_err(|_e| TlsConfigError::Pkcs8ParseError)?;
-
-            if !pkcs8.is_empty() {
-                PrivateKey(pkcs8.remove(0))
-            } else {
-                let mut rsa = rustls_pemfile::rsa_private_keys(&mut key_vec.as_slice())
-                    .map_err(|_e| TlsConfigError::RsaParseError)?;
-
-                if !rsa.is_empty() {
-                    PrivateKey(rsa.remove(0))
-                } else {
-                    return Err(TlsConfigError::EmptyKey);
-                }
-            }
-        };
-
+    pub(crate) fn build(self) -> Result<ServerConfig, TlsConfigError> {
         fn read_trust_anchor(
             trust_anchor: Box<dyn Read + Send + Sync>,
         ) -> Result<RootCertStore, TlsConfigError> {
@@ -230,11 +303,12 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::builder()
+        let builder = ServerConfig::builder()
             .with_safe_defaults()
-            .with_client_cert_verifier(client_auth.into())
-            .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
-            .map_err(TlsConfigError::InvalidKey)?;
+            .with_client_cert_verifier(client_auth.into());
+
+        let mut config = self.cert_resolver.inject(builder)?;
+
         config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
         Ok(config)
     }
@@ -387,6 +461,14 @@ impl Accept for TlsAcceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio_rustls::rustls::{server::ClientHello, sign::CertifiedKey};
+
+    struct CustomCertResolver {}
+    impl ResolvesServerCert for CustomCertResolver {
+        fn resolve(&self, _: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+            None
+        }
+    }
 
     #[test]
     fn file_cert_key() {
@@ -405,6 +487,15 @@ mod tests {
         TlsConfigBuilder::new()
             .key(key.as_bytes())
             .cert(cert.as_bytes())
+            .build()
+            .unwrap();
+    }
+
+    #[test]
+    fn custom_cert_resolver() {
+        let custom_resolver = CustomCertResolver {};
+        TlsConfigBuilder::new()
+            .cert_resolver(Arc::new(custom_resolver))
             .build()
             .unwrap();
     }

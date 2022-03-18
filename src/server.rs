@@ -6,12 +6,16 @@ use std::future::Future;
 use std::net::SocketAddr;
 #[cfg(feature = "tls")]
 use std::path::Path;
+#[cfg(feature = "tls")]
+use std::sync::Arc;
 
 use futures_util::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
 use hyper::server::conn::AddrIncoming;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::Server as HyperServer;
 use tokio::io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "tls")]
+use tokio_rustls::rustls::server::ResolvesServerCert;
 use tracing::Instrument;
 
 use crate::filter::Filter;
@@ -488,6 +492,13 @@ where
     /// *This function requires the `"tls"` feature.*
     pub fn ocsp_resp(self, resp: impl AsRef<[u8]>) -> Self {
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
+    }
+
+    /// Specify a custom cert resolver.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn cert_resolver(self, cert_resolver: Arc<dyn ResolvesServerCert>) -> Self {
+        self.with_tls(|tls| tls.cert_resolver(cert_resolver))
     }
 
     fn with_tls<Func>(self, func: Func) -> Self
