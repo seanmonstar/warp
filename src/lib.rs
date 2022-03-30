@@ -107,7 +107,7 @@ pub use self::filter::Filter;
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
-#[cfg(feature = "compression")]
+#[cfg(any(feature = "compression-brotli", feature = "compression-gzip"))]
 #[doc(hidden)]
 pub use self::filters::compression;
 #[cfg(feature = "multipart")]
