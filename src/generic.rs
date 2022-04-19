@@ -1,3 +1,38 @@
+/// A statically-typed inductive list of mixed-type elements.
+///
+/// `Product` values form chains like this:
+///
+/// ```ignore
+/// Product(1, Product(2, Product(3, ())))
+/// ```
+///
+/// except that the elements do not all need to have the same type:
+///
+/// ```ignore
+/// Product(1, Product(true, Product("eggs", ())))
+/// ```
+///
+/// In `Product(h, t)`, `h` is the list element value, and `t` is the
+/// tail of the list: either `()` or another `Product`.
+///
+/// Since `Product` implements `HList`, it has a `flatten` method that
+/// turns the `Product` into an ordinary Rust tuple:
+///
+/// ```ignore
+/// assert_eq!(Product(1, Product(true, Product("eggs", ()))).flatten(),
+///            (1, true, "eggs"));
+/// ```
+///
+/// Since `Product` also implements `Combine`, it has a `combine`
+/// method that appends two lists:
+///
+/// ```ignore
+/// let left = Product(1, Product(2, ()));
+/// let right = Product("pneumonia", Product("topography", ()));
+///
+/// assert_eq!(left.combine(right).flatten(),
+///            (1, 2, "pneumonia", "topography"));
+/// ```
 #[derive(Debug)]
 pub struct Product<H, T: HList>(pub(crate) H, pub(crate) T);
 
@@ -14,14 +49,44 @@ pub enum Either<T, U> {
     B(U),
 }
 
-// Converts Product (and ()) into tuples.
+/// Trait for [`Product`] chains that can be converted into a tuple.
+///
+/// This trait is implemented for [`Product`] chains up to 16 elements
+/// long. For example:
+///
+/// ```ignore
+/// assert_eq!(Product('a', Product(2, Product("c", ()))).flatten(),
+///            ('a', 2, "c"));
+/// ```
 pub trait HList: Sized {
     type Tuple: Tuple<HList = Self>;
 
+    /// Return the tuple represented by `Self`.
     fn flatten(self) -> Self::Tuple;
 }
 
-// Typeclass that tuples can be converted into a Product (or unit ()).
+/// Trait for tuples that can be converted into a [`Product`] chain.
+///
+/// This trait is implemented for tuples of up to sixteen
+/// elements. For example:
+///
+/// ```ignore
+/// println!("{:?}", ('a', 2, "c").hlist());
+/// ```
+///
+/// prints:
+///
+/// ```ignore
+/// Product('a', Product(2, Product("c", ())))
+/// ```
+///
+/// This trait provides a `combine` method that concatenates tuples,
+/// as long as the result is no longer than sixteen elements long:
+///
+/// ```ignore
+/// assert_eq!(('a', 2, "c").combine(('d', "e", 6)),
+///            ('a', 2, "c", 'd', "e", 6));
+/// ```
 pub trait Tuple: Sized {
     type HList: HList<Tuple = Self>;
 
@@ -38,16 +103,50 @@ pub trait Tuple: Sized {
     }
 }
 
+/// The concatenation of two tuple types `T` and `U`.
+///
+/// The concatenation may have at most sixteen elements.
 pub type CombinedTuples<T, U> =
     <<<T as Tuple>::HList as Combine<<U as Tuple>::HList>>::Output as HList>::Tuple;
 
-// Combines Product together.
+/// Trait for `Product` lists that can be concatenated.
+///
+/// For example:
+///
+/// ```ignore
+/// let left = Product(1, Product(2, ()));
+/// let right = Product("pneumonia", Product("topography", ()));
+///
+/// assert_eq!(left.combine(right).flatten(),
+///            (1, 2, "pneumonia", "topography"));
+/// ```
 pub trait Combine<T: HList> {
     type Output: HList;
 
     fn combine(self, other: T) -> Self::Output;
 }
 
+/// A function that can take its arguments from an `Args` value.
+///
+/// The `Func::call` method takes a function and an `Args` value,
+/// and applies the function to the arguments that value represents.
+///
+/// This lets you apply functions of up to sixteen arguments to the
+/// values carried in a [`Product`] chain or a tuple:
+///
+/// ```ignore
+/// fn mad(a: i32, b: i32, c: i32) -> i32 { a * b + c }
+///
+/// assert_eq!(Func::call(&mad, (10, 20, 30)), 230);
+/// ```
+///
+/// If `Args` is a `Product` chain or tuple of up to sixteen elements,
+/// then `Func<Args>` is implemented for Rust functions and closures
+/// that implement `std::ops::Fn`, whose arguments match the chain or
+/// tuple's elements.
+///
+/// A function that accepts a single `Rejection` argument also
+/// implements `Func<Rejection>`.
 pub trait Func<Args> {
     type Output;
 
@@ -114,21 +213,27 @@ where
     }
 }
 
+/// Construct a `Product` chain from element values.
 macro_rules! product {
     ($H:expr) => { Product($H, ()) };
     ($H:expr, $($T:expr),*) => { Product($H, product!($($T),*)) };
 }
 
+/// The type of a `Product` chain with the given element types.
 macro_rules! Product {
     ($H:ty) => { Product<$H, ()> };
     ($H:ty, $($T:ty),*) => { Product<$H, Product!($($T),*)> };
 }
 
+/// A pattern that matches a `Product` chain whose elements match the
+/// given patterns.
 macro_rules! product_pat {
     ($H:pat) => { Product($H, ()) };
     ($H:pat, $($T:pat),*) => { Product($H, product_pat!($($T),*)) };
 }
 
+// Implement `HList`, `Tuple`, and `Func` for non-empty [`Product`]
+// chains and tuples.
 macro_rules! generics {
     ($type:ident) => {
         impl<$type> HList for Product!($type) {
