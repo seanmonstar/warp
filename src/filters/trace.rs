@@ -238,35 +238,39 @@ mod internal {
     use tracing::Span;
 
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
-        match reply {
-            Ok((Traced(resp),)) => {
-                tracing::info!(target: "warp::filters::trace", status = resp.status().as_u16(), "finished processing with success");
-            }
-            Err(e) if e.status().is_server_error() => {
-                tracing::error!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    error = ?e,
-                    "unable to process request (internal error)"
-                );
-            }
-            Err(e) if e.status().is_client_error() => {
-                tracing::warn!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    error = ?e,
-                    "unable to serve request (client error)"
-                );
-            }
-            Err(e) => {
-                // Either informational or redirect
-                tracing::info!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    result = ?e,
+        let (status, error) = match reply {
+            Ok((Traced(resp),)) => (resp.status(), None),
+            Err(error) => (error.status(), Some(error)),
+        };
+
+        if status.is_success() {
+            tracing::info!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                "finished processing with success"
+            );
+        } else if status.is_server_error() {
+            tracing::error!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
+                "unable to process request (internal error)"
+            );
+        } else if status.is_client_error() {
+            tracing::warn!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
+                "unable to serve request (client error)"
+            );
+        } else {
+            // Either informational or redirect
+            tracing::info!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
                     "finished processing with status"
-                );
-            }
+            );
         }
     }
 
