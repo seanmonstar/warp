@@ -46,17 +46,12 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
             "request",
             remote.addr = Empty,
             method = %info.method(),
-            host = Empty,
             path = %info.path(),
             version = ?info.route.version(),
             referer = Empty,
         );
 
         // Record optional fields.
-        if let Some(authority) = info.host() {
-            span.record("host", &display(authority));
-        }
-
         if let Some(remote_addr) = info.remote_addr() {
             span.record("remote.addr", &display(remote_addr));
         }
