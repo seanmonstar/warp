@@ -16,7 +16,7 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use crate::transport::Transport;
 use tokio_rustls::rustls::{
     server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth},
-    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
+    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig as RustlsServerConfig,
 };
 
 /// Represents errors that can occur building the TlsConfig
@@ -66,6 +66,12 @@ pub(crate) struct TlsConfigBuilder {
     key: Box<dyn Read + Send + Sync>,
     client_auth: TlsClientAuth,
     ocsp_resp: Vec<u8>,
+    http: bool,
+}
+
+pub(crate) struct ServerConfig {
+    config: RustlsServerConfig,
+    http: bool,
 }
 
 impl fmt::Debug for TlsConfigBuilder {
@@ -82,6 +88,7 @@ impl TlsConfigBuilder {
             cert: Box::new(io::empty()),
             client_auth: TlsClientAuth::Off,
             ocsp_resp: Vec::new(),
+            http: false,
         }
     }
 
@@ -230,13 +237,21 @@ impl TlsConfigBuilder {
             }
         };
 
-        let mut config = ServerConfig::builder()
+        let mut config = RustlsServerConfig::builder()
             .with_safe_defaults()
             .with_client_cert_verifier(client_auth.into())
             .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(TlsConfigError::InvalidKey)?;
         config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
-        Ok(config)
+        Ok(ServerConfig {
+            config,
+            http: self.http,
+        })
+    }
+
+    pub(crate) fn http(mut self, http: bool) -> Self {
+        self.http = http;
+        self
     }
 }
 
@@ -274,8 +289,10 @@ impl Transport for TlsStream {
 }
 
 enum State {
-    Handshaking(tokio_rustls::Accept<AddrStream>),
-    Streaming(tokio_rustls::server::TlsStream<AddrStream>),
+    Peek(PeekHandler),
+    Http(AddrStream),
+    HttpsHandshaking(tokio_rustls::Accept<AddrStream>),
+    Https(tokio_rustls::server::TlsStream<AddrStream>),
 }
 
 // tokio_rustls::server::TlsStream doesn't expose constructor methods,
@@ -287,13 +304,17 @@ pub(crate) struct TlsStream {
 }
 
 impl TlsStream {
-    fn new(stream: AddrStream, config: Arc<ServerConfig>) -> TlsStream {
+    fn new(stream: AddrStream, config: Arc<RustlsServerConfig>, http: bool) -> TlsStream {
         let remote_addr = stream.remote_addr();
-        let accept = tokio_rustls::TlsAcceptor::from(config).accept(stream);
-        TlsStream {
-            state: State::Handshaking(accept),
-            remote_addr,
-        }
+
+        let state = if http {
+            State::Peek(PeekHandler::new(config, stream))
+        } else {
+            let accept = tokio_rustls::TlsAcceptor::from(config).accept(stream);
+            State::HttpsHandshaking(accept)
+        };
+
+        TlsStream { state, remote_addr }
     }
 }
 
@@ -305,15 +326,36 @@ impl AsyncRead for TlsStream {
     ) -> Poll<io::Result<()>> {
         let pin = self.get_mut();
         match pin.state {
-            State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
+            State::Peek(ref mut peek) => match ready!(Pin::new(peek).poll(cx)) {
+                Ok(Peeked::Http(mut stream)) => {
+                    let result = Pin::new(&mut stream).poll_read(cx, buf);
+                    pin.state = State::Http(stream);
+                    result
+                }
+                Ok(Peeked::Https(mut accept)) => match Pin::new(&mut accept).poll(cx) {
+                    Poll::Ready(Ok(mut stream)) => {
+                        let result = Pin::new(&mut stream).poll_read(cx, buf);
+                        pin.state = State::Https(stream);
+                        result
+                    }
+                    Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+                    Poll::Pending => {
+                        pin.state = State::HttpsHandshaking(accept);
+                        Poll::Pending
+                    }
+                },
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            State::Http(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
+            State::HttpsHandshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
                 Ok(mut stream) => {
                     let result = Pin::new(&mut stream).poll_read(cx, buf);
-                    pin.state = State::Streaming(stream);
+                    pin.state = State::Https(stream);
                     result
                 }
                 Err(err) => Poll::Ready(Err(err)),
             },
-            State::Streaming(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
+            State::Https(ref mut stream) => Pin::new(stream).poll_read(cx, buf),
         }
     }
 }
@@ -326,43 +368,117 @@ impl AsyncWrite for TlsStream {
     ) -> Poll<io::Result<usize>> {
         let pin = self.get_mut();
         match pin.state {
-            State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
+            State::Peek(ref mut peek) => match ready!(Pin::new(peek).poll(cx)) {
+                Ok(Peeked::Http(mut stream)) => {
+                    let result = Pin::new(&mut stream).poll_write(cx, buf);
+                    pin.state = State::Http(stream);
+                    result
+                }
+                Ok(Peeked::Https(mut accept)) => match Pin::new(&mut accept).poll(cx) {
+                    Poll::Ready(Ok(mut stream)) => {
+                        let result = Pin::new(&mut stream).poll_write(cx, buf);
+                        pin.state = State::Https(stream);
+                        result
+                    }
+                    Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+                    Poll::Pending => {
+                        pin.state = State::HttpsHandshaking(accept);
+                        Poll::Pending
+                    }
+                },
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            State::Http(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
+            State::HttpsHandshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
                 Ok(mut stream) => {
                     let result = Pin::new(&mut stream).poll_write(cx, buf);
-                    pin.state = State::Streaming(stream);
+                    pin.state = State::Https(stream);
                     result
                 }
                 Err(err) => Poll::Ready(Err(err)),
             },
-            State::Streaming(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
+            State::Https(ref mut stream) => Pin::new(stream).poll_write(cx, buf),
         }
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.state {
-            State::Handshaking(_) => Poll::Ready(Ok(())),
-            State::Streaming(ref mut stream) => Pin::new(stream).poll_flush(cx),
+            State::Peek(_) => Poll::Ready(Ok(())),
+            State::Http(ref mut stream) => Pin::new(stream).poll_flush(cx),
+            State::HttpsHandshaking(_) => Poll::Ready(Ok(())),
+            State::Https(ref mut stream) => Pin::new(stream).poll_flush(cx),
         }
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         match self.state {
-            State::Handshaking(_) => Poll::Ready(Ok(())),
-            State::Streaming(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
+            State::Peek(_) => Poll::Ready(Ok(())),
+            State::Http(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
+            State::HttpsHandshaking(_) => Poll::Ready(Ok(())),
+            State::Https(ref mut stream) => Pin::new(stream).poll_shutdown(cx),
         }
     }
 }
 
+struct PeekHandler(Option<Peek>);
+
+struct Peek {
+    config: Arc<RustlsServerConfig>,
+    stream: AddrStream,
+}
+
+impl PeekHandler {
+    fn new(config: Arc<RustlsServerConfig>, stream: AddrStream) -> Self {
+        Self(Some(Peek { config, stream }))
+    }
+}
+
+impl Future for PeekHandler {
+    type Output = io::Result<Peeked>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let pin = self.get_mut();
+        let Peek { stream, .. } = pin.0.as_mut().unwrap();
+
+        let mut byte = 0;
+        let mut buffer = ReadBuf::new(std::slice::from_mut(&mut byte));
+
+        match ready!(Pin::new(stream).poll_peek(cx, &mut buffer)) {
+            // If `MSG_PEEK` returns `0`, the socket was closed.
+            Ok(0) => Poll::Ready(Err(io::ErrorKind::UnexpectedEof.into())),
+            Ok(_) => {
+                let Peek { config, stream } = pin.0.take().unwrap();
+
+                // The first byte in the TLS protocol is always `0x16`.
+                Poll::Ready(Ok(if byte == 0x16 {
+                    Peeked::Https(tokio_rustls::TlsAcceptor::from(config).accept(stream))
+                } else {
+                    Peeked::Http(stream)
+                }))
+            }
+            Err(err) => Poll::Ready(Err(err)),
+        }
+    }
+}
+
+#[allow(clippy::large_enum_variant)]
+enum Peeked {
+    Http(AddrStream),
+    Https(tokio_rustls::Accept<AddrStream>),
+}
+
 pub(crate) struct TlsAcceptor {
-    config: Arc<ServerConfig>,
+    config: Arc<RustlsServerConfig>,
     incoming: AddrIncoming,
+    http: bool,
 }
 
 impl TlsAcceptor {
     pub(crate) fn new(config: ServerConfig, incoming: AddrIncoming) -> TlsAcceptor {
         TlsAcceptor {
-            config: Arc::new(config),
+            config: Arc::new(config.config),
             incoming,
+            http: config.http,
         }
     }
 }
@@ -377,7 +493,9 @@ impl Accept for TlsAcceptor {
     ) -> Poll<Option<Result<Self::Conn, Self::Error>>> {
         let pin = self.get_mut();
         match ready!(Pin::new(&mut pin.incoming).poll_accept(cx)) {
-            Some(Ok(sock)) => Poll::Ready(Some(Ok(TlsStream::new(sock, pin.config.clone())))),
+            Some(Ok(sock)) => {
+                Poll::Ready(Some(Ok(TlsStream::new(sock, pin.config.clone(), pin.http))))
+            }
             Some(Err(e)) => Poll::Ready(Some(Err(e))),
             None => Poll::Ready(None),
         }
