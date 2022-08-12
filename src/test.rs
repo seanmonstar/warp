@@ -48,7 +48,7 @@
 //!
 //!     // Or simply test if a request matches (doesn't reject).
 //!     assert!(
-//!         !warp::test::request()
+//!         warp::test::request()
 //!             .path("/1/-5")
 //!             .matches(&filter)
 //!             .await
