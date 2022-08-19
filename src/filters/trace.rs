@@ -157,6 +157,11 @@ where
 }
 
 impl<'a> Info<'a> {
+    /// View the local `SocketAddr` of the request.
+    pub fn local_addr(&self) -> Option<SocketAddr> {
+        self.route.local_addr()
+    }
+
     /// View the remote `SocketAddr` of the request.
     pub fn remote_addr(&self) -> Option<SocketAddr> {
         self.route.remote_addr()
