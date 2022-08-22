@@ -200,6 +200,16 @@ impl WebSocket {
     pub async fn close(mut self) -> Result<(), crate::Error> {
         future::poll_fn(|cx| Pin::new(&mut self).poll_close(cx)).await
     }
+
+    /// Get inner WebSocketStream.
+    pub fn get_inner(&self) -> &WebSocketStream<hyper::upgrade::Upgraded> {
+        &self.inner
+    }
+
+    /// Get mutable inner WebSocketStream.
+    pub fn get_inner_mut(&mut self) -> &mut WebSocketStream<hyper::upgrade::Upgraded> {
+        &mut self.inner
+    }
 }
 
 impl Stream for WebSocket {
