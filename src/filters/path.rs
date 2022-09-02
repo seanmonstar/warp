@@ -371,6 +371,7 @@ impl Peek {
 
     /// Get an iterator over the segments of the peeked path.
     pub fn segments(&self) -> impl Iterator<Item = &str> {
+        // NOTE: this ignores empty segments regardless of feature settings
         self.as_str().split('/').filter(|seg| !seg.is_empty())
     }
 }
