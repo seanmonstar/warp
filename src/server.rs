@@ -129,11 +129,19 @@ where
 {
     /// Run this `Server` forever on the current thread.
     pub async fn run(self, addr: impl Into<SocketAddr>) {
+        self.run_ephemeral(addr).1.await;
+    }
+
+    /// Run this `Server` on a possibly-ephemeral port, returning the port binding.
+    pub fn run_ephemeral(
+        self,
+        addr: impl Into<SocketAddr>,
+    ) -> (SocketAddr, impl Future<Output = ()>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("Server::run", ?addr);
         tracing::info!(parent: &span, "listening on http://{}", addr);
 
-        fut.instrument(span).await;
+        (addr, fut.instrument(span))
     }
 
     /// Run this `Server` forever on the current thread with a specific stream
