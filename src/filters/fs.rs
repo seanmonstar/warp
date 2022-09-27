@@ -123,7 +123,10 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
             tracing::warn!("dir: rejecting segment starting with '..'");
             return Err(reject::not_found());
         } else if seg.contains('\\') {
-            tracing::warn!("dir: rejecting segment containing with backslash (\\)");
+            tracing::warn!("dir: rejecting segment containing backslash (\\)");
+            return Err(reject::not_found());
+        } else if cfg!(windows) && seg.contains(':') {
+            tracing::warn!("dir: rejecting segment containing colon (:)");
             return Err(reject::not_found());
         } else {
             buf.push(seg);
