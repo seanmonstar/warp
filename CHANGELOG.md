@@ -1,3 +1,8 @@
+### v0.3.3 (September 27, 2022)
+
+- **Fixes**:
+  - Fix `fs` filters path sanitization to reject colons on Windows.
+
 ### v0.3.2 (November 9, 2021)
 
 - **Features**:
