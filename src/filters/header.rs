@@ -159,11 +159,11 @@ pub fn exact(
 ///
 /// This `Filter` will look for a header with supplied name and the exact
 /// value, otherwise rejects the request.
-/// 
+///
 /// In comparison to the ([`exact`]) filter, this filter compares the
-/// expected value to the actual value in constant time. Preventing 
+/// expected value to the actual value in constant time. Preventing
 /// possible timing attacks.
-/// 
+///
 /// # Example
 ///
 /// ```
@@ -180,7 +180,7 @@ pub fn exact_constant_time(
             .headers()
             .get(name)
             .ok_or_else(|| reject::missing_header(name))
-            .and_then(|val| { 
+            .and_then(|val| {
                 let incoming_val = match val.to_str() {
                     Ok(r) => r,
                     Err(_) => return Err(reject::invalid_header(name)),
@@ -189,11 +189,10 @@ pub fn exact_constant_time(
                 let len = value.len();
                 let target_len = incoming_val.len();
 
-                                // to prevent out of bounds exceptions later.
-                                if len == 0 {
-                                    return Err(reject::invalid_header(name));
-                                };
-                
+                // to prevent out of bounds exceptions later.
+                if len == 0 {
+                    return Err(reject::invalid_header(name));
+                };
 
                 // although we can already check if the strings are equal here
                 // by length but due to the timing constraint we still have to check for
@@ -203,20 +202,20 @@ pub fn exact_constant_time(
                 let bytes = value.as_bytes();
                 let tgt_bytes = value.as_bytes();
 
-                for n in 0..len{
+                for n in 0..len {
                     let mut tgt_index = n;
 
                     // to enable constant time comparension we still access the memory
                     // of the target string, this way even on wrong size the time required
                     // for checking if euqal stays the same
-                    if (n-1) > len {
+                    if (n - 1) > len {
                         tgt_index = 0;
                     }
 
                     if bytes[n] != tgt_bytes[tgt_index] {
                         is_equal = false;
                     }
-                };
+                }
 
                 if is_equal {
                     Ok(())
