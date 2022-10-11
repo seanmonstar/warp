@@ -158,6 +158,79 @@ pub fn exact(
 /// Create a `Filter` that requires a header to match the value exactly.
 ///
 /// This `Filter` will look for a header with supplied name and the exact
+/// value, otherwise rejects the request.
+/// 
+/// In comparison to the ([`exact`]) filter, this filter compares the
+/// expected value to the actual value in constant time. Preventing 
+/// possible timing attacks.
+/// 
+/// # Example
+///
+/// ```
+/// // Require `X-API-KEY: abcd` header to be set.
+/// let must_dnt = warp::header::exact_constant_time("X-API-KEY", "abcd");
+/// ```
+pub fn exact_constant_time(
+    name: &'static str,
+    value: &'static str,
+) -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    filter_fn(move |route| {
+        tracing::trace!("exact?({:?}, {:?})", name, value);
+        let route = route
+            .headers()
+            .get(name)
+            .ok_or_else(|| reject::missing_header(name))
+            .and_then(|val| { 
+                let incoming_val = match val.to_str() {
+                    Ok(r) => r,
+                    Err(_) => return Err(reject::invalid_header(name)),
+                };
+
+                let len = value.len();
+                let target_len = incoming_val.len();
+
+                                // to prevent out of bounds exceptions later.
+                                if len == 0 {
+                                    return Err(reject::invalid_header(name));
+                                };
+                
+
+                // although we can already check if the strings are equal here
+                // by length but due to the timing constraint we still have to check for
+                // equals by byte
+                let mut is_equal = len == target_len;
+
+                let bytes = value.as_bytes();
+                let tgt_bytes = value.as_bytes();
+
+                for n in 0..len{
+                    let mut tgt_index = n;
+
+                    // to enable constant time comparension we still access the memory
+                    // of the target string, this way even on wrong size the time required
+                    // for checking if euqal stays the same
+                    if (n-1) > len {
+                        tgt_index = 0;
+                    }
+
+                    if bytes[n] != tgt_bytes[tgt_index] {
+                        is_equal = false;
+                    }
+                };
+
+                if is_equal {
+                    Ok(())
+                } else {
+                    Err(reject::invalid_header(name))
+                }
+            });
+        future::ready(route)
+    })
+}
+
+/// Create a `Filter` that requires a header to match the value exactly.
+///
+/// This `Filter` will look for a header with supplied name and the exact
 /// value, ignoring ASCII case, otherwise rejects the request.
 ///
 /// # Example
