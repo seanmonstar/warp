@@ -189,35 +189,33 @@ pub fn exact_constant_time(
                 let len = value.len();
                 let target_len = incoming_val.len();
 
-                // to prevent out of bounds exceptions later.
-                if len == 0 {
-                    return Err(reject::invalid_header(name));
+                let mut total_diff = match len == target_len {
+                    true => 0,
+                    false => 1,
                 };
-
-                // although we can already check if the strings are equal here
-                // by length but due to the timing constraint we still have to check for
-                // equals by byte
-                let mut is_equal = len == target_len;
-
+            
                 let bytes = value.as_bytes();
-                let tgt_bytes = value.as_bytes();
-
+                let tgt_bytes = val.as_bytes();
+            
                 for n in 0..len {
                     let mut tgt_index = n;
-
+            
                     // to enable constant time comparension we still access the memory
                     // of the target string, this way even on wrong size the time required
                     // for checking if euqal stays the same
-                    if (n - 1) > len {
-                        tgt_index = 0;
+                    if n > 0 {
+                        if n >= target_len {
+                            tgt_index = 0;
+                        }
                     }
-
-                    if bytes[n] != tgt_bytes[tgt_index] {
-                        is_equal = false;
-                    }
+            
+                    let a = bytes[n].max(tgt_bytes[tgt_index]);
+                    let b = bytes[n].min(tgt_bytes[tgt_index]);
+                    
+                    total_diff += a-b;
                 }
-
-                if is_equal {
+            
+                if total_diff == 0 {
                     Ok(())
                 } else {
                     Err(reject::invalid_header(name))
