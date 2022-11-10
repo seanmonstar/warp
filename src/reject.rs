@@ -498,7 +498,7 @@ impl Rejections {
             Rejections::Combined(a, b) => {
                 let a = a.preferred();
                 let b = b.preferred();
-                // Now both a and b are known or custom, so it is safe 
+                // Now both a and b are known or custom, so it is safe
                 // to get status
                 // Compare status codes, with this priority:
                 // - NOT_FOUND is lowest
@@ -864,6 +864,9 @@ mod tests {
         }
         let reason = Reason::Other(Box::new(rejections));
         let rejection = Rejection { reason };
-        assert_eq!(StatusCode::INTERNAL_SERVER_ERROR, rejection.into_response().status());
+        assert_eq!(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            rejection.into_response().status()
+        );
     }
 }
