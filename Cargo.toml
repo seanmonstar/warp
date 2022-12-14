@@ -37,7 +37,7 @@ tokio-stream = "0.1.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.17", optional = true }
+tokio-tungstenite = { version = "0.18", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.23", optional = true }
