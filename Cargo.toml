@@ -57,6 +57,8 @@ listenfd = "0.3"
 default = ["multipart", "websocket"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
+# Enable access to private generic file
+generic = []
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]

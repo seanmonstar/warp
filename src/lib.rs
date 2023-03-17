@@ -90,7 +90,10 @@
 mod error;
 mod filter;
 pub mod filters;
+#[cfg(not(feature = "generic"))]
 mod generic;
+#[cfg(feature = "generic")]
+pub mod generic;
 pub mod redirect;
 pub mod reject;
 pub mod reply;
