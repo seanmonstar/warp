@@ -37,21 +37,21 @@ tokio-stream = "0.1.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.17", optional = true }
+tokio-tungstenite = { version = "0.18", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.23", optional = true }
-rustls-pemfile = "0.2"
+rustls-pemfile = "1.0"
 
 [dev-dependencies]
 pretty_env_logger = "0.4"
-tracing-subscriber = "0.2.7"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = "0.1"
 serde_derive = "1.0"
 handlebars = "4.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1.1", features = ["net"] }
-listenfd = "0.3"
+listenfd = "1.0"
 
 [features]
 default = ["multipart", "websocket"]
