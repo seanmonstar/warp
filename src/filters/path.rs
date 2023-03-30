@@ -169,11 +169,7 @@ where
     P: AsRef<str>,
 {
     let s = p.as_ref();
-    assert!(
-        !s.contains('/'),
-        "exact path segments should not contain a slash: {:?}",
-        s
-    );
+    __assert_path(s);
     __path(p)
 }
 
@@ -183,9 +179,6 @@ pub fn __path<P>(p: P) -> Exact<Opaque<P>>
 where
     P: AsRef<str>,
 {
-    let s = p.as_ref();
-    assert!(!s.is_empty(), "exact path segments should not be empty");
-
     Exact(Opaque(p))
     /*
     segment(move |seg| {
@@ -197,6 +190,20 @@ where
         }
     })
     */
+}
+
+#[doc(hidden)]
+pub fn __assert_path<P>(p: P)
+where
+    P: AsRef<str>,
+{
+    let s = p.as_ref();
+    assert!(
+        !s.contains('/'),
+        "exact path segments should not contain a slash: {:?}",
+        s
+    );
+    assert!(!s.is_empty(), "exact path segments should not be empty");
 }
 
 /// A `Filter` matching an exact path segment.
@@ -648,9 +655,9 @@ macro_rules! __internal_path {
         }
 
         // Assert that each segment does not contain a `/`
-        $crate::path($first);
+        $crate::filters::path::__assert_path($first);
         $(
-            $crate::path($rest);
+            $crate::filters::path::__assert_path($rest);
         )*
 
         $crate::filters::path::__path(__StaticPath)
