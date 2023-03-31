@@ -12,8 +12,7 @@ use futures_util::{future, Stream};
 use headers::ContentType;
 use hyper::Body;
 use mime::Mime;
-use multiparty::headers::Headers;
-use multiparty::server::owned_futures03::{FormData as FormDataInner, Part as PartInner};
+use multer::{Field as PartInner, Multipart as FormDataInner};
 
 use crate::filter::{Filter, FilterBase, Internal};
 use crate::reject::{self, Rejection};
@@ -33,15 +32,14 @@ pub struct FormOptions {
 ///
 /// Extracted with a `warp::multipart::form` filter.
 pub struct FormData {
-    inner: FormDataInner<BodyIoError>,
+    inner: FormDataInner<'static>,
 }
 
 /// A single "part" of a multipart/form-data body.
 ///
 /// Yielded from the `FormData` stream.
 pub struct Part {
-    headers: Headers,
-    part: PartInner<BodyIoError>,
+    part: PartInner<'static>,
 }
 
 /// Create a `Filter` to extract a `multipart/form-data` body from a request.
@@ -111,17 +109,11 @@ impl Stream for FormData {
     type Item = Result<Part, crate::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match Pin::new(&mut self.inner).poll_next(cx) {
+        match self.inner.poll_next_field(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Some(Ok(part))) => {
-                let headers = match part.raw_headers().parse() {
-                    Ok(headers) => headers,
-                    Err(err) => return Poll::Ready(Some(Err(crate::Error::new(err)))),
-                };
-                Poll::Ready(Some(Ok(Part { part, headers })))
-            }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(crate::Error::new(err)))),
+            Poll::Ready(Ok(Some(part))) => Poll::Ready(Some(Ok(Part { part }))),
+            Poll::Ready(Ok(None)) => Poll::Ready(None),
+            Poll::Ready(Err(err)) => Poll::Ready(Some(Err(crate::Error::new(err)))),
         }
     }
 }
@@ -131,17 +123,18 @@ impl Stream for FormData {
 impl Part {
     /// Get the name of this part.
     pub fn name(&self) -> &str {
-        &self.headers.name
+        &self.part.name().unwrap_or("not-set")
     }
 
     /// Get the filename of this part, if present.
     pub fn filename(&self) -> Option<&str> {
-        self.headers.filename.as_deref()
+        self.part.file_name()
     }
 
     /// Get the content-type of this part, if present.
     pub fn content_type(&self) -> Option<&str> {
-        self.headers.content_type.as_deref()
+        let content_type = self.part.content_type();
+        content_type.map(|t| t.type_().as_str())
     }
 
     /// Asynchronously get some of the data for this `Part`.
@@ -167,13 +160,13 @@ impl Part {
 impl fmt::Debug for Part {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("Part");
-        builder.field("name", &self.headers.name);
+        builder.field("name", &self.part.name());
 
-        if let Some(ref filename) = self.headers.filename {
+        if let Some(ref filename) = self.part.file_name() {
             builder.field("filename", filename);
         }
 
-        if let Some(ref mime) = self.headers.content_type {
+        if let Some(ref mime) = self.part.content_type() {
             builder.field("content_type", mime);
         }
 
