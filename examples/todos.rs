@@ -38,7 +38,7 @@ mod filters {
     /// The 4 TODOs filters combined.
     pub fn todos(
         db: Db,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         todos_list(db.clone())
             .or(todos_create(db.clone()))
             .or(todos_update(db.clone()))
@@ -48,7 +48,7 @@ mod filters {
     /// GET /todos?offset=3&limit=5
     pub fn todos_list(
         db: Db,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("todos")
             .and(warp::get())
             .and(warp::query::<ListOptions>())
@@ -59,7 +59,7 @@ mod filters {
     /// POST /todos with JSON body
     pub fn todos_create(
         db: Db,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("todos")
             .and(warp::post())
             .and(json_body())
@@ -70,7 +70,7 @@ mod filters {
     /// PUT /todos/:id with JSON body
     pub fn todos_update(
         db: Db,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         warp::path!("todos" / u64)
             .and(warp::put())
             .and(json_body())
@@ -81,7 +81,7 @@ mod filters {
     /// DELETE /todos/:id
     pub fn todos_delete(
         db: Db,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         // We'll make one of our endpoints admin-only to show how authentication filters are used
         let admin_only = warp::header::exact("authorization", "Bearer admin");
 
