@@ -123,7 +123,7 @@ impl Stream for FormData {
 impl Part {
     /// Get the name of this part.
     pub fn name(&self) -> &str {
-        &self.part.name().unwrap_or("not-set")
+        self.part.name().expect("checked for name previously")
     }
 
     /// Get the filename of this part, if present.
