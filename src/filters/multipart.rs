@@ -2,12 +2,12 @@
 //!
 //! Filters that extract a multipart body for a route.
 
+use std::error::Error as StdError;
+use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use std::error::Error as StdError;
 use std::{fmt, io};
-use std::fmt::{Display, Formatter};
 
 use bytes::{Buf, Bytes};
 use futures_util::{future, Stream};
@@ -119,7 +119,7 @@ impl Stream for FormData {
                 } else {
                     Poll::Ready(Some(Err(crate::Error::new(MultipartFieldMissingName))))
                 }
-            },
+            }
             Poll::Ready(Ok(None)) => Poll::Ready(None),
             Poll::Ready(Err(err)) => Poll::Ready(Some(Err(crate::Error::new(err)))),
         }
