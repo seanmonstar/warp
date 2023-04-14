@@ -211,7 +211,7 @@ impl Stream for BodyIoError {
 
 /// An error used when a multipart field is missing a name.
 #[derive(Debug)]
-pub struct MultipartFieldMissingName;
+struct MultipartFieldMissingName;
 
 impl Display for MultipartFieldMissingName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
