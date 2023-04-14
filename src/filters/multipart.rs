@@ -5,7 +5,9 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::error::Error as StdError;
 use std::{fmt, io};
+use std::fmt::{Display, Formatter};
 
 use bytes::{Buf, Bytes};
 use futures_util::{future, Stream};
@@ -111,7 +113,13 @@ impl Stream for FormData {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.inner.poll_next_field(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Ok(Some(part))) => Poll::Ready(Some(Ok(Part { part }))),
+            Poll::Ready(Ok(Some(part))) => {
+                if part.name().is_some() {
+                    Poll::Ready(Some(Ok(Part { part })))
+                } else {
+                    Poll::Ready(Some(Err(crate::Error::new(MultipartFieldMissingName))))
+                }
+            },
             Poll::Ready(Ok(None)) => Poll::Ready(None),
             Poll::Ready(Err(err)) => Poll::Ready(Some(Err(crate::Error::new(err)))),
         }
@@ -200,3 +208,15 @@ impl Stream for BodyIoError {
         }
     }
 }
+
+/// An error used when a multipart field is missing a name.
+#[derive(Debug)]
+pub struct MultipartFieldMissingName;
+
+impl Display for MultipartFieldMissingName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Multipart field is missing a name")
+    }
+}
+
+impl StdError for MultipartFieldMissingName {}
