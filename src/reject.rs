@@ -104,7 +104,7 @@ pub(crate) fn invalid_header(name: &'static str) -> Rejection {
 
 // 400 Bad Request
 #[inline]
-pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
+pub(crate) fn missing_cookie(name: String) -> Rejection {
     known(MissingCookie { name })
 }
 
@@ -579,13 +579,13 @@ impl StdError for InvalidHeader {}
 /// Missing cookie
 #[derive(Debug)]
 pub struct MissingCookie {
-    name: &'static str,
+    name: String,
 }
 
 impl MissingCookie {
     /// Retrieve the name of the cookie that was missing
     pub fn name(&self) -> &str {
-        self.name
+        self.name.as_str()
     }
 }
 
