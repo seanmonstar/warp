@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/warp/0.3.3")]
+#![doc(html_root_url = "https://docs.rs/warp/0.3.4")]
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![deny(rust_2018_idioms)]

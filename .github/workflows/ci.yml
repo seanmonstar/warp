@@ -12,21 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           components: rustfmt
-          profile: minimal
-          override: true
 
-      - name: cargo fmt -- --check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all --check
 
   test:
     name: Test
@@ -50,30 +43,21 @@ jobs:
           - build: compression
             features: "--features compression"
 
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust || 'stable' }}
-          profile: minimal
-          override: true
 
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: ${{ matrix.features }}
+        run: cargo test ${{ matrix.features }}
 
       - name: Test all benches
         if: matrix.benches
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --benches ${{ matrix.features }}
+        run: cargo test --benches ${{ matrix.features }}
 
   doc:
     name: Build docs
@@ -81,17 +65,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
+        uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: rustdoc
-          args: -- -D broken_intra_doc_links
+        run: cargo rustdoc -- -D broken_intra_doc_links
