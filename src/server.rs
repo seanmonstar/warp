@@ -561,6 +561,13 @@ where
         });
         (addr, fut)
     }
+
+    /// Enable this server to **also** handle HTTP requests.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn http(self, http: bool) -> Self {
+        self.with_tls(|tls| tls.http(http))
+    }
 }
 
 #[cfg(feature = "tls")]
