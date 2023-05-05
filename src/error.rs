@@ -16,19 +16,23 @@ impl Error {
 }
 
 impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Skip showing worthless `Error { .. }` wrapper.
         fmt::Debug::fmt(&self.inner, f)
     }
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.inner, f)
     }
 }
 
-impl StdError for Error {}
+impl StdError for Error {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(self.inner.as_ref())
+    }
+}
 
 impl From<Infallible> for Error {
     fn from(infallible: Infallible) -> Error {
@@ -44,6 +48,12 @@ fn error_size_of() {
     );
 }
 
+#[test]
+fn error_source() {
+    let e = Error::new(std::fmt::Error {});
+    assert!(e.source().unwrap().is::<std::fmt::Error>());
+}
+
 macro_rules! unit_error {
     (
         $(#[$docs:meta])*
@@ -53,13 +63,13 @@ macro_rules! unit_error {
         $pub struct $typ { _p: (), }
 
         impl ::std::fmt::Debug for $typ {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.debug_struct(stringify!($typ)).finish()
             }
         }
 
         impl ::std::fmt::Display for $typ {
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 f.write_str($display)
             }
         }

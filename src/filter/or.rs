@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{ready, TryFuture};
+use futures_util::{ready, TryFuture};
 use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Internal};
@@ -70,7 +70,7 @@ where
 {
     type Output = Result<(Either<T::Extract, U::Extract>,), Combined<U::Error, T::Error>>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let pin = self.as_mut().project();
             let (err1, fut2) = match pin.state.project() {

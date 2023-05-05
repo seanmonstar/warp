@@ -1,6 +1,6 @@
 #![deny(warnings)]
 
-use futures::{FutureExt, StreamExt};
+use futures_util::{FutureExt, StreamExt};
 use warp::Filter;
 
 #[tokio::main]

@@ -119,7 +119,7 @@ async fn success() {
     let res = warp::test::request()
         .method("OPTIONS")
         .header("origin", "https://hyper.rs")
-        .header("access-control-request-headers", "x-bar,x-foo")
+        .header("access-control-request-headers", "x-bar, x-foo")
         .header("access-control-request-method", "DELETE")
         .reply(&route)
         .await;

@@ -1,7 +1,61 @@
+### v0.3.5 (April 28, 2023)
+
+- **Fixes**:
+  - `multipart` filters now use `multer` dependency, fixing some streaming bugs.
+  - `Rejection::into_response()` is significantly faster.
+
+### v0.3.4 (March 31, 2023)
+
+- **Fixes**:
+  - `multipart::Part` data is now streamed instead of buffered.
+  - Update dependency used for `multipart` filters.
+
+### v0.3.3 (September 27, 2022)
+
+- **Fixes**:
+  - Fix `fs` filters path sanitization to reject colons on Windows.
+
+### v0.3.2 (November 9, 2021)
+
+- **Features**:
+  - Add `Filter::then()`, which is like `Filter::map()` in that it's infallible, but is async like `Filter::and_then()`.
+  - Add `redirect::found()` reply helper that returns `302 Found`.
+  - Add `compression-brotli` and `compression-gzip` cargo features to enable only the compression you need.
+  - Allow `HEAD` requests to be served to `fs::dir()` filters.
+  - Allow `path!()` with no arguments.
+- **Fixes**:
+  - Update private dependencies Tungstenite and Multipart.
+  - Replaces uses of `futures` with `futures-util`, which is a smaller dependency.
+
+
+### v0.3.1 (March 24, 2021)
+
+- **Features**:
+  - Add `pong` constructor to websocket messages.
+  - Add `redirect::see_other` and `redirect::permanent` helpers.
+- **Fixes**:
+  - Fix `fs` filters sometimes having an off-by-one error with range requests.
+  - Fix CORS to allow spaces when checking `Access-Control-Request-Headers`.
+
+## v0.3.0 (January 19, 2021)
+
+- **Features**:
+  - Add TLS client authentication support.
+  - Add TLS OCSP stapling support.
+  - Add `From<Reject>` for `Rejection`.
+  - Add `close_frame` accessor to `ws::Message`.
+- **Changes**:
+  - Update to Tokio v1.
+  - Update to Bytes v1.
+  - Update to hyper v0.14.
+  - Rework `sse` filter to be more like `ws`, with a single `Event` type and builder.
+  - Change `cookie` filter to extract a generic `FromStr` value.
+
+
 ### v0.2.5 (August 31, 2020)
 
 - **Features**:
-  - Add `warp_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
+  - Add `wrap_fn`, which can be used to create a `Wrap` from a closure. These in turn are used with `Filter::with()`.
   - Add `warp::host` filters to deal with `Host`/`:authority` headers.
   - Relax some lifetime bounds on `Server`.
 - **Fixes**:
@@ -279,4 +333,4 @@
 
 ## v0.1.0 (August 1, 2018)
 
-- Intial release.
+- Initial release.

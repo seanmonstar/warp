@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::TryFuture;
+use futures_util::TryFuture;
 use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Internal};
@@ -48,7 +48,7 @@ where
     type Output = Result<T::Extract, E>;
 
     #[inline]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.as_mut()
             .project()
             .extract

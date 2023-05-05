@@ -6,7 +6,7 @@
 //!
 //! There is also [`warp::method()`](method), which never rejects
 //! a request, and just extracts the method to be used in your filter chains.
-use futures::future;
+use futures_util::future;
 use http::Method;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, One};

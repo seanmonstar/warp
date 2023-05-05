@@ -4,7 +4,6 @@ use listenfd::ListenFd;
 use std::convert::Infallible;
 use warp::Filter;
 
-extern crate listenfd;
 /// You'll need to install `systemfd` and `cargo-watch`:
 /// ```
 /// cargo install systemfd cargo-watch

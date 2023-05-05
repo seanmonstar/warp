@@ -6,13 +6,14 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::{body, header};
-use crate::filter::{Filter, One};
+use super::header;
+use crate::filter::{filter_fn_one, Filter, One};
 use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
-use futures::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
+use futures_util::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
 use http;
+use hyper::upgrade::OnUpgrade;
 use tokio_tungstenite::{
     tungstenite::protocol::{self, WebSocketConfig},
     WebSocketStream,
@@ -57,19 +58,21 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         //.and(header::exact2(Upgrade::websocket()))
         //.and(header::exact2(SecWebsocketVersion::V13))
         .and(header::header2::<SecWebsocketKey>())
-        .and(body::body())
-        .map(move |key: SecWebsocketKey, body: ::hyper::Body| Ws {
-            body,
-            config: None,
-            key,
-        })
+        .and(on_upgrade())
+        .map(
+            move |key: SecWebsocketKey, on_upgrade: Option<OnUpgrade>| Ws {
+                config: None,
+                key,
+                on_upgrade,
+            },
+        )
 }
 
 /// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
 pub struct Ws {
-    body: ::hyper::Body,
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
+    on_upgrade: Option<OnUpgrade>,
 }
 
 impl Ws {
@@ -108,14 +111,14 @@ impl Ws {
     /// Set the maximum frame size (defaults to 16 megabytes)
     pub fn max_frame_size(mut self, max: usize) -> Self {
         self.config
-            .get_or_insert_with(|| WebSocketConfig::default())
+            .get_or_insert_with(WebSocketConfig::default)
             .max_frame_size = Some(max);
         self
     }
 }
 
 impl fmt::Debug for Ws {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Ws").finish()
     }
 }
@@ -132,23 +135,24 @@ where
     U: Future<Output = ()> + Send + 'static,
 {
     fn into_response(self) -> Response {
-        let on_upgrade = self.on_upgrade;
-        let config = self.ws.config;
-        let fut = self
-            .ws
-            .body
-            .on_upgrade()
-            .and_then(move |upgraded| {
-                tracing::trace!("websocket upgrade complete");
-                WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
-            })
-            .and_then(move |socket| on_upgrade(socket).map(Ok))
-            .map(|result| {
-                if let Err(err) = result {
-                    tracing::debug!("ws upgrade error: {}", err);
-                }
-            });
-        ::tokio::task::spawn(fut);
+        if let Some(on_upgrade) = self.ws.on_upgrade {
+            let on_upgrade_cb = self.on_upgrade;
+            let config = self.ws.config;
+            let fut = on_upgrade
+                .and_then(move |upgraded| {
+                    tracing::trace!("websocket upgrade complete");
+                    WebSocket::from_raw_socket(upgraded, protocol::Role::Server, config).map(Ok)
+                })
+                .and_then(move |socket| on_upgrade_cb(socket).map(Ok))
+                .map(|result| {
+                    if let Err(err) = result {
+                        tracing::debug!("ws upgrade error: {}", err);
+                    }
+                });
+            ::tokio::task::spawn(fut);
+        } else {
+            tracing::debug!("ws couldn't be upgraded since no upgrade state was present");
+        }
 
         let mut res = http::Response::default();
 
@@ -163,11 +167,20 @@ where
     }
 }
 
+// Extracts OnUpgrade state from the route.
+fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection> + Copy {
+    filter_fn_one(|route| future::ready(Ok(route.extensions_mut().remove::<OnUpgrade>())))
+}
+
 /// A websocket `Stream` and `Sink`, provided to `ws` filters.
 ///
 /// Ping messages sent from the client will be handled internally by replying with a Pong message.
 /// Close messages need to be handled explicitly: usually by closing the `Sink` end of the
 /// `WebSocket`.
+///
+/// **Note!**
+/// Due to rust futures nature, pings won't be handled until read part of `WebSocket` is polled
+
 pub struct WebSocket {
     inner: WebSocketStream<hyper::upgrade::Upgraded>,
 }
@@ -192,7 +205,7 @@ impl WebSocket {
 impl Stream for WebSocket {
     type Item = Result<Message, crate::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match ready!(Pin::new(&mut self.inner).poll_next(cx)) {
             Some(Ok(item)) => Poll::Ready(Some(Ok(Message { inner: item }))),
             Some(Err(e)) => {
@@ -227,14 +240,14 @@ impl Sink<Message> for WebSocket {
         }
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match ready!(Pin::new(&mut self.inner).poll_flush(cx)) {
             Ok(()) => Poll::Ready(Ok(())),
             Err(e) => Poll::Ready(Err(crate::Error::new(e))),
         }
     }
 
-    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         match ready!(Pin::new(&mut self.inner).poll_close(cx)) {
             Ok(()) => Poll::Ready(Ok(())),
             Err(err) => {
@@ -246,7 +259,7 @@ impl Sink<Message> for WebSocket {
 }
 
 impl fmt::Debug for WebSocket {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WebSocket").finish()
     }
 }
@@ -279,6 +292,17 @@ impl Message {
     pub fn ping<V: Into<Vec<u8>>>(v: V) -> Message {
         Message {
             inner: protocol::Message::Ping(v.into()),
+        }
+    }
+
+    /// Construct a new Pong `Message`.
+    ///
+    /// Note that one rarely needs to manually construct a Pong message because the underlying tungstenite socket
+    /// automatically responds to the Ping messages it receives. Manual construction might still be useful in some cases
+    /// like in tests or to send unidirectional heartbeats.
+    pub fn pong<V: Into<Vec<u8>>>(v: V) -> Message {
+        Message {
+            inner: protocol::Message::Pong(v.into()),
         }
     }
 
@@ -324,6 +348,15 @@ impl Message {
         self.inner.is_pong()
     }
 
+    /// Try to get the close frame (close code and reason)
+    pub fn close_frame(&self) -> Option<(u16, &str)> {
+        if let protocol::Message::Close(Some(ref close_frame)) = self.inner {
+            Some((close_frame.code.into(), close_frame.reason.as_ref()))
+        } else {
+            None
+        }
+    }
+
     /// Try to get a reference to the string text, if this is a Text message.
     pub fn to_str(&self) -> Result<&str, ()> {
         match self.inner {
@@ -340,6 +373,7 @@ impl Message {
             protocol::Message::Ping(ref v) => v,
             protocol::Message::Pong(ref v) => v,
             protocol::Message::Close(_) => &[],
+            protocol::Message::Frame(ref frame) => frame.payload(),
         }
     }
 
@@ -350,14 +384,14 @@ impl Message {
 }
 
 impl fmt::Debug for Message {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.inner, f)
     }
 }
 
-impl Into<Vec<u8>> for Message {
-    fn into(self) -> Vec<u8> {
-        self.into_bytes()
+impl From<Message> for Vec<u8> {
+    fn from(m: Message) -> Self {
+        m.into_bytes()
     }
 }
 
@@ -367,8 +401,8 @@ impl Into<Vec<u8>> for Message {
 #[derive(Debug)]
 pub struct MissingConnectionUpgrade;
 
-impl ::std::fmt::Display for MissingConnectionUpgrade {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for MissingConnectionUpgrade {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connection header did not include 'upgrade'")
     }
 }

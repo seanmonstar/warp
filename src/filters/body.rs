@@ -7,8 +7,8 @@ use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use bytes::{buf::BufExt, Buf, Bytes};
-use futures::{future, ready, Stream, TryFutureExt};
+use bytes::{Buf, Bytes};
+use futures_util::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
 use hyper::Body;
@@ -131,8 +131,8 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 /// fn full_body(mut body: impl Buf) {
 ///     // It could have several non-contiguous slices of memory...
 ///     while body.has_remaining() {
-///         println!("slice = {:?}", body.bytes());
-///         let cnt = body.bytes().len();
+///         println!("slice = {:?}", body.chunk());
+///         let cnt = body.chunk().len();
 ///         body.advance(cnt);
 ///     }
 /// }
@@ -172,7 +172,7 @@ pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Co
 /// ```
 pub fn json<T: DeserializeOwned + Send>() -> impl Filter<Extract = (T,), Error = Rejection> + Copy {
     is_content_type::<Json>()
-        .and(aggregate())
+        .and(bytes())
         .and_then(|buf| async move {
             Json::decode(buf).map_err(|err| {
                 tracing::debug!("request json body error: {}", err);
@@ -231,8 +231,8 @@ impl Decode for Json {
     const MIME: (mime::Name<'static>, mime::Name<'static>) = (mime::APPLICATION, mime::JSON);
     const WITH_NO_CONTENT_TYPE: bool = true;
 
-    fn decode<B: Buf, T: DeserializeOwned>(buf: B) -> Result<T, BoxError> {
-        serde_json::from_reader(buf.reader()).map_err(Into::into)
+    fn decode<B: Buf, T: DeserializeOwned>(mut buf: B) -> Result<T, BoxError> {
+        serde_json::from_slice(&buf.copy_to_bytes(buf.remaining())).map_err(Into::into)
     }
 }
 
@@ -295,7 +295,7 @@ struct BodyStream {
 impl Stream for BodyStream {
     type Item = Result<Bytes, crate::Error>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
 
         match opt_item {
@@ -318,7 +318,7 @@ pub struct BodyDeserializeError {
 }
 
 impl fmt::Display for BodyDeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Request body deserialize error: {}", self.cause)
     }
 }
@@ -332,8 +332,8 @@ impl StdError for BodyDeserializeError {
 #[derive(Debug)]
 pub(crate) struct BodyReadError(::hyper::Error);
 
-impl ::std::fmt::Display for BodyReadError {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for BodyReadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Request body read error: {}", self.0)
     }
 }

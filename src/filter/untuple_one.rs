@@ -2,7 +2,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{ready, TryFuture};
+use futures_util::{ready, TryFuture};
 use pin_project::pin_project;
 
 use super::{Filter, FilterBase, Internal, Tuple};
@@ -43,7 +43,7 @@ where
     type Output = Result<T, F::Error>;
 
     #[inline]
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match ready!(self.project().extract.try_poll(cx)) {
             Ok((t,)) => Poll::Ready(Ok(t)),
             Err(err) => Poll::Ready(Err(err)),

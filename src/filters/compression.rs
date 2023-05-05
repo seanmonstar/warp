@@ -2,12 +2,18 @@
 //!
 //! Filters that compress the body of a response.
 
-use async_compression::stream::{BrotliEncoder, DeflateEncoder, GzipEncoder};
+#[cfg(feature = "compression-brotli")]
+use async_compression::tokio::bufread::BrotliEncoder;
+
+#[cfg(feature = "compression-gzip")]
+use async_compression::tokio::bufread::{DeflateEncoder, GzipEncoder};
+
 use http::header::HeaderValue;
 use hyper::{
     header::{CONTENT_ENCODING, CONTENT_LENGTH},
     Body,
 };
+use tokio_util::io::{ReaderStream, StreamReader};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
@@ -16,19 +22,25 @@ use crate::reply::{Reply, Response};
 use self::internal::{CompressionProps, WithCompression};
 
 enum CompressionAlgo {
+    #[cfg(feature = "compression-brotli")]
     BR,
+    #[cfg(feature = "compression-gzip")]
     DEFLATE,
+    #[cfg(feature = "compression-gzip")]
     GZIP,
 }
 
 impl From<CompressionAlgo> for HeaderValue {
     #[inline]
     fn from(algo: CompressionAlgo) -> Self {
-        match algo {
-            CompressionAlgo::BR => HeaderValue::from_static("br"),
-            CompressionAlgo::DEFLATE => HeaderValue::from_static("deflate"),
-            CompressionAlgo::GZIP => HeaderValue::from_static("gzip"),
-        }
+        HeaderValue::from_static(match algo {
+            #[cfg(feature = "compression-brotli")]
+            CompressionAlgo::BR => "br",
+            #[cfg(feature = "compression-gzip")]
+            CompressionAlgo::DEFLATE => "deflate",
+            #[cfg(feature = "compression-gzip")]
+            CompressionAlgo::GZIP => "gzip",
+        })
     }
 }
 
@@ -54,9 +66,12 @@ pub struct Compression<F> {
 ///     .and(warp::fs::file("./README.md"))
 ///     .with(warp::compression::gzip());
 /// ```
+#[cfg(feature = "compression-gzip")]
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(GzipEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(GzipEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
@@ -80,9 +95,12 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 ///     .and(warp::fs::file("./README.md"))
 ///     .with(warp::compression::deflate());
 /// ```
+#[cfg(feature = "compression-gzip")]
 pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(DeflateEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(DeflateEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
@@ -106,9 +124,12 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 ///     .and(warp::fs::file("./README.md"))
 ///     .with(warp::compression::brotli());
 /// ```
+#[cfg(feature = "compression-brotli")]
 pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(BrotliEncoder::new(props.body));
+        let body = Body::wrap_stream(ReaderStream::new(BrotliEncoder::new(StreamReader::new(
+            props.body,
+        ))));
         props
             .head
             .headers
@@ -142,7 +163,7 @@ mod internal {
     use std::task::{Context, Poll};
 
     use bytes::Bytes;
-    use futures::{ready, Stream, TryFuture};
+    use futures_util::{ready, Stream, TryFuture};
     use hyper::Body;
     use pin_project::pin_project;
 
@@ -176,9 +197,7 @@ mod internal {
             use std::io::{Error, ErrorKind};
 
             let pin = self.project();
-            // TODO: Use `.map_err()` (https://github.com/rust-lang/rust/issues/63514) once it is stabilized
-            S::poll_next(pin.body, cx)
-                .map(|e| e.map(|res| res.map_err(|_| Error::from(ErrorKind::InvalidData))))
+            S::poll_next(pin.body, cx).map_err(|_| Error::from(ErrorKind::InvalidData))
         }
     }
 
@@ -258,7 +277,7 @@ mod internal {
     {
         type Output = Result<(Compressed,), F::Error>;
 
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let pin = self.as_mut().project();
             let result = ready!(pin.future.try_poll(cx));
             match result {

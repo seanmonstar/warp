@@ -1,6 +1,6 @@
 #![deny(warnings)]
 
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, StreamExt};
 use serde_derive::Deserialize;
 use warp::ws::Message;
 use warp::Filter;
@@ -82,6 +82,36 @@ async fn binary() {
 }
 
 #[tokio::test]
+async fn wsclient_sink_and_stream() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    let message = warp::ws::Message::text("hello");
+    SinkExt::send(&mut client, message.clone()).await.unwrap();
+    let received_message = client.next().await.unwrap().unwrap();
+    assert_eq!(message, received_message);
+}
+
+#[tokio::test]
+async fn close_frame() {
+    let _ = pretty_env_logger::try_init();
+
+    let route = warp::ws().map(|ws: warp::ws::Ws| {
+        ws.on_upgrade(|mut websocket| async move {
+            let msg = websocket.next().await.expect("item").expect("ok");
+            let _ = msg.close_frame().expect("close frame");
+        })
+    });
+
+    let client = warp::test::ws().handshake(route).await.expect("handshake");
+    drop(client);
+}
+
+#[tokio::test]
 async fn send_ping() {
     let _ = pretty_env_logger::try_init();
 
@@ -129,6 +159,28 @@ async fn echo_pings() {
 
     // and then our client would have sent *its* PONG
     // and `ws_echo` would send *that* back too
+    let msg = client.recv().await.expect("recv");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+}
+
+#[tokio::test]
+async fn pongs_only() {
+    let _ = pretty_env_logger::try_init();
+
+    let mut client = warp::test::ws()
+        .handshake(ws_echo())
+        .await
+        .expect("handshake");
+
+    // construct a pong message and make sure it is correct
+    let msg = Message::pong("clt");
+    assert!(msg.is_pong());
+    assert_eq!(msg.as_bytes(), &b"clt"[..]);
+
+    // send it to echo and wait for `ws_echo` to send it back
+    client.send(msg).await;
+
     let msg = client.recv().await.expect("recv");
     assert!(msg.is_pong());
     assert_eq!(msg.as_bytes(), &b"clt"[..]);
@@ -222,7 +274,8 @@ async fn ws_with_query() {
         .expect("handshake");
 }
 
-fn ws_echo() -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Copy {
+// Websocket filter that echoes all messages back.
+fn ws_echo() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Copy {
     warp::ws().map(|ws: warp::ws::Ws| {
         ws.on_upgrade(|websocket| {
             // Just echo all messages back...

@@ -7,16 +7,16 @@ mod or;
 mod or_else;
 mod recover;
 pub(crate) mod service;
+mod then;
 mod unify;
 mod untuple_one;
 mod wrap;
 
 use std::future::Future;
-use std::pin::Pin;
 
-use futures::{future, TryFuture, TryFutureExt};
+use futures_util::{future, TryFuture, TryFutureExt};
 
-pub(crate) use crate::generic::{one, Combine, Either, Func, HList, One, Tuple};
+pub(crate) use crate::generic::{one, Combine, Either, Func, One, Tuple};
 use crate::reject::{CombineRejection, IsReject, Rejection};
 use crate::route::{self, Route};
 
@@ -28,6 +28,7 @@ pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
+use self::then::Then;
 use self::unify::Unify;
 use self::untuple_one::UntupleOne;
 pub use self::wrap::wrap_fn;
@@ -198,12 +199,44 @@ pub trait Filter: FilterBase {
         }
     }
 
-    /// Composes this `Filter` with a function receiving the extracted value.
+    /// Composes this `Filter` with an async function receiving
+    /// the extracted value.
+    ///
+    /// The function should return some `Future` type.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// // Map `/:id`
+    /// warp::path::param().then(|id: u64| async move {
+    ///   format!("Hello #{}", id)
+    /// });
+    /// ```
+    fn then<F>(self, fun: F) -> Then<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone,
+        F::Output: Future + Send,
+    {
+        Then {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Composes this `Filter` with a fallible async function receiving
+    /// the extracted value.
     ///
     /// The function should return some `TryFuture` type.
     ///
     /// The `Error` type of the return `Future` needs be a `Rejection`, which
     /// means most futures will need to have their error mapped into one.
+    ///
+    /// Rejections are meant to say "this filter didn't accept the request,
+    /// maybe another can". So for application-level errors, consider using
+    /// [`Filter::then`] instead.
     ///
     /// # Example
     ///
@@ -424,17 +457,14 @@ where
 
 pub(crate) fn filter_fn_one<F, U>(
     func: F,
-) -> FilterFn<impl Fn(&mut Route) -> future::MapOk<U, fn(U::Ok) -> (U::Ok,)> + Copy>
+) -> impl Filter<Extract = (U::Ok,), Error = U::Error> + Copy
 where
     F: Fn(&mut Route) -> U + Copy,
-    U: TryFuture,
+    U: TryFuture + Send + 'static,
+    U::Ok: Send,
     U::Error: IsReject,
 {
-    filter_fn(move |route| func(route).map_ok(tup_one as _))
-}
-
-fn tup_one<T>(item: T) -> (T,) {
-    (item,)
+    filter_fn(move |route| func(route).map_ok(|item| (item,)))
 }
 
 #[derive(Copy, Clone)]
@@ -453,11 +483,10 @@ where
 {
     type Extract = U::Ok;
     type Error = U::Error;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Extract, Self::Error>> + Send + 'static>>;
+    type Future = future::IntoFuture<U>;
 
     #[inline]
     fn filter(&self, _: Internal) -> Self::Future {
-        Box::pin(route::with(|route| (self.func)(route)).into_future())
+        route::with(|route| (self.func)(route)).into_future()
     }
 }

@@ -8,7 +8,7 @@
 //! Besides them, you can return a type that implements [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
-//! - [`http::Response<impl Into<hyper::Body>`](https://docs.rs/http)
+//! - [`http::Response<impl Into<hyper::Body>>`](https://docs.rs/http)
 //! - `String`
 //! - `&'static str`
 //! - `http::StatusCode`
@@ -135,7 +135,7 @@ impl Reply for Json {
 pub(crate) struct ReplyJsonError;
 
 impl fmt::Display for ReplyJsonError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("warp::reply::json() failed")
     }
 }

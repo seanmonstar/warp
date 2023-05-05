@@ -33,8 +33,8 @@
 //!
 //! ```
 //! # use warp::Filter;
-//! #[test]
-//! fn test_sum() {
+//! #[tokio::test]
+//! async fn test_sum() {
 //! #    let sum = || warp::any().map(|| 3);
 //!     let filter = sum();
 //!
@@ -42,14 +42,16 @@
 //!     let value = warp::test::request()
 //!         .path("/1/2")
 //!         .filter(&filter)
+//!         .await
 //!         .unwrap();
 //!     assert_eq!(value, 3);
 //!
 //!     // Or simply test if a request matches (doesn't reject).
 //!     assert!(
-//!         !warp::test::request()
+//!         warp::test::request()
 //!             .path("/1/-5")
 //!             .matches(&filter)
+//!             .await
 //!     );
 //! }
 //! ```
@@ -87,12 +89,16 @@ use std::net::SocketAddr;
 #[cfg(feature = "websocket")]
 use std::pin::Pin;
 #[cfg(feature = "websocket")]
+use std::task::Context;
+#[cfg(feature = "websocket")]
 use std::task::{self, Poll};
 
 use bytes::Bytes;
 #[cfg(feature = "websocket")]
-use futures::StreamExt;
-use futures::{future, FutureExt, TryFutureExt};
+use futures_channel::mpsc;
+#[cfg(feature = "websocket")]
+use futures_util::StreamExt;
+use futures_util::{future, FutureExt, TryFutureExt};
 use http::{
     header::{HeaderName, HeaderValue},
     Response,
@@ -100,13 +106,17 @@ use http::{
 use serde::Serialize;
 use serde_json;
 #[cfg(feature = "websocket")]
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 
 use crate::filter::Filter;
+#[cfg(feature = "websocket")]
+use crate::filters::ws::Message;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
 use crate::Request;
+#[cfg(feature = "websocket")]
+use crate::{Sink, Stream};
 
 use self::inner::OneOrTuple;
 
@@ -377,8 +387,7 @@ impl RequestBuilder {
                     }
                 };
                 let (parts, body) = res.into_parts();
-                hyper::body::to_bytes(body)
-                    .map_ok(|chunk| Response::from_parts(parts, chunk.into()))
+                hyper::body::to_bytes(body).map_ok(|chunk| Response::from_parts(parts, chunk))
             }),
         );
 
@@ -450,14 +459,14 @@ impl WsBuilder {
         }
     }
 
-    /// Execute this Websocket request against te provided filter.
+    /// Execute this Websocket request against the provided filter.
     ///
     /// If the handshake succeeds, returns a `WsClient`.
     ///
     /// # Example
     ///
     /// ```no_run
-    /// use futures::future;
+    /// use futures_util::future;
     /// use warp::Filter;
     /// #[tokio::main]
     /// # async fn main() {
@@ -481,8 +490,8 @@ impl WsBuilder {
         F::Error: IsReject + Send,
     {
         let (upgraded_tx, upgraded_rx) = oneshot::channel();
-        let (wr_tx, wr_rx) = mpsc::unbounded_channel();
-        let (rd_tx, rd_rx) = mpsc::unbounded_channel();
+        let (wr_tx, wr_rx) = mpsc::unbounded();
+        let (rd_tx, rd_rx) = mpsc::unbounded();
 
         tokio::spawn(async move {
             use tokio_tungstenite::tungstenite::protocol;
@@ -514,7 +523,7 @@ impl WsBuilder {
             let upgrade = ::hyper::Client::builder()
                 .build(AddrConnect(addr))
                 .request(req)
-                .and_then(|res| res.into_body().on_upgrade());
+                .and_then(hyper::upgrade::on);
 
             let upgraded = match upgrade.await {
                 Ok(up) => {
@@ -542,7 +551,7 @@ impl WsBuilder {
                     Ok(m) => future::ready(!m.is_close()),
                 })
                 .for_each(move |item| {
-                    rd_tx.send(item).expect("ws receive error");
+                    rd_tx.unbounded_send(item).expect("ws receive error");
                     future::ready(())
                 });
 
@@ -569,7 +578,7 @@ impl WsClient {
 
     /// Send a websocket message to the server.
     pub async fn send(&mut self, msg: crate::ws::Message) {
-        self.tx.send(msg).unwrap();
+        self.tx.unbounded_send(msg).unwrap();
     }
 
     /// Receive a websocket message from the server.
@@ -577,7 +586,7 @@ impl WsClient {
         self.rx
             .next()
             .await
-            .map(|unbounded_result| unbounded_result.map_err(WsError::new))
+            .map(|result| result.map_err(WsError::new))
             .unwrap_or_else(|| {
                 // websocket is closed
                 Err(WsError::new("closed"))
@@ -598,12 +607,62 @@ impl WsClient {
                 Ok(())
             })
     }
+
+    fn pinned_tx(self: Pin<&mut Self>) -> Pin<&mut mpsc::UnboundedSender<crate::ws::Message>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.tx)
+    }
 }
 
 #[cfg(feature = "websocket")]
 impl fmt::Debug for WsClient {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WsClient").finish()
+    }
+}
+
+#[cfg(feature = "websocket")]
+impl Sink<crate::ws::Message> for WsClient {
+    type Error = WsError;
+
+    fn poll_ready(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_ready(context).map_err(WsError::new)
+    }
+
+    fn start_send(self: Pin<&mut Self>, message: Message) -> Result<(), Self::Error> {
+        self.pinned_tx().start_send(message).map_err(WsError::new)
+    }
+
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_flush(context).map_err(WsError::new)
+    }
+
+    fn poll_close(
+        self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
+        self.pinned_tx().poll_close(context).map_err(WsError::new)
+    }
+}
+
+#[cfg(feature = "websocket")]
+impl Stream for WsClient {
+    type Item = Result<crate::ws::Message, WsError>;
+
+    fn poll_next(self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = Pin::into_inner(self);
+        let rx = Pin::new(&mut this.rx);
+        match rx.poll_next(context) {
+            Poll::Ready(Some(result)) => Poll::Ready(Some(result.map_err(WsError::new))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -619,7 +678,7 @@ impl WsError {
 }
 
 impl fmt::Display for WsError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "websocket error: {}", self.cause)
     }
 }

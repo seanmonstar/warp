@@ -11,20 +11,49 @@
 //! new custom [`Filter`](../trait.Filter.html)s and still want other routes to be
 //! matchable in the case a predicate doesn't hold.
 //!
+//! As a request is processed by a Filter chain, the rejections are accumulated into
+//! a list contained by the [`Rejection`](struct.Rejection.html) type. Rejections from
+//! filters can be handled using [`Filter::recover`](../trait.Filter.html#method.recover).
+//! This is a convenient way to map rejections into a [`Reply`](../reply/trait.Reply.html).
+//!
+//! For a more complete example see the
+//! [Rejection Example](https://github.com/seanmonstar/warp/blob/master/examples/rejections.rs)
+//! from the repository.
+//!
 //! # Example
 //!
 //! ```
-//! use warp::Filter;
+//! use warp::{reply, Reply, Filter, reject, Rejection, http::StatusCode};
 //!
-//! // Filter on `/:id`, but reject with 404 if the `id` is `0`.
+//! #[derive(Debug)]
+//! struct InvalidParameter;
+//!
+//! impl reject::Reject for InvalidParameter {}
+//!
+//! // Custom rejection handler that maps rejections into responses.
+//! async fn handle_rejection(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
+//!     if err.is_not_found() {
+//!         Ok(reply::with_status("NOT_FOUND", StatusCode::NOT_FOUND))
+//!     } else if let Some(e) = err.find::<InvalidParameter>() {
+//!         Ok(reply::with_status("BAD_REQUEST", StatusCode::BAD_REQUEST))
+//!     } else {
+//!         eprintln!("unhandled rejection: {:?}", err);
+//!         Ok(reply::with_status("INTERNAL_SERVER_ERROR", StatusCode::INTERNAL_SERVER_ERROR))
+//!     }
+//! }
+//!
+//!
+//! // Filter on `/:id`, but reject with InvalidParameter if the `id` is `0`.
+//! // Recover from this rejection using a custom rejection handler.
 //! let route = warp::path::param()
 //!     .and_then(|id: u32| async move {
 //!         if id == 0 {
-//!             Err(warp::reject::not_found())
+//!             Err(warp::reject::custom(InvalidParameter))
 //!         } else {
-//!             Ok("something since id is valid")
+//!             Ok("id is valid")
 //!         }
-//!     });
+//!     })
+//!     .recover(handle_rejection);
 //! ```
 
 use std::any::Any;
@@ -209,7 +238,7 @@ macro_rules! enum_known {
         }
 
         impl fmt::Debug for Known {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match *self {
                     $(
                     $(#[$attr])*
@@ -220,7 +249,7 @@ macro_rules! enum_known {
         }
 
         impl fmt::Display for Known {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match *self {
                     $(
                     $(#[$attr])*
@@ -311,11 +340,7 @@ impl Rejection {
     /// assert!(rejection.is_not_found());
     /// ```
     pub fn is_not_found(&self) -> bool {
-        if let Reason::NotFound = self.reason {
-            true
-        } else {
-            false
-        }
+        matches!(self.reason, Reason::NotFound)
     }
 }
 
@@ -364,13 +389,13 @@ impl IsReject for Rejection {
 }
 
 impl fmt::Debug for Rejection {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Rejection").field(&self.reason).finish()
     }
 }
 
 impl fmt::Debug for Reason {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Reason::NotFound => f.write_str("NotFound"),
             Reason::Other(ref other) => match **other {
@@ -411,7 +436,7 @@ impl Rejections {
                 | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
-            Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
+            Rejections::Combined(..) => self.preferred().status(),
         }
     }
 
@@ -440,7 +465,7 @@ impl Rejections {
                 );
                 res
             }
-            Rejections::Combined(ref a, ref b) => preferred(a, b).into_response(),
+            Rejections::Combined(..) => self.preferred().into_response(),
         }
     }
 
@@ -466,21 +491,30 @@ impl Rejections {
             }
         }
     }
-}
 
-fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
-    // Compare status codes, with this priority:
-    // - NOT_FOUND is lowest
-    // - METHOD_NOT_ALLOWED is second
-    // - if one status code is greater than the other
-    // - otherwise, prefer A...
-    match (a.status(), b.status()) {
-        (_, StatusCode::NOT_FOUND) => a,
-        (StatusCode::NOT_FOUND, _) => b,
-        (_, StatusCode::METHOD_NOT_ALLOWED) => a,
-        (StatusCode::METHOD_NOT_ALLOWED, _) => b,
-        (sa, sb) if sa < sb => b,
-        _ => a,
+    fn preferred(&self) -> &Rejections {
+        match self {
+            Rejections::Known(_) | Rejections::Custom(_) => self,
+            Rejections::Combined(a, b) => {
+                let a = a.preferred();
+                let b = b.preferred();
+                // Now both a and b are known or custom, so it is safe
+                // to get status
+                // Compare status codes, with this priority:
+                // - NOT_FOUND is lowest
+                // - METHOD_NOT_ALLOWED is second
+                // - if one status code is greater than the other
+                // - otherwise, prefer A...
+                match (a.status(), b.status()) {
+                    (_, StatusCode::NOT_FOUND) => a,
+                    (StatusCode::NOT_FOUND, _) => b,
+                    (_, StatusCode::METHOD_NOT_ALLOWED) => a,
+                    (StatusCode::METHOD_NOT_ALLOWED, _) => b,
+                    (sa, sb) if sa < sb => b,
+                    _ => a,
+                }
+            }
+        }
     }
 }
 
@@ -522,8 +556,8 @@ impl MissingHeader {
     }
 }
 
-impl ::std::fmt::Display for MissingHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for MissingHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request header {:?}", self.name)
     }
 }
@@ -543,8 +577,8 @@ impl InvalidHeader {
     }
 }
 
-impl ::std::fmt::Display for InvalidHeader {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for InvalidHeader {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid request header {:?}", self.name)
     }
 }
@@ -564,8 +598,8 @@ impl MissingCookie {
     }
 }
 
-impl ::std::fmt::Display for MissingCookie {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+impl fmt::Display for MissingCookie {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Missing request cookie {:?}", self.name)
     }
 }
@@ -815,5 +849,24 @@ mod tests {
 
         let s = format!("{:?}", rej);
         assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
+    }
+
+    #[test]
+    fn convert_big_rejections_into_response() {
+        let mut rejections = Rejections::Custom(Box::new(std::io::Error::from_raw_os_error(100)));
+        for _ in 0..50 {
+            rejections = Rejections::Combined(
+                Box::new(Rejections::Known(Known::MethodNotAllowed(
+                    MethodNotAllowed { _p: () },
+                ))),
+                Box::new(rejections),
+            );
+        }
+        let reason = Reason::Other(Box::new(rejections));
+        let rejection = Rejection { reason };
+        assert_eq!(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            rejection.into_response().status()
+        );
     }
 }

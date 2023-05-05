@@ -7,7 +7,7 @@
 use std::convert::Infallible;
 use std::str::FromStr;
 
-use futures::future;
+use futures_util::future;
 use headers::{Header, HeaderMapExt};
 use http::header::HeaderValue;
 use http::HeaderMap;

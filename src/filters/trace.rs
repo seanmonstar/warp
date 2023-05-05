@@ -6,7 +6,7 @@
 //! spans. [`Spans`] can be used to associate individual events  with a request,
 //! and track contexts through the application.
 //!
-//! [`tracing`]: https://crates.io/tracing
+//! [`tracing`]: https://crates.io/crates/tracing
 //! [`Spans`]: https://docs.rs/tracing/latest/tracing/#spans
 use tracing::Span;
 
@@ -39,9 +39,9 @@ use self::internal::WithTrace;
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 /// [`INFO`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.INFO
 /// [`DEBUG`]: https://docs.rs/tracing/0.1.16/tracing/struct.Level.html#associatedconstant.DEBUG
-pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
+pub fn request() -> Trace<impl Fn(Info<'_>) -> Span + Clone> {
     use tracing::field::{display, Empty};
-    trace(|info: Info| {
+    trace(|info: Info<'_>| {
         let span = tracing::info_span!(
             "request",
             remote.addr = Empty,
@@ -90,7 +90,7 @@ pub fn request() -> Trace<impl Fn(Info) -> Span + Clone> {
 /// [`Span`]: https://docs.rs/tracing/latest/tracing/#spans
 pub fn trace<F>(func: F) -> Trace<F>
 where
-    F: Fn(Info) -> Span + Clone,
+    F: Fn(Info<'_>) -> Span + Clone,
 {
     Trace { func }
 }
@@ -126,7 +126,7 @@ pub fn named(name: &'static str) -> Trace<impl Fn(Info<'_>) -> Span + Copy> {
 /// Decorates a [`Filter`](crate::Filter) to create a [`tracing`] [span] for
 /// requests and responses.
 ///
-/// [`tracing`]: https://crates.io/tracing
+/// [`tracing`]: https://crates.io/crates/tracing
 /// [span]: https://docs.rs/tracing/latest/tracing/#spans
 #[derive(Clone, Copy, Debug)]
 pub struct Trace<F> {
@@ -141,7 +141,7 @@ pub struct Info<'a> {
 
 impl<FN, F> WrapSealed<F> for Trace<FN>
 where
-    FN: Fn(Info) -> Span + Clone + Send,
+    FN: Fn(Info<'_>) -> Span + Clone + Send,
     F: Filter + Clone + Send,
     F::Extract: Reply,
     F::Error: IsReject,
@@ -208,7 +208,7 @@ impl<'a> Info<'a> {
 }
 
 mod internal {
-    use futures::{future::Inspect, future::MapOk, FutureExt, TryFutureExt};
+    use futures_util::{future::Inspect, future::MapOk, FutureExt, TryFutureExt};
 
     use super::{Info, Trace};
     use crate::filter::{Filter, FilterBase, Internal};
@@ -234,39 +234,43 @@ mod internal {
         pub(super) trace: Trace<FN>,
     }
 
+    use tracing::instrument::{Instrument, Instrumented};
     use tracing::Span;
-    use tracing_futures::{Instrument, Instrumented};
 
     fn finished_logger<E: IsReject>(reply: &Result<(Traced,), E>) {
-        match reply {
-            Ok((Traced(resp),)) => {
-                tracing::info!(target: "warp::filters::trace", status = resp.status().as_u16(), "finished processing with success");
-            }
-            Err(e) if e.status().is_server_error() => {
-                tracing::error!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    error = ?e,
-                    "unable to process request (internal error)"
-                );
-            }
-            Err(e) if e.status().is_client_error() => {
-                tracing::warn!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    error = ?e,
-                    "unable to serve request (client error)"
-                );
-            }
-            Err(e) => {
-                // Either informational or redirect
-                tracing::info!(
-                    target: "warp::filters::trace",
-                    status = e.status().as_u16(),
-                    result = ?e,
+        let (status, error) = match reply {
+            Ok((Traced(resp),)) => (resp.status(), None),
+            Err(error) => (error.status(), Some(error)),
+        };
+
+        if status.is_success() {
+            tracing::info!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                "finished processing with success"
+            );
+        } else if status.is_server_error() {
+            tracing::error!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
+                "unable to process request (internal error)"
+            );
+        } else if status.is_client_error() {
+            tracing::warn!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
+                "unable to serve request (client error)"
+            );
+        } else {
+            // Either informational or redirect
+            tracing::info!(
+                target: "warp::filters::trace",
+                status = status.as_u16(),
+                error = ?error,
                     "finished processing with status"
-                );
-            }
+            );
         }
     }
 
@@ -276,7 +280,7 @@ mod internal {
 
     impl<FN, F> FilterBase for WithTrace<FN, F>
     where
-        FN: Fn(Info) -> Span + Clone + Send,
+        FN: Fn(Info<'_>) -> Span + Clone + Send,
         F: Filter + Clone + Send,
         F::Extract: Reply,
         F::Error: IsReject,
