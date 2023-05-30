@@ -9,13 +9,18 @@ async fn main() {
     let route = warp::multipart::form().and_then(|form: FormData| async move {
         let field_names: Vec<_> = form
             .and_then(|mut field| async move {
-                let contents =
-                    String::from_utf8_lossy(field.data().await.unwrap().unwrap().chunk())
-                        .to_string();
+                let mut bytes: Vec<u8> = Vec::new();
+
+                // field.data() only returns a piece of the content, you should call over it until it replies None
+                while let Some(content) = field.data().await {
+                    let content = content.unwrap();
+                    let chunk: &[u8] = content.chunk();
+                    bytes.extend_from_slice(chunk);
+                }
                 Ok((
                     field.name().to_string(),
                     field.filename().unwrap().to_string(),
-                    contents,
+                    String::from_utf8_lossy(&*bytes).to_string(),
                 ))
             })
             .try_collect()
