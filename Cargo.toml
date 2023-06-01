@@ -44,7 +44,7 @@ tokio-rustls = { version = "0.23", optional = true }
 rustls-pemfile = "1.0"
 
 [dev-dependencies]
-pretty_env_logger = "0.4"
+pretty_env_logger = "0.5"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = "0.1"
 serde_derive = "1.0"
