@@ -142,7 +142,7 @@ impl Part {
     /// Get the content-type of this part, if present.
     pub fn content_type(&self) -> Option<&str> {
         let content_type = self.part.content_type();
-        content_type.map(|t| t.type_().as_str())
+        content_type.map(|t| t.as_ref())
     }
 
     /// Asynchronously get some of the data for this `Part`.
