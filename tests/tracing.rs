@@ -3,7 +3,7 @@ use warp::Filter;
 #[tokio::test]
 async fn uses_tracing() {
     // Setup a log subscriber (responsible to print to output)
-    let subscriber = tracing_subscriber::fmt::Subscriber::builder()
+    let subscriber = tracing_subscriber::fmt()
         .with_env_filter("trace")
         .without_time()
         .finish();
