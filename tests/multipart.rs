@@ -67,14 +67,15 @@ async fn max_length_is_enforced() {
 
     let req = warp::test::request()
         .method("POST")
+        // Note no content-length header
         .header("transfer-encoding", "chunked")
         .header(
             "content-type",
             format!("multipart/form-data; boundary={}", boundary),
         );
+
     // Intentionally don't add body, as it automatically also adds
     // content-length header
-
     let resp = req.filter(&route).await;
     assert!(resp.is_err());
 }
@@ -83,7 +84,7 @@ async fn max_length_is_enforced() {
 async fn max_length_can_be_disabled() {
     let _ = pretty_env_logger::try_init();
 
-    let route = multipart::form().no_max_length().and_then(|_: multipart::FormData| {
+    let route = multipart::form().max_length(None).and_then(|_: multipart::FormData| {
         async {
             Ok::<(), warp::Rejection>(())
         }
@@ -98,9 +99,9 @@ async fn max_length_can_be_disabled() {
             "content-type",
             format!("multipart/form-data; boundary={}", boundary),
         );
+
     // Intentionally don't add body, as it automatically also adds
     // content-length header
-
     let resp = req.filter(&route).await;
     assert!(resp.is_ok());
 }

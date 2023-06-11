@@ -59,15 +59,10 @@ pub fn form() -> FormOptions {
 impl FormOptions {
     /// Set the maximum byte length allowed for this body.
     ///
+    /// `max_length(None)` means that maximum byte length is not checked.
     /// Defaults to 2MB.
-    pub fn max_length(mut self, max: u64) -> Self {
-        self.max_length = Some(max);
-        self
-    }
-
-    /// Set no limit to maximum byte length for the body.
-    pub fn no_max_length(mut self) -> Self {
-        self.max_length = None;
+    pub fn max_length(mut self, max: impl Into<Option<u64>>) -> Self {
+        self.max_length = max.into();
         self
     }
 }
