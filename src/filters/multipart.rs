@@ -97,7 +97,7 @@ impl FilterBase for FormOptions {
             Box::pin(
                 super::body::content_length_limit(max_length)
                     .and(filt)
-                    .filter(Internal)
+                    .filter(Internal),
             )
         } else {
             Box::pin(filt.filter(Internal))

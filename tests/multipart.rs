@@ -57,11 +57,8 @@ async fn form_fields() {
 async fn max_length_is_enforced() {
     let _ = pretty_env_logger::try_init();
 
-    let route = multipart::form().and_then(|_: multipart::FormData| {
-        async {
-            Ok::<(), warp::Rejection>(())
-        }
-    });
+    let route = multipart::form()
+        .and_then(|_: multipart::FormData| async { Ok::<(), warp::Rejection>(()) });
 
     let boundary = "--abcdef1234--";
 
@@ -84,11 +81,9 @@ async fn max_length_is_enforced() {
 async fn max_length_can_be_disabled() {
     let _ = pretty_env_logger::try_init();
 
-    let route = multipart::form().max_length(None).and_then(|_: multipart::FormData| {
-        async {
-            Ok::<(), warp::Rejection>(())
-        }
-    });
+    let route = multipart::form()
+        .max_length(None)
+        .and_then(|_: multipart::FormData| async { Ok::<(), warp::Rejection>(()) });
 
     let boundary = "--abcdef1234--";
 
