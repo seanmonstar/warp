@@ -169,13 +169,16 @@ where
     P: AsRef<str>,
 {
     let s = p.as_ref();
-    assert!(!s.is_empty(), "exact path segments should not be empty");
-    assert!(
-        !s.contains('/'),
-        "exact path segments should not contain a slash: {:?}",
-        s
-    );
+    __assert_path(s);
+    __path(p)
+}
 
+/// Internal function used by the `path!` macro
+#[doc(hidden)]
+pub fn __path<P>(p: P) -> Exact<Opaque<P>>
+where
+    P: AsRef<str>,
+{
     Exact(Opaque(p))
     /*
     segment(move |seg| {
@@ -187,6 +190,20 @@ where
         }
     })
     */
+}
+
+#[doc(hidden)]
+pub fn __assert_path<P>(p: P)
+where
+    P: AsRef<str>,
+{
+    let s = p.as_ref();
+    assert!(
+        !s.contains('/'),
+        "exact path segments should not contain a slash: {:?}",
+        s
+    );
+    assert!(!s.is_empty(), "exact path segments should not be empty");
 }
 
 /// A `Filter` matching an exact path segment.
@@ -208,15 +225,18 @@ where
     fn filter(&self, _: Internal) -> Self::Future {
         route::with(|route| {
             let p = self.0.as_ref();
-            future::ready(with_segment(route, |seg| {
-                tracing::trace!("{:?}?: {:?}", p, seg);
+            let seg = route.path();
 
-                if seg == p {
+            tracing::trace!("{:?}?: {:?}", p, seg);
+
+            future::ready(
+                if seg.starts_with(p) && (p.len() == seg.len() || seg[p.len()..].starts_with('/')) {
+                    route.set_unmatched_path(p.len());
                     Ok(())
                 } else {
                     Err(reject::not_found())
-                }
-            }))
+                },
+            )
         })
     }
 }
@@ -538,29 +558,83 @@ macro_rules! __internal_path {
     (@start) => (
         $crate::path::end()
     );
-    (@start ..) => ({
+    (@start ..) => (
         compile_error!("'..' cannot be the only segment")
-    });
-    (@start $first:tt $(/ $tail:tt)*) => ({
-        $crate::__internal_path!(@munch $crate::any(); [$first] [$(/ $tail)*])
-    });
-
-    (@munch $sum:expr; [$cur:tt] [/ $next:tt $(/ $tail:tt)*]) => ({
-        $crate::__internal_path!(@munch $crate::Filter::and($sum, $crate::__internal_path!(@segment $cur)); [$next] [$(/ $tail)*])
-    });
-    (@munch $sum:expr; [$cur:tt] []) => ({
-        $crate::__internal_path!(@last $sum; $cur)
-    });
-
-    (@last $sum:expr; ..) => (
-        $sum
     );
-    (@last $sum:expr; $end:tt) => (
-        $crate::Filter::and(
-            $crate::Filter::and($sum, $crate::__internal_path!(@segment $end)),
-            $crate::path::end()
+
+    (@start $first:tt $(/ $tail:tt)*) => (
+        $crate::__internal_path!(@munch_concat [] [] [$first] $(/ $tail)*)
+    );
+
+    // Found a token, forward to munch_concat to see how we concatenate it in the filter
+    (@munch [$($groups: expr),*] [$($literals: literal)*] / $first:tt $(/ $tail:tt)*) => (
+        $crate::__internal_path!(@munch_concat [$($groups),*] [$($literals)*] [$first] $(/ $tail)*)
+    );
+    // Join the trailing literals
+    (@munch [$($groups: expr),*] [$($literals: literal)+]) => (
+        $crate::__internal_path!(@join [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)])
+    );
+    (@munch [$($groups: expr),*] []) => (
+        $crate::__internal_path!(@join [$($groups),*])
+    );
+
+    // When we find a type, concat the current literal group, then continue
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [$cur:ty] $(/ $tail:tt)*) => (
+        $crate::__internal_path!(@munch
+            [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*), $crate::path::param::<$cur>() ]
+            []
+            $(/ $tail)*
         )
     );
+
+    // No literals to join
+    (@munch_concat [$($groups: expr),*] [] [$cur:ty] $(/ $tail:tt)*) => (
+        $crate::__internal_path!(@munch
+            [$($groups,)* $crate::__internal_path!(@segment $cur) ]
+            []
+            $(/ $tail)*
+        )
+    );
+
+    // Add a literal to the current group
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:literal] $(/ $tail:tt)*) => (
+        $crate::__internal_path!(@munch
+            [$($groups),*]
+            [$($literals)* $cur]
+            $(/ $tail)*
+        )
+    );
+
+    // Handle .. at the end
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)+] [..]) => (
+        $crate::__internal_path!(@join
+            [$($groups,)* $crate::__internal_path!(@str_segment $($literals)*)] ..
+        )
+    );
+    (@munch_concat [$($groups: expr),*] [] [..]) => (
+        $crate::__internal_path!(@join
+            [$($groups),*] ..
+        )
+    );
+
+    (@munch_concat [$($groups: expr),*] [$($literals: literal)*] [$cur:tt] $(/ $tail:tt)*) => (
+        $crate::__internal_path!($cur)
+    );
+
+    (@join [$first: expr $(, $groups:expr)*]) => ({
+        let filter = $first;
+        $(
+            let filter = $crate::Filter::and(filter, $groups);
+        )*
+        $crate::Filter::and(filter, $crate::path::end())
+    });
+    (@join [$first: expr $(, $groups:expr)*] ..) => ({
+        let filter = $first;
+        $(
+            let filter = $crate::Filter::and(filter, $groups);
+        )*
+        filter
+    });
 
     (@segment ..) => (
         compile_error!("'..' must be the last segment")
@@ -570,16 +644,23 @@ macro_rules! __internal_path {
     );
     // Constructs a unique ZST so the &'static str pointer doesn't need to
     // be carried around.
-    (@segment $s:literal) => ({
+    (@str_segment $first: literal $($rest:literal)*) => ({
         #[derive(Clone, Copy)]
         struct __StaticPath;
         impl ::std::convert::AsRef<str> for __StaticPath {
             fn as_ref(&self) -> &str {
-                static S: &str = $s;
+                static S: &str = concat!($first $(, "/", $rest)*);
                 S
             }
         }
-        $crate::path(__StaticPath)
+
+        // Assert that each segment does not contain a `/`
+        $crate::filters::path::__assert_path($first);
+        $(
+            $crate::filters::path::__assert_path($rest);
+        )*
+
+        $crate::filters::path::__path(__StaticPath)
     });
 }
 
