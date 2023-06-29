@@ -27,7 +27,7 @@ const DEFAULT_FORM_DATA_MAX_LENGTH: u64 = 1024 * 1024 * 2;
 /// Create with the `warp::multipart::form()` function.
 #[derive(Debug, Clone)]
 pub struct FormOptions {
-    max_length: u64,
+    max_length: Option<u64>,
 }
 
 /// A `Stream` of multipart/form-data `Part`s.
@@ -50,7 +50,7 @@ pub struct Part {
 /// in turn is a `Stream` of bytes.
 pub fn form() -> FormOptions {
     FormOptions {
-        max_length: DEFAULT_FORM_DATA_MAX_LENGTH,
+        max_length: Some(DEFAULT_FORM_DATA_MAX_LENGTH),
     }
 }
 
@@ -59,9 +59,10 @@ pub fn form() -> FormOptions {
 impl FormOptions {
     /// Set the maximum byte length allowed for this body.
     ///
+    /// `max_length(None)` means that maximum byte length is not checked.
     /// Defaults to 2MB.
-    pub fn max_length(mut self, max: u64) -> Self {
-        self.max_length = max;
+    pub fn max_length(mut self, max: impl Into<Option<u64>>) -> Self {
+        self.max_length = max.into();
         self
     }
 }
@@ -83,8 +84,7 @@ impl FilterBase for FormOptions {
             future::ready(mime)
         });
 
-        let filt = super::body::content_length_limit(self.max_length)
-            .and(boundary)
+        let filt = boundary
             .and(super::body::body())
             .map(|boundary: String, body| {
                 let body = BodyIoError(body);
@@ -93,9 +93,15 @@ impl FilterBase for FormOptions {
                 }
             });
 
-        let fut = filt.filter(Internal);
-
-        Box::pin(fut)
+        if let Some(max_length) = self.max_length {
+            Box::pin(
+                super::body::content_length_limit(max_length)
+                    .and(filt)
+                    .filter(Internal),
+            )
+        } else {
+            Box::pin(filt.filter(Internal))
+        }
     }
 }
 
@@ -144,7 +150,7 @@ impl Part {
     /// Get the content-type of this part, if present.
     pub fn content_type(&self) -> Option<&str> {
         let content_type = self.part.content_type();
-        content_type.map(|t| t.type_().as_str())
+        content_type.map(|t| t.as_ref())
     }
 
     /// Asynchronously get some of the data for this `Part`.
