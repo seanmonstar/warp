@@ -37,11 +37,13 @@ tokio-stream = "0.1.1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.18", optional = true }
+tokio-tungstenite = { version = "0.19", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-tokio-rustls = { version = "0.23", optional = true }
+tokio-rustls = { version = "0.24", optional = true }
 rustls-pemfile = "1.0"
+tokio-openssl = { version = "0.6", optional = true }
+openssl = { version = "0.10" , optional = true}
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
@@ -58,6 +60,7 @@ default = ["multipart", "websocket"]
 multipart = ["multer"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls"]
+tls-openssl = ["openssl", "tokio-openssl"]
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]

@@ -98,7 +98,7 @@ mod route;
 mod server;
 mod service;
 pub mod test;
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 mod tls;
 mod transport;
 

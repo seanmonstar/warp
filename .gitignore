@@ -4,3 +4,4 @@
 Cargo.lock
 .idea/
 warp.iml
+.vscode/

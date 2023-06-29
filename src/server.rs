@@ -1,10 +1,10 @@
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 use crate::tls::TlsConfigBuilder;
 use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::future::Future;
 use std::net::SocketAddr;
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 use std::path::Path;
 
 use futures_util::{future, FutureExt, TryFuture, TryStream, TryStreamExt};
@@ -42,7 +42,7 @@ pub struct Server<F> {
 /// A Warp Server ready to filter requests over TLS.
 ///
 /// *This type requires the `"tls"` feature.*
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 pub struct TlsServer<F> {
     server: Server<F>,
     tls: TlsConfigBuilder,
@@ -403,7 +403,7 @@ where
     /// Configure a server to use TLS.
     ///
     /// *This function requires the `"tls"` feature.*
-    #[cfg(feature = "tls")]
+    #[cfg(any(feature = "tls-openssl", feature = "tls"))]
     pub fn tls(self) -> TlsServer<F> {
         TlsServer {
             server: self,
@@ -414,7 +414,7 @@ where
 
 // // ===== impl TlsServer =====
 
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 impl<F> TlsServer<F>
 where
     F: Filter + Clone + Send + Sync + 'static,
@@ -605,7 +605,7 @@ where
     }
 }
 
-#[cfg(feature = "tls")]
+#[cfg(any(feature = "tls-openssl", feature = "tls"))]
 impl<F> ::std::fmt::Debug for TlsServer<F>
 where
     F: ::std::fmt::Debug,

@@ -28,7 +28,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls, no-default-features, compression]
+        build: [stable, beta, nightly, tls, tls-openssl, no-default-features, compression]
 
         include:
           - build: beta
@@ -38,6 +38,8 @@ jobs:
             benches: true
           - build: tls
             features: "--features tls"
+          - build: tls-openssl
+            features: "--features tls-openssl"
           - build: no-default-features
             features: "--no-default-features"
           - build: compression
