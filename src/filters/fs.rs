@@ -24,7 +24,7 @@ use tokio::io::AsyncSeekExt;
 use tokio_util::io::poll_read_buf;
 
 use crate::filter::{Filter, FilterClone, One};
-use crate::header::{Conditionals, conditionals};
+use crate::header::{conditionals, Conditionals};
 use crate::reject::{self, Rejection};
 use crate::reply::{Reply, Response};
 
@@ -424,8 +424,9 @@ unit_error! {
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_path;
     use bytes::BytesMut;
+
+    use super::sanitize_path;
 
     #[test]
     fn test_sanitize_path() {

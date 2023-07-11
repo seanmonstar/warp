@@ -395,7 +395,6 @@ impl<T: Reply> Reply for WithHeader<T> {
     }
 }
 
-
 /// Serve a file as an `impl Reply`
 ///
 /// # Example
@@ -412,7 +411,10 @@ impl<T: Reply> Reply for WithHeader<T> {
 ///         warp::reply::file(PathBuf::from(file), conditionals)
 ///     });
 /// ```
-pub fn file(path: impl Into<PathBuf>, conditionals: crate::header::Conditionals) -> impl Future<Output=Result<crate::fs::File, crate::Rejection>> + Send {
+pub fn file(
+    path: impl Into<PathBuf>,
+    conditionals: crate::header::Conditionals,
+) -> impl Future<Output = Result<crate::fs::File, crate::Rejection>> + Send {
     let path = Arc::new(path.into());
     crate::fs::file_reply(crate::fs::ArcPath(path), conditionals)
 }

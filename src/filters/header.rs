@@ -8,7 +8,9 @@ use std::convert::Infallible;
 use std::str::FromStr;
 
 use futures_util::future;
-use headers::{Header, HeaderMapExt, IfModifiedSince, IfRange, IfUnmodifiedSince, LastModified, Range};
+use headers::{
+    Header, HeaderMapExt, IfModifiedSince, IfRange, IfUnmodifiedSince, LastModified, Range,
+};
 use http::header::HeaderValue;
 use http::{HeaderMap, StatusCode};
 use hyper::Body;
@@ -243,7 +245,7 @@ pub fn headers_cloned() -> impl Filter<Extract = One<HeaderMap>, Error = Infalli
 ///         warp::reply::file("index.html", conditionals)
 ///     });
 /// ```
-pub fn conditionals() -> impl Filter<Extract=One<Conditionals>, Error = Infallible> + Copy {
+pub fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
     optional2()
         .and(optional2())
         .and(optional2())
@@ -257,7 +259,6 @@ pub fn conditionals() -> impl Filter<Extract=One<Conditionals>, Error = Infallib
             },
         )
 }
-
 
 /// Utilized conditional headers to determine response-content
 #[derive(Debug, Default)]
