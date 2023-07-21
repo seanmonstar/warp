@@ -411,18 +411,24 @@ impl Reply for ::http::StatusCode {
     }
 }
 
-impl<T> Reply for Result<T, ::http::Error>
+impl Reply for ::http::Error {
+    #[inline]
+    fn into_response(self) -> Response {
+        tracing::error!("reply error: {:?}", self);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+impl<T, E> Reply for Result<T, E>
 where
-    T: Reply + Send,
+    T: Reply,
+    E: Reply,
 {
     #[inline]
     fn into_response(self) -> Response {
         match self {
             Ok(t) => t.into_response(),
-            Err(e) => {
-                tracing::error!("reply error: {:?}", e);
-                StatusCode::INTERNAL_SERVER_ERROR.into_response()
-            }
+            Err(e) => e.into_response(),
         }
     }
 }
