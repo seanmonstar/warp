@@ -52,3 +52,51 @@ async fn form_fields() {
     assert_eq!(&vec[0].0, "foo");
     assert_eq!(&vec[0].1, b"bar");
 }
+
+#[tokio::test]
+async fn max_length_is_enforced() {
+    let _ = pretty_env_logger::try_init();
+
+    let route = multipart::form()
+        .and_then(|_: multipart::FormData| async { Ok::<(), warp::Rejection>(()) });
+
+    let boundary = "--abcdef1234--";
+
+    let req = warp::test::request()
+        .method("POST")
+        // Note no content-length header
+        .header("transfer-encoding", "chunked")
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={}", boundary),
+        );
+
+    // Intentionally don't add body, as it automatically also adds
+    // content-length header
+    let resp = req.filter(&route).await;
+    assert!(resp.is_err());
+}
+
+#[tokio::test]
+async fn max_length_can_be_disabled() {
+    let _ = pretty_env_logger::try_init();
+
+    let route = multipart::form()
+        .max_length(None)
+        .and_then(|_: multipart::FormData| async { Ok::<(), warp::Rejection>(()) });
+
+    let boundary = "--abcdef1234--";
+
+    let req = warp::test::request()
+        .method("POST")
+        .header("transfer-encoding", "chunked")
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={}", boundary),
+        );
+
+    // Intentionally don't add body, as it automatically also adds
+    // content-length header
+    let resp = req.filter(&route).await;
+    assert!(resp.is_ok());
+}

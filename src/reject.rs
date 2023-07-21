@@ -436,7 +436,7 @@ impl Rejections {
                 | Known::BodyConsumedMultipleTimes(_) => StatusCode::INTERNAL_SERVER_ERROR,
             },
             Rejections::Custom(..) => StatusCode::INTERNAL_SERVER_ERROR,
-            Rejections::Combined(ref a, ref b) => preferred(a, b).status(),
+            Rejections::Combined(..) => self.preferred().status(),
         }
     }
 
@@ -465,7 +465,7 @@ impl Rejections {
                 );
                 res
             }
-            Rejections::Combined(ref a, ref b) => preferred(a, b).into_response(),
+            Rejections::Combined(..) => self.preferred().into_response(),
         }
     }
 
@@ -491,21 +491,30 @@ impl Rejections {
             }
         }
     }
-}
 
-fn preferred<'a>(a: &'a Rejections, b: &'a Rejections) -> &'a Rejections {
-    // Compare status codes, with this priority:
-    // - NOT_FOUND is lowest
-    // - METHOD_NOT_ALLOWED is second
-    // - if one status code is greater than the other
-    // - otherwise, prefer A...
-    match (a.status(), b.status()) {
-        (_, StatusCode::NOT_FOUND) => a,
-        (StatusCode::NOT_FOUND, _) => b,
-        (_, StatusCode::METHOD_NOT_ALLOWED) => a,
-        (StatusCode::METHOD_NOT_ALLOWED, _) => b,
-        (sa, sb) if sa < sb => b,
-        _ => a,
+    fn preferred(&self) -> &Rejections {
+        match self {
+            Rejections::Known(_) | Rejections::Custom(_) => self,
+            Rejections::Combined(a, b) => {
+                let a = a.preferred();
+                let b = b.preferred();
+                // Now both a and b are known or custom, so it is safe
+                // to get status
+                // Compare status codes, with this priority:
+                // - NOT_FOUND is lowest
+                // - METHOD_NOT_ALLOWED is second
+                // - if one status code is greater than the other
+                // - otherwise, prefer A...
+                match (a.status(), b.status()) {
+                    (_, StatusCode::NOT_FOUND) => a,
+                    (StatusCode::NOT_FOUND, _) => b,
+                    (_, StatusCode::METHOD_NOT_ALLOWED) => a,
+                    (StatusCode::METHOD_NOT_ALLOWED, _) => b,
+                    (sa, sb) if sa < sb => b,
+                    _ => a,
+                }
+            }
+        }
     }
 }
 
@@ -840,5 +849,24 @@ mod tests {
 
         let s = format!("{:?}", rej);
         assert_eq!(s, "Rejection([X(0), X(1), X(2)])");
+    }
+
+    #[test]
+    fn convert_big_rejections_into_response() {
+        let mut rejections = Rejections::Custom(Box::new(std::io::Error::from_raw_os_error(100)));
+        for _ in 0..50 {
+            rejections = Rejections::Combined(
+                Box::new(Rejections::Known(Known::MethodNotAllowed(
+                    MethodNotAllowed { _p: () },
+                ))),
+                Box::new(rejections),
+            );
+        }
+        let reason = Reason::Other(Box::new(rejections));
+        let rejection = Rejection { reason };
+        assert_eq!(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            rejection.into_response().status()
+        );
     }
 }

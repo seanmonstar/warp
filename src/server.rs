@@ -128,6 +128,10 @@ where
     <F::Future as TryFuture>::Error: IsReject,
 {
     /// Run this `Server` forever on the current thread.
+    ///
+    /// # Panics
+    ///
+    /// Panics if we are unable to bind to the provided address.
     pub async fn run(self, addr: impl Into<SocketAddr>) {
         let (addr, fut) = self.bind_ephemeral(addr);
         let span = tracing::info_span!("Server::run", ?addr);
@@ -275,6 +279,10 @@ where
     /// let _ = tx.send(());
     /// # }
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if we are unable to bind to the provided address.
     pub fn bind_with_graceful_shutdown(
         self,
         addr: impl Into<SocketAddr> + 'static,
@@ -516,6 +524,10 @@ where
     /// executed on a runtime.
     ///
     /// *This function requires the `"tls"` feature.*
+    ///
+    /// # Panics
+    ///
+    /// Panics if we are unable to bind to the provided address.
     pub async fn bind(self, addr: impl Into<SocketAddr>) {
         let (_, fut) = self.bind_ephemeral(addr);
         fut.await;
@@ -527,6 +539,10 @@ where
     /// the current runtime.
     ///
     /// *This function requires the `"tls"` feature.*
+    ///
+    /// # Panics
+    ///
+    /// Panics if we are unable to bind to the provided address.
     pub fn bind_ephemeral(
         self,
         addr: impl Into<SocketAddr>,
@@ -547,6 +563,10 @@ where
     /// process.
     ///
     /// *This function requires the `"tls"` feature.*
+    ///
+    /// # Panics
+    ///
+    /// Panics if we are unable to bind to the provided address.
     pub fn bind_with_graceful_shutdown(
         self,
         addr: impl Into<SocketAddr> + 'static,
@@ -560,6 +580,28 @@ where
             }
         });
         (addr, fut)
+    }
+
+    /// Create a server with graceful shutdown signal.
+    ///
+    /// When the signal completes, the server will start the graceful shutdown
+    /// process.
+    ///
+    /// *This function requires the `"tls"` feature.*
+    pub fn try_bind_with_graceful_shutdown(
+        self,
+        addr: impl Into<SocketAddr> + 'static,
+        signal: impl Future<Output = ()> + Send + 'static,
+    ) -> Result<(SocketAddr, impl Future<Output = ()> + 'static), crate::Error> {
+        let addr = addr.into();
+        let (addr, srv) = try_bind!(tls: self, &addr).map_err(crate::Error::new)?;
+        let srv = srv.with_graceful_shutdown(signal).map(|result| {
+            if let Err(err) = result {
+                tracing::error!("server error: {}", err)
+            }
+        });
+
+        Ok((addr, srv))
     }
 }
 
