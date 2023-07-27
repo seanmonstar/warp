@@ -1,6 +1,6 @@
+use bytes::BufMut;
 use futures_util::TryStreamExt;
 use warp::multipart::FormData;
-use warp::Buf;
 use warp::Filter;
 
 #[tokio::main]
@@ -14,8 +14,7 @@ async fn main() {
                 // field.data() only returns a piece of the content, you should call over it until it replies None
                 while let Some(content) = field.data().await {
                     let content = content.unwrap();
-                    let chunk: &[u8] = content.chunk();
-                    bytes.extend_from_slice(chunk);
+                    bytes.put(content);
                 }
                 Ok((
                     field.name().to_string(),
