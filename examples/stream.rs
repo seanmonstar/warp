@@ -1,6 +1,6 @@
 use bytes::Buf;
 use futures_util::{Stream, StreamExt};
-use warp::{Filter, Reply, reply::Response};
+use warp::{reply::Response, Filter, Reply};
 
 #[tokio::main]
 async fn main() {
@@ -13,7 +13,7 @@ async fn main() {
 }
 
 async fn handler(
-    mut body: impl Stream<Item = Result<impl Buf, warp::Error>> + Unpin + Send + Sync
+    mut body: impl Stream<Item = Result<impl Buf, warp::Error>> + Unpin + Send + Sync,
 ) -> Response {
     let mut collected: Vec<u8> = vec![];
     while let Some(buf) = body.next().await {
