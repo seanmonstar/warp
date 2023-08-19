@@ -1,6 +1,6 @@
 //! Path Filters
 //!
-//! The filters here work on the "path" of requests.
+//! The [`Filter`](crate::Filter)s here work on the "path" of requests.
 //!
 //! - [`path`](./fn.path.html) matches a specific segment, like `/foo`.
 //! - [`param`](./fn.param.html) tries to parse a segment into a type, like `/:u16`.
@@ -137,7 +137,7 @@ use crate::filter::{filter_fn, one, Filter, FilterBase, Internal, One, Tuple};
 use crate::reject::{self, Rejection};
 use crate::route::{self, Route};
 
-/// Create an exact match path segment `Filter`.
+/// Create an exact match path segment [`Filter`](crate::Filter).
 ///
 /// This will try to match exactly to the current request path segment.
 ///
@@ -189,7 +189,7 @@ where
     */
 }
 
-/// A `Filter` matching an exact path segment.
+/// A [`Filter`](crate::Filter) matching an exact path segment.
 ///
 /// Constructed from `path()` or `path!()`.
 #[allow(missing_debug_implementations)]
