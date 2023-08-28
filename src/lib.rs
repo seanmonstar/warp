@@ -81,7 +81,7 @@
 //! ## Testing
 //!
 //! Testing your web services easily is extremely important, and warp provides
-//! a [`test`](self::test) module to help send mocked requests through your service.
+//! a [`test`](mod@self::test) module to help send mocked requests through your service.
 //!
 //! [Filter]: trait.Filter.html
 //! [reject]: reject/index.html
