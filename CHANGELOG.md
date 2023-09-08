@@ -1,3 +1,9 @@
+### v0.3.5 (April 28, 2023)
+
+- **Fixes**:
+  - `multipart` filters now use `multer` dependency, fixing some streaming bugs.
+  - `Rejection::into_response()` is significantly faster.
+
 ### v0.3.4 (March 31, 2023)
 
 - **Fixes**:

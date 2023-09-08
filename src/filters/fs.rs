@@ -37,7 +37,7 @@ use crate::reply::{Reply, Response};
 /// filters, such as after validating in `POST` request, wanting to return a
 /// specific file as the body.
 ///
-/// For serving a directory, see [dir](dir).
+/// For serving a directory, see [dir].
 ///
 /// # Example
 ///

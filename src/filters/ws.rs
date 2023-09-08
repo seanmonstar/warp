@@ -68,7 +68,7 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         )
 }
 
-/// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
+/// Extracted by the [`ws`] filter, and used to finish an upgrade.
 pub struct Ws {
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,

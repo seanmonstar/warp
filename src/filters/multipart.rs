@@ -1,7 +1,9 @@
 //! Multipart body filters
 //!
-//! Filters that extract a multipart body for a route.
+//! [`Filter`](crate::Filter)s that extract a multipart body for a route.
 
+use std::error::Error as StdError;
+use std::fmt::{Display, Formatter};
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -12,8 +14,7 @@ use futures_util::{future, Stream};
 use headers::ContentType;
 use hyper::Body;
 use mime::Mime;
-use multiparty::headers::Headers;
-use multiparty::server::owned_futures03::{FormData as FormDataInner, Part as PartInner};
+use multer::{Field as PartInner, Multipart as FormDataInner};
 
 use crate::filter::{Filter, FilterBase, Internal};
 use crate::reject::{self, Rejection};
@@ -21,36 +22,35 @@ use crate::reject::{self, Rejection};
 // If not otherwise configured, default to 2MB.
 const DEFAULT_FORM_DATA_MAX_LENGTH: u64 = 1024 * 1024 * 2;
 
-/// A `Filter` to extract a `multipart/form-data` body from a request.
+/// A [`Filter`](crate::Filter) to extract a `multipart/form-data` body from a request.
 ///
 /// Create with the `warp::multipart::form()` function.
 #[derive(Debug, Clone)]
 pub struct FormOptions {
-    max_length: u64,
+    max_length: Option<u64>,
 }
 
 /// A `Stream` of multipart/form-data `Part`s.
 ///
 /// Extracted with a `warp::multipart::form` filter.
 pub struct FormData {
-    inner: FormDataInner<BodyIoError>,
+    inner: FormDataInner<'static>,
 }
 
 /// A single "part" of a multipart/form-data body.
 ///
 /// Yielded from the `FormData` stream.
 pub struct Part {
-    headers: Headers,
-    part: PartInner<BodyIoError>,
+    part: PartInner<'static>,
 }
 
-/// Create a `Filter` to extract a `multipart/form-data` body from a request.
+/// Create a [`Filter`](crate::Filter) to extract a `multipart/form-data` body from a request.
 ///
 /// The extracted `FormData` type is a `Stream` of `Part`s, and each `Part`
 /// in turn is a `Stream` of bytes.
 pub fn form() -> FormOptions {
     FormOptions {
-        max_length: DEFAULT_FORM_DATA_MAX_LENGTH,
+        max_length: Some(DEFAULT_FORM_DATA_MAX_LENGTH),
     }
 }
 
@@ -59,9 +59,10 @@ pub fn form() -> FormOptions {
 impl FormOptions {
     /// Set the maximum byte length allowed for this body.
     ///
+    /// `max_length(None)` means that maximum byte length is not checked.
     /// Defaults to 2MB.
-    pub fn max_length(mut self, max: u64) -> Self {
-        self.max_length = max;
+    pub fn max_length(mut self, max: impl Into<Option<u64>>) -> Self {
+        self.max_length = max.into();
         self
     }
 }
@@ -83,8 +84,7 @@ impl FilterBase for FormOptions {
             future::ready(mime)
         });
 
-        let filt = super::body::content_length_limit(self.max_length)
-            .and(boundary)
+        let filt = boundary
             .and(super::body::body())
             .map(|boundary: String, body| {
                 let body = BodyIoError(body);
@@ -93,9 +93,15 @@ impl FilterBase for FormOptions {
                 }
             });
 
-        let fut = filt.filter(Internal);
-
-        Box::pin(fut)
+        if let Some(max_length) = self.max_length {
+            Box::pin(
+                super::body::content_length_limit(max_length)
+                    .and(filt)
+                    .filter(Internal),
+            )
+        } else {
+            Box::pin(filt.filter(Internal))
+        }
     }
 }
 
@@ -111,17 +117,17 @@ impl Stream for FormData {
     type Item = Result<Part, crate::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match Pin::new(&mut self.inner).poll_next(cx) {
+        match self.inner.poll_next_field(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Some(Ok(part))) => {
-                let headers = match part.raw_headers().parse() {
-                    Ok(headers) => headers,
-                    Err(err) => return Poll::Ready(Some(Err(crate::Error::new(err)))),
-                };
-                Poll::Ready(Some(Ok(Part { part, headers })))
+            Poll::Ready(Ok(Some(part))) => {
+                if part.name().is_some() {
+                    Poll::Ready(Some(Ok(Part { part })))
+                } else {
+                    Poll::Ready(Some(Err(crate::Error::new(MultipartFieldMissingName))))
+                }
             }
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(crate::Error::new(err)))),
+            Poll::Ready(Ok(None)) => Poll::Ready(None),
+            Poll::Ready(Err(err)) => Poll::Ready(Some(Err(crate::Error::new(err)))),
         }
     }
 }
@@ -131,17 +137,18 @@ impl Stream for FormData {
 impl Part {
     /// Get the name of this part.
     pub fn name(&self) -> &str {
-        &self.headers.name
+        self.part.name().expect("checked for name previously")
     }
 
     /// Get the filename of this part, if present.
     pub fn filename(&self) -> Option<&str> {
-        self.headers.filename.as_deref()
+        self.part.file_name()
     }
 
     /// Get the content-type of this part, if present.
     pub fn content_type(&self) -> Option<&str> {
-        self.headers.content_type.as_deref()
+        let content_type = self.part.content_type();
+        content_type.map(|t| t.as_ref())
     }
 
     /// Asynchronously get some of the data for this `Part`.
@@ -167,13 +174,13 @@ impl Part {
 impl fmt::Debug for Part {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("Part");
-        builder.field("name", &self.headers.name);
+        builder.field("name", &self.part.name());
 
-        if let Some(ref filename) = self.headers.filename {
+        if let Some(ref filename) = self.part.file_name() {
             builder.field("filename", filename);
         }
 
-        if let Some(ref mime) = self.headers.content_type {
+        if let Some(ref mime) = self.part.content_type() {
             builder.field("content_type", mime);
         }
 
@@ -207,3 +214,15 @@ impl Stream for BodyIoError {
         }
     }
 }
+
+/// An error used when a multipart field is missing a name.
+#[derive(Debug)]
+struct MultipartFieldMissingName;
+
+impl Display for MultipartFieldMissingName {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Multipart field is missing a name")
+    }
+}
+
+impl StdError for MultipartFieldMissingName {}
