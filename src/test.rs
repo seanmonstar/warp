@@ -366,7 +366,7 @@ impl RequestBuilder {
 
     /// Returns `Response` provided by applying the `Filter`.
     ///
-    /// This requires that the supplied `Filter` return a [`Reply`](Reply).
+    /// This requires that the supplied `Filter` return a [`Reply`].
     pub async fn reply<F>(self, f: &F) -> Response<Bytes>
     where
         F: Filter + 'static,

@@ -237,7 +237,7 @@ impl TlsConfigBuilder {
 
         let mut config = ServerConfig::builder()
             .with_safe_defaults()
-            .with_client_cert_verifier(client_auth.into())
+            .with_client_cert_verifier(client_auth)
             .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
             .map_err(TlsConfigError::InvalidKey)?;
         config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];

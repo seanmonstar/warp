@@ -68,7 +68,7 @@ pub fn ws() -> impl Filter<Extract = One<Ws>, Error = Rejection> + Copy {
         )
 }
 
-/// Extracted by the [`ws`](ws) filter, and used to finish an upgrade.
+/// Extracted by the [`ws`] filter, and used to finish an upgrade.
 pub struct Ws {
     config: Option<WebSocketConfig>,
     key: SecWebsocketKey,
@@ -92,11 +92,21 @@ impl Ws {
 
     // config
 
-    /// Set the size of the internal message send queue.
-    pub fn max_send_queue(mut self, max: usize) -> Self {
+    /// Does nothing.
+    ///
+    /// # Deprecated
+    ///
+    /// Use `max_write_buffer_size()` instead.
+    #[deprecated = "use max_write_buffer_size instead"]
+    pub fn max_send_queue(self, _max: usize) -> Self {
+        self
+    }
+
+    /// The max size of the write buffer, in bytes.
+    pub fn max_write_buffer_size(mut self, max: usize) -> Self {
         self.config
             .get_or_insert_with(WebSocketConfig::default)
-            .max_send_queue = Some(max);
+            .max_write_buffer_size = max;
         self
     }
 

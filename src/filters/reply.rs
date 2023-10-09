@@ -28,12 +28,12 @@ use self::sealed::{WithDefaultHeader_, WithHeader_, WithHeaders_};
 use crate::filter::{Filter, Map, WrapSealed};
 use crate::reply::Reply;
 
-/// Wrap a [`Filter`](crate::Filter) that adds a header to the reply.
+/// Wrap a [`Filter`] that adds a header to the reply.
 ///
 /// # Note
 ///
 /// This **only** adds a header if the underlying filter is successful, and
-/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// returns a [`Reply`] If the underlying filter was rejected, the
 /// header is not added.
 ///
 /// # Example
@@ -57,12 +57,12 @@ where
     WithHeader { name, value }
 }
 
-/// Wrap a [`Filter`](crate::Filter) that adds multiple headers to the reply.
+/// Wrap a [`Filter`] that adds multiple headers to the reply.
 ///
 /// # Note
 ///
 /// This **only** adds a header if the underlying filter is successful, and
-/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// returns a [`Reply`] If the underlying filter was rejected, the
 /// header is not added.
 ///
 /// # Example
@@ -88,13 +88,13 @@ pub fn headers(headers: HeaderMap) -> WithHeaders {
 
 // pub fn headers?
 
-/// Wrap a [`Filter`](crate::Filter) that adds a header to the reply, if they
+/// Wrap a [`Filter`] that adds a header to the reply, if they
 /// aren't already set.
 ///
 /// # Note
 ///
 /// This **only** adds a header if the underlying filter is successful, and
-/// returns a [`Reply`](Reply). If the underlying filter was rejected, the
+/// returns a [`Reply`] If the underlying filter was rejected, the
 /// header is not added.
 ///
 /// # Example
