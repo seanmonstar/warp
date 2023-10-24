@@ -94,7 +94,8 @@ macro_rules! addr_incoming {
 macro_rules! bind_inner {
     ($this:ident, $addr:expr) => {{
         let service = into_service!($this.filter);
-        let (addr, incoming) = addr_incoming!($this.tcp_keepalive_config, $addr);
+        let config = &$this.tcp_keepalive_config;
+        let (addr, incoming) = addr_incoming!(config, $addr);
         let srv = HyperServer::builder(incoming)
             .http1_pipeline_flush($this.pipeline)
             .serve(service);
@@ -103,7 +104,8 @@ macro_rules! bind_inner {
 
     (tls: $this:ident, $addr:expr) => {{
         let service = into_service!($this.server.filter);
-        let (addr, incoming) = addr_incoming!($this.server.tcp_keepalive_config, $addr);
+        let config = &$this.server.tcp_keepalive_config;
+        let (addr, incoming) = addr_incoming!(config, $addr);
         let tls = $this.tls.build()?;
         let srv = HyperServer::builder(crate::tls::TlsAcceptor::new(tls, incoming))
             .http1_pipeline_flush($this.server.pipeline)
