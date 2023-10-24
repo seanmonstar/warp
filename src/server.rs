@@ -424,20 +424,20 @@ where
     /// Set the duration to remain idle before sending TCP keepalive probes.
     ///
     /// If `None` is specified, keepalive is disabled.
-    pub fn set_keepalive(mut self, time: Option<Duration>) -> Self {
+    pub fn set_tcp_keepalive(mut self, time: Option<Duration>) -> Self {
         self.tcp_keepalive_config.time = time;
         self
     }
 
     /// Set the duration between two successive TCP keepalive retransmissions,
     /// if acknowledgement to the previous keepalive transmission is not received.
-    pub fn set_keepalive_interval(mut self, interval: Option<Duration>) -> Self {
+    pub fn set_tcp_keepalive_interval(mut self, interval: Option<Duration>) -> Self {
         self.tcp_keepalive_config.interval = interval;
         self
     }
 
     /// Set the number of retransmissions to be carried out before declaring that remote end is not available.
-    pub fn set_keepalive_retries(mut self, retries: Option<u32>) -> Self {
+    pub fn set_tcp_keepalive_retries(mut self, retries: Option<u32>) -> Self {
         self.tcp_keepalive_config.retries = retries;
         self
     }
