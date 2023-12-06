@@ -13,7 +13,7 @@ use crate::route::Route;
 
 use self::internal::WithLog;
 
-/// Create a wrapping filter with the specified `name` as the `target`.
+/// Create a wrapping [`Filter`](crate::Filter) with the specified `name` as the `target`.
 ///
 /// This uses the default access logging format, and log records produced
 /// will have their `target` set to `name`.
@@ -50,7 +50,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info<'_>) + Copy> {
     Log { func }
 }
 
-/// Create a wrapping filter that receives `warp::log::Info`.
+/// Create a wrapping [`Filter`](crate::Filter) that receives `warp::log::Info`.
 ///
 /// # Example
 ///
@@ -77,7 +77,7 @@ where
     Log { func }
 }
 
-/// Decorates a [`Filter`](crate::Filter) to log requests and responses.
+/// Decorates a [`Filter`] to log requests and responses.
 #[derive(Clone, Copy, Debug)]
 pub struct Log<F> {
     func: F,

@@ -1,3 +1,19 @@
+### v0.3.6 (September 27, 2023)
+
+- **Features**:
+  - Add ability to pass `None` to `multipart::form().max_length()`.
+  - Implement `Reply` for `Result<impl Reply, impl Reply>`.
+  - Make `multipart::Part::content_type()` return the full mime string.
+  - Add `TlsServer::try_bind_with_graceful_shutdown()`.
+- **Fixes**:
+  - Updated tungstenite and rustls dependencies for security fixes.
+
+### v0.3.5 (April 28, 2023)
+
+- **Fixes**:
+  - `multipart` filters now use `multer` dependency, fixing some streaming bugs.
+  - `Rejection::into_response()` is significantly faster.
+
 ### v0.3.4 (March 31, 2023)
 
 - **Fixes**:
