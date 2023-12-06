@@ -51,18 +51,17 @@ pub struct Decompression<F> {
 }
 
 /// Create a wrapping filter that decompresses the Body of a [`Response`](crate::reply::Response)
-/// using gzip, removing `content-encoding: gzip` from the Response's [`HeaderMap`](hyper::HeaderMap)
+/// using deflate, removing `content-encoding: deflate` from the Response's [`HeaderMap`](hyper::HeaderMap)
 ///
 /// # Example
 ///
 /// ```
-/// // use warp::Filter;
+/// use warp::Filter;
 ///
-///  let route = warp::get()
-///  .and(warp::path::end())
-/// .and(warp::fs::file("./README.md"))
-/// .with(warp::decompression::gzip());
-///
+/// let route = warp::get()
+///     .and(warp::path::end())
+///     .and(warp::fs::file("./README.md"))
+///     .with(warp::decompression::deflate());
 /// ```
 #[cfg(feature = "compression-gzip")]
 pub fn deflate() -> Decompression<impl Fn(CompressionProps) -> Response + Copy> {
@@ -89,9 +88,9 @@ pub fn deflate() -> Decompression<impl Fn(CompressionProps) -> Response + Copy> 
 /// use warp::Filter;
 ///
 /// let route = warp::get()
-/// .and(warp::path::end())
-/// .and(warp::fs::file("./README.md"))
-/// .with(warp::decompression::brotli());
+///     .and(warp::path::end())
+///     .and(warp::fs::file("./README.md"))
+///     .with(warp::decompression::brotli());
 /// ```
 #[cfg(feature = "compression-brotli")]
 pub fn brotli() -> Decompression<impl Fn(CompressionProps) -> Response + Copy> {
