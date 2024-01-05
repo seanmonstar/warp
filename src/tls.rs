@@ -12,12 +12,10 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use futures_util::ready;
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
+use tokio_rustls::rustls::server::WebPkiClientVerifier;
+use tokio_rustls::rustls::{Error as TlsError, RootCertStore, ServerConfig};
 
 use crate::transport::Transport;
-use tokio_rustls::rustls::{
-    server::{AllowAnyAnonymousOrAuthenticatedClient, AllowAnyAuthenticatedClient, NoClientAuth},
-    Certificate, Error as TlsError, PrivateKey, RootCertStore, ServerConfig,
-};
 
 /// Represents errors that can occur building the TlsConfig
 #[derive(Debug)]
@@ -176,10 +174,8 @@ impl TlsConfigBuilder {
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
         let cert = rustls_pemfile::certs(&mut cert_rdr)
-            .map_err(|_e| TlsConfigError::CertParseError)?
-            .into_iter()
-            .map(Certificate)
-            .collect();
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_e| TlsConfigError::CertParseError)?;
 
         let mut key_vec = Vec::new();
         self.key
@@ -193,12 +189,13 @@ impl TlsConfigBuilder {
         let mut key_opt = None;
         let mut key_cur = std::io::Cursor::new(key_vec);
         for item in rustls_pemfile::read_all(&mut key_cur)
+            .collect::<Result<Vec<_>, _>>()
             .map_err(|_e| TlsConfigError::InvalidIdentityPem)?
         {
             match item {
-                rustls_pemfile::Item::RSAKey(k) => key_opt = Some(PrivateKey(k)),
-                rustls_pemfile::Item::PKCS8Key(k) => key_opt = Some(PrivateKey(k)),
-                rustls_pemfile::Item::ECKey(k) => key_opt = Some(PrivateKey(k)),
+                rustls_pemfile::Item::Pkcs1Key(k) => key_opt = Some(k.into()),
+                rustls_pemfile::Item::Pkcs8Key(k) => key_opt = Some(k.into()),
+                rustls_pemfile::Item::Sec1Key(k) => key_opt = Some(k.into()),
                 _ => return Err(TlsConfigError::UnknownPrivateKeyFormat),
             }
         }
@@ -212,11 +209,13 @@ impl TlsConfigBuilder {
         ) -> Result<RootCertStore, TlsConfigError> {
             let trust_anchors = {
                 let mut reader = BufReader::new(trust_anchor);
-                rustls_pemfile::certs(&mut reader).map_err(TlsConfigError::Io)?
+                rustls_pemfile::certs(&mut reader)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(TlsConfigError::Io)?
             };
 
             let mut store = RootCertStore::empty();
-            let (added, _skipped) = store.add_parsable_certificates(&trust_anchors);
+            let (added, _skipped) = store.add_parsable_certificates(trust_anchors);
             if added == 0 {
                 return Err(TlsConfigError::CertParseError);
             }
@@ -224,23 +223,32 @@ impl TlsConfigBuilder {
             Ok(store)
         }
 
-        let client_auth = match self.client_auth {
-            TlsClientAuth::Off => NoClientAuth::boxed(),
-            TlsClientAuth::Optional(trust_anchor) => {
-                AllowAnyAnonymousOrAuthenticatedClient::new(read_trust_anchor(trust_anchor)?)
-                    .boxed()
+        let config = {
+            let builder = ServerConfig::builder();
+            let mut config = match self.client_auth {
+                TlsClientAuth::Off => builder.with_no_client_auth(),
+                TlsClientAuth::Optional(trust_anchor) => {
+                    let verifier =
+                        WebPkiClientVerifier::builder(read_trust_anchor(trust_anchor)?.into())
+                            .allow_unauthenticated()
+                            .build()
+                            .map_err(|_| TlsConfigError::CertParseError)?;
+                    builder.with_client_cert_verifier(verifier)
+                }
+                TlsClientAuth::Required(trust_anchor) => {
+                    let verifier =
+                        WebPkiClientVerifier::builder(read_trust_anchor(trust_anchor)?.into())
+                            .build()
+                            .map_err(|_| TlsConfigError::CertParseError)?;
+                    builder.with_client_cert_verifier(verifier)
+                }
             }
-            TlsClientAuth::Required(trust_anchor) => {
-                AllowAnyAuthenticatedClient::new(read_trust_anchor(trust_anchor)?).boxed()
-            }
+            .with_single_cert_with_ocsp(cert, key, self.ocsp_resp)
+            .map_err(TlsConfigError::InvalidKey)?;
+            config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
+            config
         };
 
-        let mut config = ServerConfig::builder()
-            .with_safe_defaults()
-            .with_client_cert_verifier(client_auth)
-            .with_single_cert_with_ocsp_and_sct(cert, key, self.ocsp_resp, Vec::new())
-            .map_err(TlsConfigError::InvalidKey)?;
-        config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
         Ok(config)
     }
 }
