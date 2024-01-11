@@ -13,8 +13,12 @@ async fn main() {
 
     warp::serve(routes)
         .tls()
+        // RSA
         .cert_path("examples/tls/cert.pem")
         .key_path("examples/tls/key.rsa")
+        // ECC
+        // .cert_path("examples/tls/cert.ecc.pem")
+        // .key_path("examples/tls/key.ecc")
         .run(([127, 0, 0, 1], 3030))
         .await;
 }

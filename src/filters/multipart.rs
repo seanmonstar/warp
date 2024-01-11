@@ -1,6 +1,6 @@
 //! Multipart body filters
 //!
-//! Filters that extract a multipart body for a route.
+//! [`Filter`](crate::Filter)s that extract a multipart body for a route.
 
 use std::error::Error as StdError;
 use std::fmt::{Display, Formatter};
@@ -22,7 +22,7 @@ use crate::reject::{self, Rejection};
 // If not otherwise configured, default to 2MB.
 const DEFAULT_FORM_DATA_MAX_LENGTH: u64 = 1024 * 1024 * 2;
 
-/// A `Filter` to extract a `multipart/form-data` body from a request.
+/// A [`Filter`](crate::Filter) to extract a `multipart/form-data` body from a request.
 ///
 /// Create with the `warp::multipart::form()` function.
 #[derive(Debug, Clone)]
@@ -44,7 +44,7 @@ pub struct Part {
     part: PartInner<'static>,
 }
 
-/// Create a `Filter` to extract a `multipart/form-data` body from a request.
+/// Create a [`Filter`](crate::Filter) to extract a `multipart/form-data` body from a request.
 ///
 /// The extracted `FormData` type is a `Stream` of `Part`s, and each `Part`
 /// in turn is a `Stream` of bytes.

@@ -8,7 +8,7 @@ use futures_util::TryFutureExt;
 use super::{Filter, FilterBase, Internal, Tuple};
 use crate::reject::Rejection;
 
-/// A type representing a boxed `Filter` trait object.
+/// A type representing a boxed [`Filter`](crate::Filter) trait object.
 ///
 /// The filter inside is a dynamic trait object. The purpose of this type is
 /// to ease returning `Filter`s from other functions.
