@@ -826,7 +826,7 @@ mod tests {
     }
 
     #[derive(Debug)]
-    struct X(u32);
+    struct X(#[allow(unused)] u32);
     impl Reject for X {}
 
     fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection

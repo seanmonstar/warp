@@ -17,7 +17,7 @@ edition = "2018"
 all-features = true
 
 [dependencies]
-async-compression = { version = "0.3.7", features = ["tokio"], optional = true }
+async-compression = { version = "0.4.5", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
@@ -36,7 +36,7 @@ tokio = { version = "1.0", features = ["fs", "sync", "time"] }
 tokio-util = { version = "0.7.1", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.20", optional = true }
+tokio-tungstenite = { version = "0.21", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.25", optional = true }
@@ -45,7 +45,7 @@ rustls-pemfile = { version = "2.0", optional = true }
 [dev-dependencies]
 pretty_env_logger = "0.5"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tracing-log = "0.1"
+tracing-log = "0.2"
 serde_derive = "1.0"
 handlebars = "4.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
