@@ -66,6 +66,8 @@ compression-gzip = ["async-compression/deflate", "async-compression/gzip"]
 [profile.release]
 codegen-units = 1
 incremental = false
+lto = "fat"
+strip = true
 
 [profile.bench]
 codegen-units = 1
@@ -97,7 +99,9 @@ required-features = ["websocket"]
 [[example]]
 name = "query_string"
 
-
 [[example]]
 name = "multipart"
 required-features = ["multipart"]
+
+[[example]]
+name = "file"
