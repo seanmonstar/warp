@@ -70,7 +70,7 @@ where
     <F::Future as TryFuture>::Error: IsReject,
 {
     #[inline]
-    pub(crate) fn call_with_addr(
+    pub fn call_with_addr(
         &self,
         req: Request,
         remote_addr: Option<SocketAddr>,
