@@ -177,7 +177,7 @@ mod internal {
     /// compatible with async_compression's Stream based encoders
     #[pin_project]
     #[derive(Debug)]
-    pub struct CompressableBody<S, E>
+    pub struct CompressibleBody<S, E>
     where
         E: std::error::Error,
         S: Stream<Item = Result<Bytes, E>>,
@@ -186,7 +186,7 @@ mod internal {
         body: S,
     }
 
-    impl<S, E> Stream for CompressableBody<S, E>
+    impl<S, E> Stream for CompressibleBody<S, E>
     where
         E: std::error::Error,
         S: Stream<Item = Result<Bytes, E>>,
@@ -201,16 +201,16 @@ mod internal {
         }
     }
 
-    impl From<Body> for CompressableBody<Body, hyper::Error> {
+    impl From<Body> for CompressibleBody<Body, hyper::Error> {
         fn from(body: Body) -> Self {
-            CompressableBody { body }
+            CompressibleBody { body }
         }
     }
 
     /// Compression Props
     #[derive(Debug)]
     pub struct CompressionProps {
-        pub(super) body: CompressableBody<Body, hyper::Error>,
+        pub(super) body: CompressibleBody<Body, hyper::Error>,
         pub(super) head: http::response::Parts,
     }
 
