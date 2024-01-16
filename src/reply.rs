@@ -37,6 +37,9 @@ use std::borrow::Cow;
 use std::convert::TryFrom;
 use std::error::Error as StdError;
 use std::fmt;
+use std::future::Future;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
@@ -390,6 +393,30 @@ impl<T: Reply> Reply for WithHeader<T> {
         }
         res
     }
+}
+
+/// Serve a file as an `impl Reply`
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+/// use warp::fs::Conditionals;
+/// use std::path::PathBuf;
+///
+/// let route = warp::any()
+///     .and(warp::path::param::<String>())
+///     .and(warp::header::conditionals())
+///     .and_then(|file: String, conditionals: Conditionals| {
+///         warp::reply::file(PathBuf::from(file), conditionals)
+///     });
+/// ```
+pub fn file(
+    path: impl Into<PathBuf>,
+    conditionals: crate::header::Conditionals,
+) -> impl Future<Output = Result<crate::fs::File, crate::Rejection>> + Send {
+    let path = Arc::new(path.into());
+    crate::fs::file_reply(crate::fs::ArcPath(path), conditionals)
 }
 
 impl<T: Send> Reply for ::http::Response<T>

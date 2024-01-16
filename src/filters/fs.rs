@@ -1,7 +1,6 @@
 //! File System Filters
 
 use std::cmp;
-use std::convert::Infallible;
 use std::fs::Metadata;
 use std::future::Future;
 use std::io;
@@ -14,8 +13,7 @@ use bytes::{Bytes, BytesMut};
 use futures_util::future::Either;
 use futures_util::{future, ready, stream, FutureExt, Stream, StreamExt, TryFutureExt};
 use headers::{
-    AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, IfModifiedSince, IfRange,
-    IfUnmodifiedSince, LastModified, Range,
+    AcceptRanges, ContentLength, ContentRange, ContentType, HeaderMapExt, LastModified, Range,
 };
 use http::StatusCode;
 use hyper::Body;
@@ -26,6 +24,7 @@ use tokio::io::AsyncSeekExt;
 use tokio_util::io::poll_read_buf;
 
 use crate::filter::{Filter, FilterClone, One};
+use crate::header::{conditionals, Conditionals};
 use crate::reject::{self, Rejection};
 use crate::reply::{Reply, Response};
 
@@ -135,84 +134,6 @@ fn sanitize_path(base: impl AsRef<Path>, tail: &str) -> Result<PathBuf, Rejectio
     Ok(buf)
 }
 
-#[derive(Debug)]
-struct Conditionals {
-    if_modified_since: Option<IfModifiedSince>,
-    if_unmodified_since: Option<IfUnmodifiedSince>,
-    if_range: Option<IfRange>,
-    range: Option<Range>,
-}
-
-enum Cond {
-    NoBody(Response),
-    WithBody(Option<Range>),
-}
-
-impl Conditionals {
-    fn check(self, last_modified: Option<LastModified>) -> Cond {
-        if let Some(since) = self.if_unmodified_since {
-            let precondition = last_modified
-                .map(|time| since.precondition_passes(time.into()))
-                .unwrap_or(false);
-
-            tracing::trace!(
-                "if-unmodified-since? {:?} vs {:?} = {}",
-                since,
-                last_modified,
-                precondition
-            );
-            if !precondition {
-                let mut res = Response::new(Body::empty());
-                *res.status_mut() = StatusCode::PRECONDITION_FAILED;
-                return Cond::NoBody(res);
-            }
-        }
-
-        if let Some(since) = self.if_modified_since {
-            tracing::trace!(
-                "if-modified-since? header = {:?}, file = {:?}",
-                since,
-                last_modified
-            );
-            let unmodified = last_modified
-                .map(|time| !since.is_modified(time.into()))
-                // no last_modified means its always modified
-                .unwrap_or(false);
-            if unmodified {
-                let mut res = Response::new(Body::empty());
-                *res.status_mut() = StatusCode::NOT_MODIFIED;
-                return Cond::NoBody(res);
-            }
-        }
-
-        if let Some(if_range) = self.if_range {
-            tracing::trace!("if-range? {:?} vs {:?}", if_range, last_modified);
-            let can_range = !if_range.is_modified(None, last_modified.as_ref());
-
-            if !can_range {
-                return Cond::WithBody(None);
-            }
-        }
-
-        Cond::WithBody(self.range)
-    }
-}
-
-fn conditionals() -> impl Filter<Extract = One<Conditionals>, Error = Infallible> + Copy {
-    crate::header::optional2()
-        .and(crate::header::optional2())
-        .and(crate::header::optional2())
-        .and(crate::header::optional2())
-        .map(
-            |if_modified_since, if_unmodified_since, if_range, range| Conditionals {
-                if_modified_since,
-                if_unmodified_since,
-                if_range,
-                range,
-            },
-        )
-}
-
 /// A file response.
 #[derive(Debug)]
 pub struct File {
@@ -247,7 +168,7 @@ impl File {
 
 // Silly wrapper since Arc<PathBuf> doesn't implement AsRef<Path> ;_;
 #[derive(Clone, Debug)]
-struct ArcPath(Arc<PathBuf>);
+pub(crate) struct ArcPath(pub(crate) Arc<PathBuf>);
 
 impl AsRef<Path> for ArcPath {
     fn as_ref(&self) -> &Path {
@@ -261,7 +182,7 @@ impl Reply for File {
     }
 }
 
-fn file_reply(
+pub(crate) fn file_reply(
     path: ArcPath,
     conditionals: Conditionals,
 ) -> impl Future<Output = Result<File, Rejection>> + Send {
@@ -310,9 +231,10 @@ fn file_conditional(
         let mut len = meta.len();
         let modified = meta.modified().ok().map(LastModified::from);
 
+        use crate::header::ConditionalBody;
         let resp = match conditionals.check(modified) {
-            Cond::NoBody(resp) => resp,
-            Cond::WithBody(range) => {
+            ConditionalBody::NoBody(resp) => resp,
+            ConditionalBody::WithBody(range) => {
                 bytes_range(range, len)
                     .map(|(start, end)| {
                         let sub_len = end - start;
@@ -343,7 +265,7 @@ fn file_conditional(
 
                         resp
                     })
-                    .unwrap_or_else(|BadRange| {
+                    .unwrap_or_else(|_: BadRange| {
                         // bad byte range
                         let mut resp = Response::new(Body::empty());
                         *resp.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
@@ -502,8 +424,9 @@ unit_error! {
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_path;
     use bytes::BytesMut;
+
+    use super::sanitize_path;
 
     #[test]
     fn test_sanitize_path() {
