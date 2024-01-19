@@ -42,6 +42,18 @@ async fn param() {
     let req = warp::test::request().path("/warp");
     assert_eq!(req.filter(&s).await.unwrap(), "warp");
 
+    // % encoding
+    let req = warp::test::request().path("/warp%20speed");
+    assert_eq!(req.filter(&s).await.unwrap(), "warp speed");
+
+    // % encoding as int
+    let req = warp::test::request().path("/%35%30");
+    assert_eq!(req.filter(&num).await.unwrap(), 50);
+
+    // + space encoding, is not decoded
+    let req = warp::test::request().path("/warp+speed");
+    assert_eq!(req.filter(&s).await.unwrap(), "warp+speed");
+
     // u32 doesn't extract a non-int
     let req = warp::test::request().path("/warp");
     assert!(!req.matches(&num).await);

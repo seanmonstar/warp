@@ -104,6 +104,12 @@ pub(crate) fn invalid_header(name: &'static str) -> Rejection {
 
 // 400 Bad Request
 #[inline]
+pub(crate) fn invalid_encoded_url() -> Rejection {
+    known(InvalidEncodedUrl { _p: () })
+}
+
+// 400 Bad Request
+#[inline]
 pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
     known(MissingCookie { name })
 }
@@ -289,6 +295,7 @@ enum_known! {
     MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
     MissingExtension(crate::ext::MissingExtension),
     BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
+    InvalidEncodedUrl(InvalidEncodedUrl),
 }
 
 impl Rejection {
@@ -423,6 +430,7 @@ impl Rejections {
                 | Known::MissingHeader(_)
                 | Known::MissingCookie(_)
                 | Known::InvalidQuery(_)
+                | Known::InvalidEncodedUrl(_)
                 | Known::BodyReadError(_)
                 | Known::BodyDeserializeError(_) => StatusCode::BAD_REQUEST,
                 #[cfg(feature = "websocket")]
@@ -521,6 +529,11 @@ impl Rejections {
 unit_error! {
     /// Invalid query
     pub InvalidQuery: "Invalid query string"
+}
+
+unit_error! {
+    /// Invalid encoded url
+    pub InvalidEncodedUrl: "Invalid encoded url string"
 }
 
 unit_error! {
