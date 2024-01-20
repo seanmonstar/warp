@@ -107,7 +107,8 @@ pub fn stream(
 /// ```
 pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
     body().and_then(|body: hyper::Body| {
-        hyper::body::to_bytes(body).map_err(|err| {
+        use hyper::body::HttpBody;
+        body.collect().map_ok(|b| b.to_bytes()).map_err(|err| {
             tracing::debug!("to_bytes error: {}", err);
             reject::known(BodyReadError(err))
         })
@@ -145,7 +146,8 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 /// ```
 pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Copy {
     body().and_then(|body: ::hyper::Body| {
-        hyper::body::aggregate(body).map_err(|err| {
+        use hyper::body::HttpBody;
+        body.collect().map_ok(|b| b.aggregate()).map_err(|err| {
             tracing::debug!("aggregate error: {}", err);
             reject::known(BodyReadError(err))
         })

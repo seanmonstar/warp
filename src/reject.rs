@@ -800,8 +800,9 @@ mod tests {
     }
 
     async fn response_body_string(resp: crate::reply::Response) -> String {
+        use hyper::body::HttpBody;
         let (_, body) = resp.into_parts();
-        let body_bytes = hyper::body::to_bytes(body).await.expect("failed concat");
+        let body_bytes = body.collect().await.expect("failed concat").to_bytes();
         String::from_utf8_lossy(&body_bytes).to_string()
     }
 
