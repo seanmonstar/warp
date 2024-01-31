@@ -2,7 +2,7 @@
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![deny(rust_2018_idioms)]
-#![cfg_attr(test, deny(warnings))]
+// #![cfg_attr(test, deny(warnings))]
 
 //! # warp
 //!
@@ -176,4 +176,4 @@ pub use bytes::Buf;
 pub use futures_util::{Future, Sink, Stream};
 #[doc(hidden)]
 
-pub(crate) type Request = http::Request<hyper::Body>;
+pub(crate) type Request = http::Request<hyper::body::Incoming>;

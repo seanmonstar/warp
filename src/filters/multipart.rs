@@ -12,7 +12,7 @@ use std::{fmt, io};
 use bytes::{Buf, Bytes};
 use futures_util::{future, Stream};
 use headers::ContentType;
-use hyper::Body;
+use hyper::body::Incoming;
 use mime::Mime;
 use multer::{Field as PartInner, Multipart as FormDataInner};
 
@@ -200,7 +200,7 @@ impl Stream for PartStream {
     }
 }
 
-struct BodyIoError(Body);
+struct BodyIoError(Incoming);
 
 impl Stream for BodyIoError {
     type Item = io::Result<Bytes>;

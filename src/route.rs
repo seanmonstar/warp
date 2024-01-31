@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::mem;
 use std::net::SocketAddr;
 
-use hyper::Body;
+use hyper::body::Incoming;
 
 use crate::Request;
 
@@ -127,10 +127,10 @@ impl Route {
         self.remote_addr
     }
 
-    pub(crate) fn take_body(&mut self) -> Option<Body> {
+    pub(crate) fn take_body(&mut self) -> Option<Incoming> {
         match self.body {
             BodyState::Ready => {
-                let body = mem::replace(self.req.body_mut(), Body::empty());
+                let body = mem::replace(self.req.body_mut(), Incoming::empty());
                 self.body = BodyState::Taken;
                 Some(body)
             }
