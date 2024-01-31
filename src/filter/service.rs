@@ -93,12 +93,8 @@ where
     type Error = Infallible;
     type Future = FilteredFuture<F::Future>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
     #[inline]
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&self, req: Request) -> Self::Future {
         self.call_with_addr(req, None)
     }
 }

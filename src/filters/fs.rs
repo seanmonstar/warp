@@ -18,7 +18,7 @@ use headers::{
     IfUnmodifiedSince, LastModified, Range,
 };
 use http::StatusCode;
-use hyper::Body;
+use hyper::body::Incoming;
 use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
@@ -162,7 +162,7 @@ impl Conditionals {
                 precondition
             );
             if !precondition {
-                let mut res = Response::new(Body::empty());
+                let mut res = Response::new(Incoming::empty());
                 *res.status_mut() = StatusCode::PRECONDITION_FAILED;
                 return Cond::NoBody(res);
             }
@@ -179,7 +179,7 @@ impl Conditionals {
                 // no last_modified means its always modified
                 .unwrap_or(false);
             if unmodified {
-                let mut res = Response::new(Body::empty());
+                let mut res = Response::new(Incoming::empty());
                 *res.status_mut() = StatusCode::NOT_MODIFIED;
                 return Cond::NoBody(res);
             }
@@ -318,7 +318,7 @@ fn file_conditional(
                         let sub_len = end - start;
                         let buf_size = optimal_buf_size(&meta);
                         let stream = file_stream(file, buf_size, (start, end));
-                        let body = Body::wrap_stream(stream);
+                        let body = Incoming::wrap_stream(stream);
 
                         let mut resp = Response::new(body);
 
@@ -345,7 +345,7 @@ fn file_conditional(
                     })
                     .unwrap_or_else(|BadRange| {
                         // bad byte range
-                        let mut resp = Response::new(Body::empty());
+                        let mut resp = Response::new(Incoming::empty());
                         *resp.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
                         resp.headers_mut()
                             .typed_insert(ContentRange::unsatisfied_bytes(len));

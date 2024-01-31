@@ -11,7 +11,7 @@ use bytes::{Buf, Bytes};
 use futures_util::{future, ready, Stream, TryFutureExt};
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
-use hyper::Body;
+use hyper::body::Incoming;
 use mime;
 use serde::de::DeserializeOwned;
 use serde_json;
@@ -22,10 +22,10 @@ use crate::reject::{self, Rejection};
 
 type BoxError = Box<dyn StdError + Send + Sync>;
 
-// Extracts the `Body` Stream from the route.
+// Extracts the `Incoming` Stream from the route.
 //
 // Does not consume any of it.
-pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy {
+pub(crate) fn body() -> impl Filter<Extract = (Incoming,), Error = Rejection> + Copy {
     filter_fn_one(|route| {
         future::ready(route.take_body().ok_or_else(|| {
             tracing::error!("request body already taken in previous filter");
@@ -79,7 +79,7 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rej
 pub fn stream(
 ) -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, crate::Error>>,), Error = Rejection> + Copy
 {
-    body().map(|body: Body| BodyStream { body })
+    body().map(|body: Incoming| BodyStream { body })
 }
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
@@ -106,8 +106,8 @@ pub fn stream(
 ///     });
 /// ```
 pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
-    body().and_then(|body: hyper::Body| {
-        use hyper::body::HttpBody;
+    body().and_then(|body: Incoming| {
+        use http_body_util::BodyExt;
         body.collect().map_ok(|b| b.to_bytes()).map_err(|err| {
             tracing::debug!("to_bytes error: {}", err);
             reject::known(BodyReadError(err))
@@ -145,8 +145,8 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 ///     .map(full_body);
 /// ```
 pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| {
-        use hyper::body::HttpBody;
+    body().and_then(|body: Incoming| {
+        use http_body_util::BodyExt;
         body.collect().map_ok(|b| b.aggregate()).map_err(|err| {
             tracing::debug!("aggregate error: {}", err);
             reject::known(BodyReadError(err))
@@ -293,7 +293,7 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
 // ===== BodyStream =====
 
 struct BodyStream {
-    body: Body,
+    body: Incoming,
 }
 
 impl Stream for BodyStream {

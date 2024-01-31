@@ -176,4 +176,4 @@ pub use bytes::Buf;
 pub use futures_util::{Future, Sink, Stream};
 #[doc(hidden)]
 
-pub(crate) type Request = http::Request<hyper::Body>;
+pub(crate) type Request = http::Request<hyper::body::Incoming>;

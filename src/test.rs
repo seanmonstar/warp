@@ -379,7 +379,7 @@ impl RequestBuilder {
         let route = Route::new(self.req, self.remote_addr);
         let mut fut = Box::pin(
             route::set(&route, move || f.filter(crate::filter::Internal)).then(|result| {
-                use hyper::body::HttpBody;
+                use http_body_util::BodyExt;
 
                 let res = match result {
                     Ok(rep) => rep.into_response(),
@@ -389,8 +389,7 @@ impl RequestBuilder {
                     }
                 };
                 let (parts, body) = res.into_parts();
-                HttpBody::collect(body)
-                    .map_ok(|chunk| Response::from_parts(parts, chunk.to_bytes()))
+                BodyExt::collect(body).map_ok(|chunk| Response::from_parts(parts, chunk.to_bytes()))
             }),
         );
 

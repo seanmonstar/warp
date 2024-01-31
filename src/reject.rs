@@ -66,7 +66,7 @@ use http::{
     header::{HeaderValue, CONTENT_TYPE},
     StatusCode,
 };
-use hyper::Body;
+use hyper::body::Incoming;
 
 pub(crate) use self::sealed::{CombineRejection, IsReject};
 
@@ -443,7 +443,7 @@ impl Rejections {
     fn into_response(&self) -> crate::reply::Response {
         match *self {
             Rejections::Known(ref e) => {
-                let mut res = http::Response::new(Body::from(e.to_string()));
+                let mut res = http::Response::new(Incoming::from(e.to_string()));
                 *res.status_mut() = self.status();
                 res.headers_mut().insert(
                     CONTENT_TYPE,
@@ -457,7 +457,7 @@ impl Rejections {
                     e
                 );
                 let body = format!("Unhandled rejection: {:?}", e);
-                let mut res = http::Response::new(Body::from(body));
+                let mut res = http::Response::new(Incoming::from(body));
                 *res.status_mut() = self.status();
                 res.headers_mut().insert(
                     CONTENT_TYPE,
@@ -800,7 +800,7 @@ mod tests {
     }
 
     async fn response_body_string(resp: crate::reply::Response) -> String {
-        use hyper::body::HttpBody;
+        use http_body_util::BodyExt;
         let (_, body) = resp.into_parts();
         let body_bytes = body.collect().await.expect("failed concat").to_bytes();
         String::from_utf8_lossy(&body_bytes).to_string()

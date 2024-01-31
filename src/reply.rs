@@ -8,7 +8,7 @@
 //! Besides them, you can return a type that implements [`Reply`](./trait.Reply.html). This
 //! could be any of the following:
 //!
-//! - [`http::Response<impl Into<hyper::Body>>`](https://docs.rs/http)
+//! - [`http::Response<impl Into<hyper::body::Incoming>>`](https://docs.rs/http)
 //! - `String`
 //! - `&'static str`
 //! - `http::StatusCode`
@@ -41,7 +41,7 @@ use std::fmt;
 use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::StatusCode;
-use hyper::Body;
+use hyper::body::Incoming;
 use serde::Serialize;
 use serde_json;
 
@@ -52,7 +52,7 @@ use self::sealed::{BoxedReply, Internal};
 pub use crate::filters::reply as with;
 
 /// Response type into which types implementing the `Reply` trait are convertable.
-pub type Response = ::http::Response<Body>;
+pub type Response = ::http::Response<Incoming>;
 
 /// Returns an empty `Reply` with status code `200 OK`.
 ///
@@ -167,7 +167,7 @@ impl StdError for ReplyJsonError {}
 /// ```
 pub fn html<T>(body: T) -> Html<T>
 where
-    Body: From<T>,
+    Incoming: From<T>,
     T: Send,
 {
     Html { body }
@@ -181,12 +181,12 @@ pub struct Html<T> {
 
 impl<T> Reply for Html<T>
 where
-    Body: From<T>,
+    Incoming: From<T>,
     T: Send,
 {
     #[inline]
     fn into_response(self) -> Response {
-        let mut res = Response::new(Body::from(self.body));
+        let mut res = Response::new(Incoming::from(self.body));
         res.headers_mut().insert(
             CONTENT_TYPE,
             HeaderValue::from_static("text/html; charset=utf-8"),
@@ -200,7 +200,7 @@ where
 /// This trait is implemented for the following:
 ///
 /// - `http::StatusCode`
-/// - `http::Response<impl Into<hyper::Body>>`
+/// - `http::Response<impl Into<hyper::body::Incoming>>`
 /// - `String`
 /// - `&'static str`
 ///
@@ -394,11 +394,11 @@ impl<T: Reply> Reply for WithHeader<T> {
 
 impl<T: Send> Reply for ::http::Response<T>
 where
-    Body: From<T>,
+    Incoming: From<T>,
 {
     #[inline]
     fn into_response(self) -> Response {
-        self.map(Body::from)
+        self.map(Incoming::from)
     }
 }
 
@@ -433,7 +433,7 @@ where
     }
 }
 
-fn text_plain<T: Into<Body>>(body: T) -> Response {
+fn text_plain<T: Into<Incoming>>(body: T) -> Response {
     let mut response = ::http::Response::new(body.into());
     response.headers_mut().insert(
         CONTENT_TYPE,
@@ -457,7 +457,7 @@ impl Reply for Vec<u8> {
                 CONTENT_TYPE,
                 HeaderValue::from_static("application/octet-stream"),
             )
-            .body(Body::from(self))
+            .body(Incoming::from(self))
             .unwrap()
     }
 }
@@ -487,7 +487,7 @@ impl Reply for &'static [u8] {
                 CONTENT_TYPE,
                 HeaderValue::from_static("application/octet-stream"),
             )
-            .body(Body::from(self))
+            .body(Incoming::from(self))
             .unwrap()
     }
 }

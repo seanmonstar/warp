@@ -53,7 +53,7 @@ use std::time::Duration;
 
 use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
-use hyper::Body;
+use hyper::body::Incoming;
 use pin_project::pin_project;
 use serde_json::{self, Error};
 use tokio::time::{self, Sleep};
@@ -340,7 +340,7 @@ where
             .into_stream()
             .and_then(|event| future::ready(Ok(event.to_string())));
 
-        let mut res = Response::new(Body::wrap_stream(body_stream));
+        let mut res = Response::new(Incoming::wrap_stream(body_stream));
         // Set appropriate content type
         res.headers_mut()
             .insert(CONTENT_TYPE, HeaderValue::from_static("text/event-stream"));

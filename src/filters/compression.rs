@@ -10,8 +10,8 @@ use async_compression::tokio::bufread::{DeflateEncoder, GzipEncoder};
 
 use http::header::HeaderValue;
 use hyper::{
+    body::Incoming,
     header::{CONTENT_ENCODING, CONTENT_LENGTH},
-    Body,
 };
 use tokio_util::io::{ReaderStream, StreamReader};
 
@@ -69,7 +69,7 @@ pub struct Compression<F> {
 #[cfg(feature = "compression-gzip")]
 pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(GzipEncoder::new(StreamReader::new(
+        let body = Incoming::wrap_stream(ReaderStream::new(GzipEncoder::new(StreamReader::new(
             props.body,
         ))));
         props
@@ -98,9 +98,9 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 #[cfg(feature = "compression-gzip")]
 pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(DeflateEncoder::new(StreamReader::new(
-            props.body,
-        ))));
+        let body = Incoming::wrap_stream(ReaderStream::new(DeflateEncoder::new(
+            StreamReader::new(props.body),
+        )));
         props
             .head
             .headers
@@ -127,7 +127,7 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 #[cfg(feature = "compression-brotli")]
 pub fn brotli() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
     let func = move |mut props: CompressionProps| {
-        let body = Body::wrap_stream(ReaderStream::new(BrotliEncoder::new(StreamReader::new(
+        let body = Incoming::wrap_stream(ReaderStream::new(BrotliEncoder::new(StreamReader::new(
             props.body,
         ))));
         props
@@ -164,7 +164,7 @@ mod internal {
 
     use bytes::Bytes;
     use futures_util::{ready, Stream, TryFuture};
-    use hyper::Body;
+    use hyper::body::Incoming;
     use pin_project::pin_project;
 
     use crate::filter::{Filter, FilterBase, Internal};
@@ -201,8 +201,8 @@ mod internal {
         }
     }
 
-    impl From<Body> for CompressableBody<Body, hyper::Error> {
-        fn from(body: Body) -> Self {
+    impl From<Incoming> for CompressableBody<Incoming, hyper::Error> {
+        fn from(body: Incoming) -> Self {
             CompressableBody { body }
         }
     }
@@ -210,12 +210,12 @@ mod internal {
     /// Compression Props
     #[derive(Debug)]
     pub struct CompressionProps {
-        pub(super) body: CompressableBody<Body, hyper::Error>,
+        pub(super) body: CompressableBody<Incoming, hyper::Error>,
         pub(super) head: http::response::Parts,
     }
 
-    impl From<http::Response<Body>> for CompressionProps {
-        fn from(resp: http::Response<Body>) -> Self {
+    impl From<http::Response<Incoming>> for CompressionProps {
+        fn from(resp: http::Response<Incoming>) -> Self {
             let (head, body) = resp.into_parts();
             CompressionProps {
                 body: body.into(),
