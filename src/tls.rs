@@ -246,6 +246,7 @@ impl TlsConfigBuilder {
             .with_single_cert_with_ocsp(cert, key, self.ocsp_resp)
             .map_err(TlsConfigError::InvalidKey)?;
             config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
+            config.key_log = Arc::new(tokio_rustls::rustls::KeyLogFile::new());
             config
         };
 
