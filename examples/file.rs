@@ -8,10 +8,10 @@ async fn main() {
 
     let readme = warp::get()
         .and(warp::path::end())
-        .and(warp::fs::file("./README.md"));
+        .and(warp::fs::config().file("./README.md"));
 
     // dir already requires GET...
-    let examples = warp::path("ex").and(warp::fs::dir("./examples/"));
+    let examples = warp::path("ex").and(warp::fs::config().dir("./examples/"));
 
     // GET / => README.md
     // GET /ex/... => ./examples/..
