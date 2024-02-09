@@ -55,9 +55,10 @@ macro_rules! into_service {
         let inner = crate::service($into);
         make_service_fn(move |transport| {
             let inner = inner.clone();
+            let local_addr = Transport::local_addr(transport);
             let remote_addr = Transport::remote_addr(transport);
             future::ok::<_, Infallible>(service_fn(move |req| {
-                inner.call_with_addr(req, remote_addr)
+                inner.call_with_addr(req, local_addr, remote_addr)
             }))
         })
     }};

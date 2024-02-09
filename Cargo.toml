@@ -23,7 +23,7 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 futures-channel = { version = "0.3.17", features = ["sink"]}
 headers = "0.3.5"
 http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+hyper = { version = "0.14.19", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
