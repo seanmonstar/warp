@@ -492,6 +492,16 @@ impl Reply for &'static [u8] {
     }
 }
 
+impl Reply for Cow<'static, [u8]> {
+    #[inline]
+    fn into_response(self) -> Response {
+        match self {
+            Cow::Borrowed(s) => s.into_response(),
+            Cow::Owned(s) => s.into_response(),
+        }
+    }
+}
+
 impl<T, U> Reply for Either<T, U>
 where
     T: Reply,
