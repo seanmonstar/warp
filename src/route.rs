@@ -43,12 +43,17 @@ enum BodyState {
 
 impl Route {
     pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
-        let segments_index = if req.uri().path().starts_with('/') {
-            // Skip the beginning slash.
-            1
-        } else {
-            0
-        };
+        let mut segments_index: usize = 0;
+        if req.uri().path().starts_with('/') {
+            segments_index += 1;
+            #[cfg(feature = "ignore-empty-path-segments")]
+            {
+                let path = req.uri().path().as_bytes();
+                while segments_index < path.len() && path[segments_index] == b'/' {
+                    segments_index += 1;
+                }
+            }
+        }
 
         RefCell::new(Route {
             body: BodyState::Ready,
@@ -93,15 +98,19 @@ impl Route {
 
     pub(crate) fn set_unmatched_path(&mut self, index: usize) {
         let index = self.segments_index + index;
-        let path = self.req.uri().path();
+        let path = self.req.uri().path().as_bytes();
         if path.is_empty() {
             // malformed path
             return;
         } else if path.len() == index {
             self.segments_index = index;
         } else {
-            debug_assert_eq!(path.as_bytes()[index], b'/');
+            debug_assert_eq!(path[index], b'/');
             self.segments_index = index + 1;
+            #[cfg(feature = "ignore-empty-path-segments")]
+            while self.segments_index < path.len() && path[self.segments_index] == b'/' {
+                self.segments_index += 1;
+            }
         }
     }
 
