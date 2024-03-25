@@ -315,7 +315,10 @@ where
     S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
-    SseReply { event_stream, charset: None }
+    SseReply {
+        event_stream,
+        charset: None,
+    }
 }
 
 /// Server-sent events reply (with explicit charset)
@@ -400,13 +403,16 @@ where
     S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
-    SseReply { event_stream, charset: Some(charset) }
+    SseReply {
+        event_stream,
+        charset: Some(charset),
+    }
 }
 
 #[allow(missing_debug_implementations)]
 struct SseReply<S> {
     event_stream: S,
-    charset: Option<String>
+    charset: Option<String>,
 }
 
 impl<S> Reply for SseReply<S>
@@ -428,11 +434,16 @@ where
 
         let mut res = Response::new(Body::wrap_stream(body_stream));
         // Set appropriate content type
-        res.headers_mut()
-            .insert(CONTENT_TYPE, match self.charset {
+        res.headers_mut().insert(
+            CONTENT_TYPE,
+            match self.charset {
                 None => HeaderValue::from_static("text/event-stream"),
-                Some(charset) => HeaderValue::from_str(format!("text/event-stream; charset={}", charset).as_str()).expect("Invalid header value"),
-            });
+                Some(charset) => HeaderValue::from_str(
+                    format!("text/event-stream; charset={}", charset).as_str(),
+                )
+                .expect("Invalid header value"),
+            },
+        );
         // Disable response body caching
         res.headers_mut()
             .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
