@@ -1,3 +1,4 @@
+/*
 #![deny(warnings)]
 
 #[cfg(unix)]
@@ -20,3 +21,5 @@ async fn main() {
 async fn main() {
     panic!("Must run under Unix-like platform!");
 }
+*/
+fn main() {}

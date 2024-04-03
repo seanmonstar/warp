@@ -23,9 +23,11 @@ async-compression = { version = "0.4.5", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
-headers = "0.3.5"
-http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+headers = "0.4"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["server", "server-graceful", "server-auto", "http1", "http2", "service", "tokio"] }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
@@ -57,8 +59,9 @@ listenfd = "1.0"
 [features]
 default = ["multipart", "websocket"]
 multipart = ["multer"]
-websocket = ["tokio-tungstenite"]
-tls = ["tokio-rustls", "rustls-pemfile"]
+websocket = ["hyper/client", "hyper/http1", "tokio-tungstenite"]
+# tls might come back, uncertain
+#tls = ["tokio-rustls", "rustls-pemfile"]
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]
@@ -103,3 +106,6 @@ name = "query_string"
 [[example]]
 name = "multipart"
 required-features = ["multipart"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("tls"))'] }

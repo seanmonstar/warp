@@ -1,7 +1,6 @@
 //! Logger Filters
 
 use std::fmt;
-use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use http::{header, StatusCode};
@@ -36,8 +35,7 @@ pub fn log(name: &'static str) -> Log<impl Fn(Info<'_>) + Copy> {
         // - response content length?
         log::info!(
             target: name,
-            "{} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
-            OptFmt(info.route.remote_addr()),
+            "\"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
             info.method(),
             info.path(),
             info.route.version(),
@@ -109,11 +107,6 @@ where
 }
 
 impl<'a> Info<'a> {
-    /// View the remote `SocketAddr` of the request.
-    pub fn remote_addr(&self) -> Option<SocketAddr> {
-        self.route.remote_addr()
-    }
-
     /// View the `http::Method` of the request.
     pub fn method(&self) -> &http::Method {
         self.route.method()

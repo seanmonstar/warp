@@ -85,6 +85,7 @@
 //! [Filter]: trait.Filter.html
 //! [reject]: reject/index.html
 
+mod bodyt;
 #[macro_use]
 mod error;
 mod filter;
@@ -99,7 +100,6 @@ mod service;
 pub mod test;
 #[cfg(feature = "tls")]
 mod tls;
-mod transport;
 
 pub use self::error::Error;
 pub use self::filter::Filter;
@@ -117,7 +117,7 @@ pub use self::filters::multipart;
 pub use self::filters::ws;
 #[doc(hidden)]
 pub use self::filters::{
-    addr,
+    //addr,
     // any() function
     any::any,
     body,
@@ -160,9 +160,12 @@ pub use self::redirect::redirect;
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
+pub use self::server::serve;
+#[cfg(docsrs)]
+pub use self::server::Server;
 #[cfg(feature = "tls")]
+#[cfg(docsrs)]
 pub use self::server::TlsServer;
-pub use self::server::{serve, Server};
 pub use self::service::service;
 #[doc(hidden)]
 pub use http;
@@ -175,4 +178,4 @@ pub use bytes::Buf;
 pub use futures_util::{Future, Sink, Stream};
 #[doc(hidden)]
 
-pub(crate) type Request = http::Request<hyper::Body>;
+pub(crate) type Request = http::Request<crate::bodyt::Body>;

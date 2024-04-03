@@ -51,9 +51,9 @@ use std::str::FromStr;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use crate::bodyt::Body;
 use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
-use hyper::Body;
 use pin_project::pin_project;
 use serde_json::Error;
 use tokio::time::{self, Sleep};
@@ -312,7 +312,7 @@ where
 /// ```
 pub fn reply<S>(event_stream: S) -> impl Reply
 where
-    S: TryStream<Ok = Event> + Send + 'static,
+    S: TryStream<Ok = Event> + Send + Sync + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     SseReply { event_stream }
@@ -325,7 +325,7 @@ struct SseReply<S> {
 
 impl<S> Reply for SseReply<S>
 where
-    S: TryStream<Ok = Event> + Send + 'static,
+    S: TryStream<Ok = Event> + Send + Sync + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     #[inline]

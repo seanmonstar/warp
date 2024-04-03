@@ -8,11 +8,9 @@ use async_compression::tokio::bufread::BrotliEncoder;
 #[cfg(feature = "compression-gzip")]
 use async_compression::tokio::bufread::{DeflateEncoder, GzipEncoder};
 
+use crate::bodyt::Body;
 use http::header::HeaderValue;
-use hyper::{
-    header::{CONTENT_ENCODING, CONTENT_LENGTH},
-    Body,
-};
+use hyper::header::{CONTENT_ENCODING, CONTENT_LENGTH};
 use tokio_util::io::{ReaderStream, StreamReader};
 
 use crate::filter::{Filter, WrapSealed};
@@ -164,9 +162,10 @@ mod internal {
 
     use bytes::Bytes;
     use futures_util::{ready, Stream, TryFuture};
-    use hyper::Body;
+    use http_body_util::BodyDataStream;
     use pin_project::pin_project;
 
+    use crate::bodyt::Body;
     use crate::filter::{Filter, FilterBase, Internal};
     use crate::reject::IsReject;
     use crate::reply::{Reply, Response};
@@ -201,16 +200,18 @@ mod internal {
         }
     }
 
-    impl From<Body> for CompressableBody<Body, hyper::Error> {
+    impl From<Body> for CompressableBody<BodyDataStream<Body>, crate::Error> {
         fn from(body: Body) -> Self {
-            CompressableBody { body }
+            CompressableBody {
+                body: BodyDataStream::new(body),
+            }
         }
     }
 
     /// Compression Props
     #[derive(Debug)]
     pub struct CompressionProps {
-        pub(super) body: CompressableBody<Body, hyper::Error>,
+        pub(super) body: CompressableBody<BodyDataStream<Body>, crate::Error>,
         pub(super) head: http::response::Parts,
     }
 

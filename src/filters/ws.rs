@@ -189,9 +189,8 @@ fn on_upgrade() -> impl Filter<Extract = (Option<OnUpgrade>,), Error = Rejection
 ///
 /// **Note!**
 /// Due to rust futures nature, pings won't be handled until read part of `WebSocket` is polled
-
 pub struct WebSocket {
-    inner: WebSocketStream<hyper::upgrade::Upgraded>,
+    inner: WebSocketStream<hyper_util::rt::TokioIo<hyper::upgrade::Upgraded>>,
 }
 
 impl WebSocket {
@@ -200,6 +199,7 @@ impl WebSocket {
         role: protocol::Role,
         config: Option<protocol::WebSocketConfig>,
     ) -> Self {
+        let upgraded = hyper_util::rt::TokioIo::new(upgraded);
         WebSocketStream::from_raw_socket(upgraded, role, config)
             .map(|inner| WebSocket { inner })
             .await

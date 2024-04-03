@@ -61,11 +61,11 @@ use std::convert::Infallible;
 use std::error::Error as StdError;
 use std::fmt;
 
+use crate::bodyt::Body;
 use http::{
     header::{HeaderValue, CONTENT_TYPE},
     StatusCode,
 };
-use hyper::Body;
 
 pub(crate) use self::sealed::{CombineRejection, IsReject};
 
@@ -281,13 +281,13 @@ enum_known! {
     UnsupportedMediaType(UnsupportedMediaType),
     FileOpenError(crate::fs::FileOpenError),
     FilePermissionError(crate::fs::FilePermissionError),
-    BodyReadError(crate::body::BodyReadError),
-    BodyDeserializeError(crate::body::BodyDeserializeError),
+    BodyReadError(crate::filters::body::BodyReadError),
+    BodyDeserializeError(crate::filters::body::BodyDeserializeError),
     CorsForbidden(crate::cors::CorsForbidden),
     #[cfg(feature = "websocket")]
     MissingConnectionUpgrade(crate::ws::MissingConnectionUpgrade),
     MissingExtension(crate::ext::MissingExtension),
-    BodyConsumedMultipleTimes(crate::body::BodyConsumedMultipleTimes),
+    BodyConsumedMultipleTimes(crate::filters::body::BodyConsumedMultipleTimes),
 }
 
 impl Rejection {
@@ -798,8 +798,9 @@ mod tests {
     }
 
     async fn response_body_string(resp: crate::reply::Response) -> String {
+        use http_body_util::BodyExt;
         let (_, body) = resp.into_parts();
-        let body_bytes = hyper::body::to_bytes(body).await.expect("failed concat");
+        let body_bytes = body.collect().await.unwrap().to_bytes();
         String::from_utf8_lossy(&body_bytes).to_string()
     }
 
