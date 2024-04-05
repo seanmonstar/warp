@@ -5,8 +5,20 @@ on:
   push:
     branches:
       - master
+env:
+  RUST_BACKTRACE: 1
 
 jobs:
+  ci-pass:
+    name: CI is green
+    runs-on: ubuntu-latest
+    needs:
+      - style
+      - test
+      - doc
+    steps:
+      - run: exit 0
+
   style:
     name: Check Style
     runs-on: ubuntu-latest
