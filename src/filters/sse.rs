@@ -55,7 +55,7 @@ use futures_util::{future, Stream, TryStream, TryStreamExt};
 use http::header::{HeaderValue, CACHE_CONTROL, CONTENT_TYPE};
 use hyper::Body;
 use pin_project::pin_project;
-use serde_json::{self, Error};
+use serde_json::Error;
 use tokio::time::{self, Sleep};
 
 use self::sealed::SseError;

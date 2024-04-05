@@ -12,7 +12,6 @@ use crate::reject::Rejection;
 use crate::reply::{Reply, Response};
 use futures_util::{future, ready, FutureExt, Sink, Stream, TryFutureExt};
 use headers::{Connection, HeaderMapExt, SecWebsocketAccept, SecWebsocketKey, Upgrade};
-use http;
 use hyper::upgrade::OnUpgrade;
 use tokio_tungstenite::{
     tungstenite::protocol::{self, WebSocketConfig},
