@@ -19,7 +19,6 @@ use headers::{
 };
 use http::StatusCode;
 use hyper::Body;
-use mime_guess;
 use percent_encoding::percent_decode_str;
 use tokio::fs::File as TkFile;
 use tokio::io::AsyncSeekExt;

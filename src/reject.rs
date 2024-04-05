@@ -62,7 +62,6 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use http::{
-    self,
     header::{HeaderValue, CONTENT_TYPE},
     StatusCode,
 };
@@ -707,7 +706,6 @@ mod sealed {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::StatusCode;
 
     #[derive(Debug, PartialEq)]
     struct Left;

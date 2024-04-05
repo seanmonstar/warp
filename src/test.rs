@@ -104,7 +104,6 @@ use http::{
     Response,
 };
 use serde::Serialize;
-use serde_json;
 #[cfg(feature = "websocket")]
 use tokio::sync::oneshot;
 

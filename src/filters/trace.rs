@@ -12,7 +12,7 @@ use tracing::Span;
 
 use std::net::SocketAddr;
 
-use http::{self, header};
+use http::header;
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::IsReject;
