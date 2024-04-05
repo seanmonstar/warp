@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.3.6" # don't forget to update html_root_url
+version = "0.3.7"
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
