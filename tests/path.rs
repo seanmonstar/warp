@@ -3,6 +3,7 @@
 extern crate warp;
 
 use futures_util::future;
+use warp::path::Tail;
 use warp::Filter;
 
 #[tokio::test]
@@ -56,6 +57,71 @@ async fn param() {
     assert!(
         !req.matches(&s).await,
         "param should never match an empty segment"
+    );
+}
+
+#[tokio::test]
+async fn custom() {
+    let _ = pretty_env_logger::try_init();
+
+    // extracting path segment and advancing
+    let simple = warp::path::custom(|remaining| {
+        if let Some(pos) = remaining.rfind('/') {
+            let ret = &remaining[0..pos];
+            Ok((ret.len(), (ret.to_string(),)))
+        } else {
+            Err(warp::reject::not_found())
+        }
+    })
+    .and(warp::path::tail())
+    .map(|m, t: Tail| (m, t.as_str().to_string()));
+
+    let req = warp::test::request().path("/one/two/three");
+    assert_eq!(
+        req.filter(&simple).await.unwrap(),
+        ("one/two".to_string(), "three".to_string())
+    );
+
+    // no extracting
+    let no_extract = warp::path::custom(|remaining| {
+        if remaining.ends_with(".bmp") {
+            Ok((0, ()))
+        } else {
+            Err(warp::reject::not_found())
+        }
+    })
+    .and(warp::path::tail())
+    .map(|t: Tail| (t.as_str().to_string()));
+
+    let req = warp::test::request().path("/one/two/three.bmp");
+    assert_eq!(
+        req.filter(&no_extract).await.unwrap(),
+        ("one/two/three.bmp".to_string())
+    );
+
+    let req = warp::test::request().path("/one/two/three.png");
+    assert!(
+        !req.matches(&no_extract).await,
+        "custom() doesn't match .png"
+    );
+
+    // prefixed and postfixed path() matching
+    let mixed = warp::path::path("prefix")
+        .and(warp::path::custom(|remaining| {
+            if let Some(pos) = remaining.rfind('/') {
+                let ret = &remaining[0..pos];
+                Ok((ret.len(), (ret.to_string(),)))
+            } else {
+                Err(warp::reject::not_found())
+            }
+        }))
+        .and(warp::path::path("postfix"))
+        .and(warp::path::end());
+
+    let req = warp::test::request().path("/prefix/middle/area/postfix");
+    assert_eq!(
+        req.filter(&mixed).await.unwrap(),
+        ("middle/area".to_string())
     );
 }
 
