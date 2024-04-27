@@ -10,7 +10,7 @@ async fn main() {
 
     let listener = UnixListener::bind("/tmp/warp.sock").unwrap();
     let incoming = UnixListenerStream::new(listener);
-    warp::serve(warp::fs::dir("examples/dir"))
+    warp::serve(warp::fs::config().dir("examples/dir"))
         .run_incoming(incoming)
         .await;
 }

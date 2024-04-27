@@ -63,7 +63,7 @@ pub struct Compression<F> {
 ///
 /// let route = warp::get()
 ///     .and(warp::path::end())
-///     .and(warp::fs::file("./README.md"))
+///     .and(warp::fs::config().file("./README.md"))
 ///     .with(warp::compression::gzip());
 /// ```
 #[cfg(feature = "compression-gzip")]
@@ -92,7 +92,7 @@ pub fn gzip() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 ///
 /// let route = warp::get()
 ///     .and(warp::path::end())
-///     .and(warp::fs::file("./README.md"))
+///     .and(warp::fs::config().file("./README.md"))
 ///     .with(warp::compression::deflate());
 /// ```
 #[cfg(feature = "compression-gzip")]
@@ -121,7 +121,7 @@ pub fn deflate() -> Compression<impl Fn(CompressionProps) -> Response + Copy> {
 ///
 /// let route = warp::get()
 ///     .and(warp::path::end())
-///     .and(warp::fs::file("./README.md"))
+///     .and(warp::fs::config().file("./README.md"))
 ///     .with(warp::compression::brotli());
 /// ```
 #[cfg(feature = "compression-brotli")]
