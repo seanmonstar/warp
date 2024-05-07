@@ -7,10 +7,15 @@ use hyper::server::conn::AddrStream;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 pub trait Transport: AsyncRead + AsyncWrite {
+    fn local_addr(&self) -> Option<SocketAddr>;
     fn remote_addr(&self) -> Option<SocketAddr>;
 }
 
 impl Transport for AddrStream {
+    fn local_addr(&self) -> Option<SocketAddr> {
+        Some(self.local_addr())
+    }
+
     fn remote_addr(&self) -> Option<SocketAddr> {
         Some(self.remote_addr())
     }
@@ -47,6 +52,10 @@ impl<T: AsyncWrite + Unpin> AsyncWrite for LiftIo<T> {
 }
 
 impl<T: AsyncRead + AsyncWrite + Unpin> Transport for LiftIo<T> {
+    fn local_addr(&self) -> Option<SocketAddr> {
+        None
+    }
+
     fn remote_addr(&self) -> Option<SocketAddr> {
         None
     }
