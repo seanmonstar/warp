@@ -99,7 +99,7 @@ async fn user_connected(ws: WebSocket, users: Users) {
 
 async fn user_message(my_id: usize, msg: Message, users: &Users) {
     // Skip any non-Text messages...
-    let msg = if let Ok(s) = msg.to_str() {
+    let msg = if let Some(s) = msg.as_text() {
         s
     } else {
         return;

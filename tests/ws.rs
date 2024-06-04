@@ -63,7 +63,7 @@ async fn text() {
     client.send_text("hello warp").await;
 
     let msg = client.recv().await.expect("recv");
-    assert_eq!(msg.to_str(), Ok("hello warp"));
+    assert_eq!(msg.as_text(), Some("hello warp"));
 }
 
 #[tokio::test]
