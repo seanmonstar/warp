@@ -42,7 +42,7 @@ async fn main() {
     // easily with others...
     let hb = Arc::new(hb);
 
-    // Create a reusable closure to render template
+    // Create a reusable closure to render template - clone it for each map use
     let handlebars = move |with_template| render(with_template, hb.clone());
 
     //GET /
@@ -52,7 +52,7 @@ async fn main() {
             name: "template.html",
             value: json!({"user" : "Warp"}),
         })
-        .map(handlebars);
+        .map(handlebars.clone());
 
     warp::serve(route).run(([127, 0, 0, 1], 3030)).await;
 }
