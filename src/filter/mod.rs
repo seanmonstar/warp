@@ -1,6 +1,7 @@
 mod and;
 mod and_then;
 mod boxed;
+mod flatten;
 mod map;
 mod map_err;
 mod or;
@@ -23,6 +24,7 @@ use crate::route::{self, Route};
 pub(crate) use self::and::And;
 use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
+use self::flatten::Flatten;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
 pub(crate) use self::or::Or;
@@ -260,6 +262,40 @@ pub trait Filter: FilterBase {
         <F::Output as TryFuture>::Error: CombineRejection<Self::Error>,
     {
         AndThen {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Composes this `Filter` with a function receiving the extracted value, and producing a new filter.
+    ///
+    /// The function should return a future that has another filter as output
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    ///
+    /// // Some external filter
+    /// let my_complex_filter = warp::any();
+    ///
+    /// warp::path::param()
+    ///     .flatten(move |id: u64| async move {
+    ///         if id != 0 {
+    ///             println!("Do something complex to prepare!");
+    ///         }
+    ///         my_complex_filter
+    ///     });
+    /// ```
+    fn flatten<F>(self, fun: F) -> Flatten<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone + Send,
+        F::Output: Future + Send,
+        <F::Output as Future>::Output: Filter,
+        <<F::Output as Future>::Output as FilterBase>::Error: CombineRejection<Self::Error>,
+    {
+        Flatten {
             filter: self,
             callback: fun,
         }
