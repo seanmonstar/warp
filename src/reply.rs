@@ -48,7 +48,7 @@ use self::sealed::{BoxedReply, Internal};
 #[doc(hidden)]
 pub use crate::filters::reply as with;
 
-/// Response type into which types implementing the `Reply` trait are convertable.
+/// Response type into which types implementing the `Reply` trait are convertible.
 pub type Response = ::http::Response<Body>;
 
 /// Returns an empty `Reply` with status code `200 OK`.
