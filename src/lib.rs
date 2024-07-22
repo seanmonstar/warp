@@ -99,10 +99,12 @@ mod service;
 pub mod test;
 #[cfg(feature = "tls")]
 mod tls;
+/// impl `Transport` to ensure `ws::addr::remote` return value
 mod transport;
 
 pub use self::error::Error;
 pub use self::filter::Filter;
+pub use self::transport::{LiftIo, Transport};
 // This otherwise shows a big dump of re-exports in the doc homepage,
 // with zero context, so just hide it from the docs. Doc examples
 // on each can show that a convenient import exists.
