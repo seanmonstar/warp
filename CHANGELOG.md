@@ -82,7 +82,7 @@
 
 - **Features**:
   - Add `tracing` internals in place of `log` (log is still emitted for backwards compatibility).
-  - Add `warp::trace` module set of filters to customize `tracing` dianostics.
+  - Add `warp::trace` module set of filters to customize `tracing` diagnostics.
   - Add `path` method to `warp::fs::File` reply.
   - Add `source` implementation for `BodyDeserializeError`.
   - Make `warp::ws::MissingConnectionUpgrade` rejection public.
