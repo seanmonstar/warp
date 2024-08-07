@@ -131,6 +131,7 @@ use std::str::FromStr;
 
 use futures_util::future;
 use http::uri::PathAndQuery;
+use percent_encoding::percent_decode_str;
 
 use self::internal::Opaque;
 use crate::filter::{filter_fn, one, Filter, FilterBase, Internal, One, Tuple};
@@ -266,11 +267,16 @@ pub fn end() -> impl Filter<Extract = (), Error = Rejection> + Copy {
 pub fn param<T: FromStr + Send + 'static>(
 ) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy {
     filter_segment(|seg| {
+        let seg = percent_decode_str(seg)
+            .decode_utf8()
+            .map_err(|_| reject::invalid_encoded_url())?;
         tracing::trace!("param?: {:?}", seg);
         if seg.is_empty() {
             return Err(reject::not_found());
         }
-        T::from_str(seg).map(one).map_err(|_| reject::not_found())
+        T::from_str(seg.as_ref())
+            .map(one)
+            .map_err(|_| reject::not_found())
     })
 }
 
