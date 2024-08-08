@@ -22,7 +22,7 @@ use crate::reject::Rejection;
 ///
 /// pub fn assets_filter() -> BoxedFilter<(impl Reply,)> {
 ///     warp::path("assets")
-///         .and(warp::fs::dir("./assets"))
+///         .and(warp::fs::config().dir("./assets"))
 ///         .boxed()
 /// }
 /// ```
