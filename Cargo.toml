@@ -58,6 +58,9 @@ multipart = ["multer"]
 websocket = ["tokio-tungstenite"]
 tls = ["tokio-rustls", "rustls-pemfile"]
 
+# allow double slashes in paths
+ignore-empty-path-segments = []
+
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]
 compression-brotli = ["async-compression/brotli"]
@@ -78,6 +81,10 @@ required-features = ["multipart"]
 [[test]]
 name = "ws"
 required-features = ["websocket"]
+
+[[test]]
+name = "path_empty_segments"
+required-features = ["ignore-empty-path-segments"]
 
 [[example]]
 name = "compression"
