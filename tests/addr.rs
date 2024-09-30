@@ -3,6 +3,27 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 #[tokio::test]
+async fn local_addr_missing() {
+    let extract_local_addr = warp::addr::local();
+
+    let req = warp::test::request();
+    let resp = req.filter(&extract_local_addr).await.unwrap();
+    assert_eq!(resp, None)
+}
+
+#[tokio::test]
+async fn local_addr_present() {
+    let extract_local_addr = warp::addr::local();
+
+    let req = warp::test::request().local_addr("1.2.3.4:5678".parse().unwrap());
+    let resp = req.filter(&extract_local_addr).await.unwrap();
+    assert_eq!(
+        resp,
+        Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), 5678))
+    )
+}
+
+#[tokio::test]
 async fn remote_addr_missing() {
     let extract_remote_addr = warp::addr::remote();
 

@@ -281,6 +281,10 @@ impl Read for LazyFile {
 }
 
 impl Transport for TlsStream {
+    fn local_addr(&self) -> Option<SocketAddr> {
+        Some(self.local_addr)
+    }
+
     fn remote_addr(&self) -> Option<SocketAddr> {
         Some(self.remote_addr)
     }
@@ -296,15 +300,18 @@ enum State {
 // TlsStream implements AsyncRead/AsyncWrite handshaking tokio_rustls::Accept first
 pub(crate) struct TlsStream {
     state: State,
+    local_addr: SocketAddr,
     remote_addr: SocketAddr,
 }
 
 impl TlsStream {
     fn new(stream: AddrStream, config: Arc<ServerConfig>) -> TlsStream {
+        let local_addr = stream.local_addr();
         let remote_addr = stream.remote_addr();
         let accept = tokio_rustls::TlsAcceptor::from(config).accept(stream);
         TlsStream {
             state: State::Handshaking(accept),
+            local_addr,
             remote_addr,
         }
     }

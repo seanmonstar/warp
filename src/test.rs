@@ -122,6 +122,7 @@ use self::inner::OneOrTuple;
 /// Starts a new test `RequestBuilder`.
 pub fn request() -> RequestBuilder {
     RequestBuilder {
+        local_addr: None,
         remote_addr: None,
         req: Request::default(),
     }
@@ -139,6 +140,7 @@ pub fn ws() -> WsBuilder {
 #[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
+    local_addr: Option<SocketAddr>,
     remote_addr: Option<SocketAddr>,
     req: Request,
 }
@@ -233,6 +235,22 @@ impl RequestBuilder {
             .map_err(|_| ())
             .expect("invalid header value");
         self.req.headers_mut().insert(name, value);
+        self
+    }
+
+    /// Set the local address of this request
+    ///
+    /// Default is no local address.
+    ///
+    /// # Example
+    /// ```
+    /// use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    ///
+    /// let req = warp::test::request()
+    ///     .local_addr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080));
+    /// ```
+    pub fn local_addr(mut self, addr: SocketAddr) -> Self {
+        self.local_addr = Some(addr);
         self
     }
 
@@ -375,7 +393,7 @@ impl RequestBuilder {
         // TODO: de-duplicate this and apply_filter()
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.local_addr, self.remote_addr);
         let mut fut = Box::pin(
             route::set(&route, move || f.filter(crate::filter::Internal)).then(|result| {
                 let res = match result {
@@ -404,7 +422,7 @@ impl RequestBuilder {
     {
         assert!(!route::is_set(), "nested test filter calls");
 
-        let route = Route::new(self.req, self.remote_addr);
+        let route = Route::new(self.req, self.local_addr, self.remote_addr);
         let mut fut = Box::pin(route::set(&route, move || {
             f.filter(crate::filter::Internal)
         }));
