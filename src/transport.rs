@@ -7,7 +7,10 @@ use hyper::server::conn::AddrStream;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 #[cfg(feature = "tls")]
-pub(crate) type PeerCertificates = std::sync::Arc<std::sync::RwLock<Option<Vec<tokio_rustls::rustls::Certificate>>>>;
+use crate::filters::mtls::Certificates;
+
+#[cfg(feature = "tls")]
+pub(crate) type PeerCertificates = std::sync::Arc<std::sync::RwLock<Option<Certificates>>>;
 #[cfg(not(feature = "tls"))]
 pub(crate) type PeerCertificates = ();
 

@@ -1,7 +1,7 @@
 #![deny(warnings)]
 #![cfg(feature = "tls")]
 
-use tokio_rustls::rustls::Certificate;
+use rustls_pki_types::CertificateDer;
 
 #[tokio::test]
 async fn peer_certificates_missing() {
@@ -16,11 +16,9 @@ async fn peer_certificates_missing() {
 async fn peer_certificates_present() {
     let extract_peer_certs = warp::mtls::peer_certificates();
 
-    let cert = Certificate(b"TEST CERT".to_vec());
+    let cert = CertificateDer::<'_>::from_slice(b"TEST CERT");
+
     let req = warp::test::request().peer_certificates([cert.clone()]);
     let resp = req.filter(&extract_peer_certs).await.unwrap();
-    assert_eq!(
-        resp.unwrap().as_ref(),
-        &[cert],
-    )
+    assert_eq!(resp.unwrap(), &[cert],)
 }

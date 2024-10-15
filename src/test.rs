@@ -113,10 +113,13 @@ use crate::filters::ws::Message;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 use crate::route::{self, Route};
-use crate::Request;
 use crate::transport::PeerInfo;
+use crate::Request;
 #[cfg(feature = "websocket")]
 use crate::{Sink, Stream};
+
+#[cfg(feature = "tls")]
+use crate::filters::mtls::Certificates;
 
 use self::inner::OneOrTuple;
 
@@ -256,10 +259,10 @@ impl RequestBuilder {
     /// # Example
     /// ```
     /// let req = warp::test::request()
-    ///     .peer_certificates([tokio_rustls::rustls::Certificate(b"FAKE CERT".to_vec())]);
+    ///     .peer_certificates([rustls_pki_types::CertificateDer::from_slice(b"FAKE CERT")]);
     /// ```
     #[cfg(feature = "tls")]
-    pub fn peer_certificates(self, certs: impl Into<Vec<tokio_rustls::rustls::Certificate>>) -> Self {
+    pub fn peer_certificates(self, certs: impl Into<Certificates>) -> Self {
         *self.peer_info.peer_certificates.write().unwrap() = Some(certs.into());
         self
     }

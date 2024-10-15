@@ -4,3 +4,5 @@
 Cargo.lock
 .idea/
 warp.iml
+
+*.swp

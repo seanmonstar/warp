@@ -41,6 +41,7 @@ percent-encoding = "2.1"
 pin-project = "1.0"
 tokio-rustls = { version = "0.25", optional = true }
 rustls-pemfile = { version = "2.0", optional = true }
+rustls-pki-types = { version = "1.9.0", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
@@ -56,7 +57,7 @@ listenfd = "1.0"
 default = ["multipart", "websocket"]
 multipart = ["multer"]
 websocket = ["tokio-tungstenite"]
-tls = ["tokio-rustls", "rustls-pemfile"]
+tls = ["tokio-rustls", "rustls-pemfile", "rustls-pki-types"]
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]

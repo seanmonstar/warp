@@ -15,6 +15,7 @@ use hyper::server::conn::{AddrIncoming, AddrStream};
 use tokio_rustls::rustls::server::WebPkiClientVerifier;
 use tokio_rustls::rustls::{Error as TlsError, RootCertStore, ServerConfig};
 
+use crate::filters::mtls::peer_certs_into_owned;
 use crate::transport::{PeerCertificates, Transport};
 
 /// Represents errors that can occur building the TlsConfig
@@ -327,8 +328,9 @@ impl AsyncRead for TlsStream {
             State::Handshaking(ref mut accept) => match ready!(Pin::new(accept).poll(cx)) {
                 Ok(mut stream) => {
                     let (_, conn) = stream.get_ref();
-                    *pin.peer_certs.write().unwrap() =
-                        conn.peer_certificates().map(|certs| certs.to_vec());
+                    *pin.peer_certs.write().unwrap() = conn
+                        .peer_certificates()
+                        .map(|certs| peer_certs_into_owned(&certs.to_vec()));
 
                     let result = Pin::new(&mut stream).poll_read(cx, buf);
                     pin.state = State::Streaming(stream);
