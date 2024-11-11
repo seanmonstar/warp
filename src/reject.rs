@@ -62,7 +62,6 @@ use std::error::Error as StdError;
 use std::fmt;
 
 use http::{
-    self,
     header::{HeaderValue, CONTENT_TYPE},
     StatusCode,
 };
@@ -707,7 +706,6 @@ mod sealed {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::StatusCode;
 
     #[derive(Debug, PartialEq)]
     struct Left;
@@ -826,7 +824,7 @@ mod tests {
     }
 
     #[derive(Debug)]
-    struct X(u32);
+    struct X(#[allow(unused)] u32);
     impl Reject for X {}
 
     fn combine_n<F, R>(n: u32, new_reject: F) -> Rejection

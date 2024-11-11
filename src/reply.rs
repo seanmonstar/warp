@@ -35,15 +35,12 @@
 
 use std::borrow::Cow;
 use std::convert::TryFrom;
-use std::error::Error as StdError;
-use std::fmt;
 
 use crate::generic::{Either, One};
 use http::header::{HeaderName, HeaderValue, CONTENT_TYPE};
 use http::StatusCode;
 use hyper::Body;
 use serde::Serialize;
-use serde_json;
 
 // This re-export just looks weird in docs...
 pub(crate) use self::sealed::Reply_;
@@ -130,17 +127,6 @@ impl Reply for Json {
         }
     }
 }
-
-#[derive(Debug)]
-pub(crate) struct ReplyJsonError;
-
-impl fmt::Display for ReplyJsonError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("warp::reply::json() failed")
-    }
-}
-
-impl StdError for ReplyJsonError {}
 
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
 ///

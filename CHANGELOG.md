@@ -1,3 +1,10 @@
+### v0.3.7 (April 5, 2024)
+
+- **Features**:
+  - Add ecc private key support to `tls()` config.
+- **Fixes**:
+  - Several dependency upgrades.
+
 ### v0.3.6 (September 27, 2023)
 
 - **Features**:

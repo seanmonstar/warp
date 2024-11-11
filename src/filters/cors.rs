@@ -9,10 +9,7 @@ use std::sync::Arc;
 use headers::{
     AccessControlAllowHeaders, AccessControlAllowMethods, AccessControlExposeHeaders, HeaderMapExt,
 };
-use http::{
-    self,
-    header::{self, HeaderName, HeaderValue},
-};
+use http::header::{self, HeaderName, HeaderValue};
 
 use crate::filter::{Filter, WrapSealed};
 use crate::reject::{CombineRejection, Rejection};

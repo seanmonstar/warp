@@ -120,7 +120,7 @@ impl Stream for FormData {
         match self.inner.poll_next_field(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Ok(Some(part))) => {
-                if part.name().is_some() {
+                if part.name().is_some() || part.file_name().is_some() {
                     Poll::Ready(Some(Ok(Part { part })))
                 } else {
                     Poll::Ready(Some(Err(crate::Error::new(MultipartFieldMissingName))))
@@ -137,7 +137,9 @@ impl Stream for FormData {
 impl Part {
     /// Get the name of this part.
     pub fn name(&self) -> &str {
-        self.part.name().expect("checked for name previously")
+        self.part
+            .name()
+            .unwrap_or_else(|| self.part.file_name().expect("checked for name previously"))
     }
 
     /// Get the filename of this part, if present.
@@ -174,7 +176,7 @@ impl Part {
 impl fmt::Debug for Part {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("Part");
-        builder.field("name", &self.part.name());
+        builder.field("name", &self.name());
 
         if let Some(ref filename) = self.part.file_name() {
             builder.field("filename", filename);
