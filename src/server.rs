@@ -147,10 +147,10 @@ where
     pub async fn run_incoming<I>(self, incoming: I)
     where
         I: TryStream + Send,
-        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
+        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin + Transport,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
-        self.run_incoming2(incoming.map_ok(crate::transport::LiftIo).into_stream())
+        self.run_incoming2(incoming)
             .instrument(tracing::info_span!("Server::run_incoming"))
             .await;
     }
@@ -349,10 +349,9 @@ where
     ) -> impl Future<Output = ()>
     where
         I: TryStream + Send,
-        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin,
+        I::Ok: AsyncRead + AsyncWrite + Send + 'static + Unpin + Transport,
         I::Error: Into<Box<dyn StdError + Send + Sync>>,
     {
-        let incoming = incoming.map_ok(crate::transport::LiftIo);
         let service = into_service!(self.filter);
         let pipeline = self.pipeline;
 
