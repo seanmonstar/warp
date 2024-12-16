@@ -45,7 +45,7 @@ use crate::filter::{Filter, FilterBase, Internal};
 ///     });
 /// ```
 ///
-/// Note that using [with_cloneable](crate::filters::cloneable::with_cloneable) can be used for
+/// Note that [with_cloneable](crate::filters::cloneable::with_cloneable) can be used for
 /// this specific use-case of passing along a cloneable parameter.
 pub fn any() -> impl Filter<Extract = (), Error = Infallible> + Copy {
     Any
