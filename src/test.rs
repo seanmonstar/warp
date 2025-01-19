@@ -572,7 +572,7 @@ impl WsBuilder {
 impl WsClient {
     /// Send a "text" websocket message to the server.
     pub async fn send_text(&mut self, text: impl Into<String>) {
-        self.send(crate::ws::Message::text(text)).await;
+        self.send(crate::ws::Message::text(text.into())).await;
     }
 
     /// Send a websocket message to the server.
