@@ -196,6 +196,8 @@ impl TlsConfigBuilder {
                 rustls_pemfile::Item::Pkcs1Key(k) => key_opt = Some(k.into()),
                 rustls_pemfile::Item::Pkcs8Key(k) => key_opt = Some(k.into()),
                 rustls_pemfile::Item::Sec1Key(k) => key_opt = Some(k.into()),
+                // Ignore certs in the same pem file as private key
+                rustls_pemfile::Item::X509Certificate(_) => {}
                 _ => return Err(TlsConfigError::UnknownPrivateKeyFormat),
             }
         }
