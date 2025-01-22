@@ -444,4 +444,16 @@ mod tests {
             .build()
             .unwrap();
     }
+
+    #[test]
+    fn cert_key_as_one() {
+        let key = include_str!("../examples/tls/key.ecc");
+        let cert = include_str!("../examples/tls/cert.ecc.pem");
+        let combined = format!("{cert}\n{key}");
+        TlsConfigBuilder::new()
+            .key(combined.as_bytes())
+            .cert(combined.as_bytes())
+            .build()
+            .unwrap();
+    }
 }
