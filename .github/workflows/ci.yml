@@ -40,7 +40,7 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls, no-default-features, compression]
+        build: [stable, beta, nightly, no-default-features, compression]
 
         include:
           - build: beta
@@ -48,8 +48,6 @@ jobs:
           - build: nightly
             rust: nightly
             benches: true
-          - build: tls
-            features: "--features tls"
           - build: no-default-features
             features: "--no-default-features"
           - build: compression

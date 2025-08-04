@@ -1,11 +1,8 @@
 use scoped_tls::scoped_thread_local;
 use std::cell::RefCell;
 use std::mem;
-use std::net::SocketAddr;
 
-use hyper::Body;
-
-use crate::Request;
+use crate::{bodyt::Body, Request};
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
 
@@ -30,7 +27,6 @@ where
 #[derive(Debug)]
 pub(crate) struct Route {
     body: BodyState,
-    remote_addr: Option<SocketAddr>,
     req: Request,
     segments_index: usize,
 }
@@ -42,7 +38,7 @@ enum BodyState {
 }
 
 impl Route {
-    pub(crate) fn new(req: Request, remote_addr: Option<SocketAddr>) -> RefCell<Route> {
+    pub(crate) fn new(req: http::Request<Body>) -> RefCell<Route> {
         let segments_index = if req.uri().path().starts_with('/') {
             // Skip the beginning slash.
             1
@@ -52,7 +48,6 @@ impl Route {
 
         RefCell::new(Route {
             body: BodyState::Ready,
-            remote_addr,
             req,
             segments_index,
         })
@@ -121,10 +116,6 @@ impl Route {
             index,
         );
         self.segments_index = index;
-    }
-
-    pub(crate) fn remote_addr(&self) -> Option<SocketAddr> {
-        self.remote_addr
     }
 
     pub(crate) fn take_body(&mut self) -> Option<Body> {
