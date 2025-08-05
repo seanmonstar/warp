@@ -15,6 +15,12 @@ edition = "2021"
 
 publish = false
 
+include = [
+    "Cargo.toml",
+    "LICENSE",
+    "src/**/*",
+]
+
 [package.metadata.docs.rs]
 all-features = true
 
