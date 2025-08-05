@@ -13,8 +13,6 @@ autotests = true
 autoexamples = true
 edition = "2021"
 
-publish = false
-
 include = [
     "Cargo.toml",
     "LICENSE",
