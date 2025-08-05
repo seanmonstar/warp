@@ -37,7 +37,7 @@ Add warp and Tokio to your dependencies:
 
 ```toml
 tokio = { version = "1", features = ["full"] }
-warp = "0.3"
+warp = { version = "0.4", features = ["server"] }
 ```
 
 And then get started in your `main.rs`:
