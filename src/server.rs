@@ -104,7 +104,7 @@ where
 
     pub fn graceful<Fut>(self, shutdown_signal: Fut) -> Server<F, A, run::Graceful<Fut>>
     where
-        F: Future<Output=()> + Send + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
         Server {
             acceptor: self.acceptor,
@@ -339,7 +339,7 @@ mod run {
                     future::Either::Left((Err(err), _)) => {
                         handle_accept_error(err).await;
                         continue;
-                    },
+                    }
                     future::Either::Right(((), _)) => {
                         tracing::debug!("shutdown signal received, starting graceful shutdown");
                         break;
