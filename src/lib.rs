@@ -2,6 +2,7 @@
 #![deny(missing_debug_implementations)]
 #![deny(rust_2018_idioms)]
 #![cfg_attr(test, deny(warnings))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! # warp
 //!
@@ -95,8 +96,10 @@ pub mod redirect;
 pub mod reject;
 pub mod reply;
 mod route;
+#[cfg(feature = "server")]
 mod server;
 mod service;
+#[cfg(feature = "test")]
 pub mod test;
 #[cfg(feature = "tls")]
 mod tls;
@@ -160,12 +163,11 @@ pub use self::redirect::redirect;
 pub use self::reject::{reject, Rejection};
 #[doc(hidden)]
 pub use self::reply::{reply, Reply};
+#[cfg(feature = "server")]
 pub use self::server::serve;
 #[cfg(docsrs)]
+#[cfg(feature = "server")]
 pub use self::server::Server;
-#[cfg(feature = "tls")]
-#[cfg(docsrs)]
-pub use self::server::TlsServer;
 pub use self::service::service;
 #[doc(hidden)]
 pub use http;

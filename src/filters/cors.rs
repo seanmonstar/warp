@@ -17,7 +17,7 @@ use crate::reply::Reply;
 
 use self::internal::{CorsFilter, IntoOrigin, Seconds};
 
-/// Create a wrapping [`Filter`](crate::Filter) that exposes [CORS][] behavior for a wrapped
+/// Create a wrapping [`Filter`] that exposes [CORS][] behavior for a wrapped
 /// filter.
 ///
 /// [CORS]: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
@@ -53,7 +53,7 @@ pub fn cors() -> Builder {
     }
 }
 
-/// A wrapping [`Filter`](crate::Filter) constructed via `warp::cors()`.
+/// A wrapping [`Filter`] constructed via [`cors()`].
 #[derive(Clone, Debug)]
 pub struct Cors {
     config: Arc<Configured>,
