@@ -197,6 +197,7 @@ impl fmt::Display for Event {
 /// let app = warp::sse::last_event_id::<u32>();
 ///
 /// // The identifier is present
+/// # #[cfg(feature = "test")]
 /// async {
 ///     assert_eq!(
 ///         warp::test::request()
@@ -244,7 +245,6 @@ where
 /// # Example
 ///
 /// ```
-///
 /// use std::time::Duration;
 /// use futures_util::Stream;
 /// use futures_util::stream::iter;
@@ -280,6 +280,7 @@ where
 ///         ])
 /// }
 ///
+/// # #[cfg(feature = "test")]
 /// async {
 ///     let app = warp::path("sse").and(warp::get()).map(|| {
 ///        warp::sse::reply(event_stream())

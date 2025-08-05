@@ -12,7 +12,7 @@ use crate::route::Route;
 
 use self::internal::WithLog;
 
-/// Create a wrapping [`Filter`](crate::Filter) with the specified `name` as the `target`.
+/// Create a wrapping [`Filter`] with the specified `name` as the `target`.
 ///
 /// This uses the default access logging format, and log records produced
 /// will have their `target` set to `name`.
