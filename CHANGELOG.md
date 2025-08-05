@@ -1,3 +1,15 @@
+# CHANGELOG
+
+## v0.4.0 (August 5, 2025)
+
+- **Changes**:
+  - Upgrade to `hyper`, `http`, and `http-body` to v1.
+  - Remove `multipart` and `websocket` features from being enabled by default.
+  - Put `warp::serve()` behind a `server` feature, not enabled by default.
+  - Put `warp::test` behind a `test` feature, not enabled by default.
+  - Remove `tls` feature and types.
+  - Remove `warp::addr` filters.
+
 ### v0.3.7 (April 5, 2024)
 
 - **Features**:
