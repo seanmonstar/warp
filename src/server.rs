@@ -102,16 +102,19 @@ where
     #[cfg(feature = "tls")]
     pub fn tls(self) -> Server<F, accept::Tls<A>, R> {}
 
-    pub fn graceful(self) -> Server<F, A, run::Graceful> {
+    pub fn graceful<Fut>(self, shutdown_signal: Fut) -> Server<F, A, run::Graceful<Fut>>
+    where
+        F: Future<Output=()> + Send + 'static,
+    {
         Server {
             acceptor: self.acceptor,
             filter: self.filter,
             pipeline: self.pipeline,
-            runner: run::Graceful,
+            runner: run::Graceful(shutdown_signal),
         }
     }
 
-    /// dox
+    /// Run this server.
     pub async fn run(self) {
         R::run(self).await;
     }
@@ -310,9 +313,12 @@ mod run {
     }
 
     #[derive(Debug)]
-    pub struct Graceful;
+    pub struct Graceful<Fut>(pub(super) Fut);
 
-    impl Run for Graceful {
+    impl<Fut> Run for Graceful<Fut>
+    where
+        Fut: super::Future<Output = ()> + Send + 'static,
+    {
         async fn run<F, A>(mut server: super::Server<F, A, Self>)
         where
             F: super::Filter + Clone + Send + Sync + 'static,
@@ -321,14 +327,22 @@ mod run {
             A: super::accept::Accept,
             Self: Sized,
         {
+            use futures_util::future;
+
             let pipeline = server.pipeline;
             let graceful_util = hyper_util::server::graceful::GracefulShutdown::new();
+            let mut shutdown_signal = std::pin::pin!(server.runner.0);
             loop {
-                let accepting = match server.acceptor.accept().await {
-                    Ok(fut) => fut,
-                    Err(err) => {
+                let accept = std::pin::pin!(server.acceptor.accept());
+                let accepting = match future::select(accept, &mut shutdown_signal).await {
+                    future::Either::Left((Ok(fut), _)) => fut,
+                    future::Either::Left((Err(err), _)) => {
                         handle_accept_error(err).await;
                         continue;
+                    },
+                    future::Either::Right(((), _)) => {
+                        tracing::debug!("shutdown signal received, starting graceful shutdown");
+                        break;
                     }
                 };
                 let svc = crate::service(server.filter.clone());
@@ -353,6 +367,9 @@ mod run {
                     }
                 });
             }
+
+            drop(server.acceptor); // close listener
+            graceful_util.shutdown().await;
         }
     }
 
