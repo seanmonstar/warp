@@ -2,7 +2,7 @@
 #![deny(missing_debug_implementations)]
 #![deny(rust_2018_idioms)]
 #![cfg_attr(test, deny(warnings))]
-#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(auto_doc_cfg))]
 
 //! # warp
 //!
