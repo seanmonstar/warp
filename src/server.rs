@@ -104,7 +104,7 @@ where
 
     pub fn graceful<Fut>(self, shutdown_signal: Fut) -> Server<F, A, run::Graceful<Fut>>
     where
-        F: Future<Output = ()> + Send + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
     {
         Server {
             acceptor: self.acceptor,
