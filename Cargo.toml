@@ -63,7 +63,7 @@ tokio-stream = { version = "0.1.1", features = ["net"] }
 default = []
 multipart = ["dep:multer"]
 websocket = ["hyper/client", "hyper/http1", "dep:tokio-tungstenite", "hyper-util/tokio"]
-server = ["hyper/server", "hyper/http1", "hyper/http2", "dep:hyper-util"]
+server = ["hyper/server", "hyper/http1", "hyper/http2", "dep:hyper-util", "tokio/net"]
 test = ["server"]
 # tls might come back, uncertain
 #tls = ["tokio-rustls", "rustls-pemfile"]
