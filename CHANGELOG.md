@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### v0.4.1 (August 6, 2025)
+
+- **Fixes**:
+  - Fix `Server::graceful()` bounds incorrect requiring the filter to be a future.
+  - Enable `tokio/net` when the `server` feature is enabled.
+  - Render `cfg`s in the docs.
+
 ## v0.4.0 (August 5, 2025)
 
 - **Changes**:
