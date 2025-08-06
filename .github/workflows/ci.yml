@@ -86,5 +86,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
 
+      # check for missing docs
+      - name: cargo check
+        run: cargo check --all-features
+        env:
+          RUSTFLAGS: "--cfg docsrs"
+
       - name: cargo doc
         run: cargo rustdoc --all-features -- -D 'rustdoc::broken_intra_doc_links'
+        env:
+          RUSTFLAGS: "--cfg docsrs"
