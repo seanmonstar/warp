@@ -1,6 +1,6 @@
 [package]
 name = "warp"
-version = "0.3.7"
+version = "0.4.0"
 description = "serve the web at warp speeds"
 authors = ["Sean McArthur <sean@seanmonstar.com>"]
 license = "MIT"
@@ -11,7 +11,13 @@ categories = ["web-programming::http-server"]
 keywords = ["warp", "server", "http", "hyper"]
 autotests = true
 autoexamples = true
-edition = "2018"
+edition = "2021"
+
+include = [
+    "Cargo.toml",
+    "LICENSE",
+    "src/**/*",
+]
 
 [package.metadata.docs.rs]
 all-features = true
@@ -21,13 +27,15 @@ async-compression = { version = "0.4.5", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 futures-channel = { version = "0.3.17", features = ["sink"]}
-headers = "0.3.5"
-http = "0.2"
-hyper = { version = "0.14", features = ["stream", "server", "http1", "http2", "tcp", "client"] }
+headers = "0.4"
+http = "1"
+http-body-util = "0.1"
+hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["server", "server-graceful", "server-auto", "http1", "http2", "service", "tokio"], optional = true }
 log = "0.4"
 mime = "0.3"
 mime_guess = "2.0.0"
-multer = { version = "2.1.0", optional = true }
+multer = { version = "3", optional = true }
 scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
@@ -36,11 +44,11 @@ tokio = { version = "1.0", features = ["fs", "sync", "time"] }
 tokio-util = { version = "0.7.1", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
-tokio-tungstenite = { version = "0.21", optional = true }
+tokio-tungstenite = { version = "0.27", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12", "ring"], optional = true }
-rustls-pemfile = { version = "2.0", optional = true }
+#tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12", "ring"], optional = true }
+#rustls-pemfile = { version = "2.0", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
@@ -50,13 +58,15 @@ serde_derive = "1.0"
 handlebars = "6.0"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1.1", features = ["net"] }
-listenfd = "1.0"
 
 [features]
-default = ["multipart", "websocket"]
-multipart = ["multer"]
-websocket = ["tokio-tungstenite"]
-tls = ["tokio-rustls", "rustls-pemfile"]
+default = []
+multipart = ["dep:multer"]
+websocket = ["hyper/client", "hyper/http1", "dep:tokio-tungstenite", "hyper-util/tokio"]
+server = ["hyper/server", "hyper/http1", "hyper/http2", "dep:hyper-util"]
+test = ["server"]
+# tls might come back, uncertain
+#tls = ["tokio-rustls", "rustls-pemfile"]
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]
@@ -71,33 +81,146 @@ incremental = false
 codegen-units = 1
 incremental = false
 
-[[test]]
-name = "multipart"
-required-features = ["multipart"]
 
-[[test]]
-name = "ws"
-required-features = ["websocket"]
+[[example]]
+name = "body"
+required-features = ["server"]
 
 [[example]]
 name = "compression"
-required-features = ["compression"]
+required-features = ["compression", "server"]
 
 [[example]]
-name = "unix_socket"
+name = "dir"
+required-features = ["server"]
 
 [[example]]
-name = "websockets"
-required-features = ["websocket"]
+name = "file"
+required-features = ["server"]
 
 [[example]]
-name = "websockets_chat"
-required-features = ["websocket"]
+name = "futures"
+required-features = ["server"]
 
 [[example]]
-name = "query_string"
+name = "handlebars_template"
+required-features = ["server"]
 
+[[example]]
+name = "headers"
+required-features = ["server"]
+
+[[example]]
+name = "hello"
+required-features = ["server"]
 
 [[example]]
 name = "multipart"
-required-features = ["multipart"]
+required-features = ["multipart", "server"]
+
+[[example]]
+name = "query_string"
+required-features = ["server"]
+
+[[example]]
+name = "rejections"
+required-features = ["server"]
+
+[[example]]
+name = "returning"
+required-features = ["server"]
+
+[[example]]
+name = "routing"
+required-features = ["server"]
+
+[[example]]
+name = "sse"
+required-features = ["server"]
+
+[[example]]
+name = "sse_chat"
+required-features = ["server"]
+
+[[example]]
+name = "todos"
+required-features = ["server"]
+
+[[example]]
+name = "tracing"
+required-features = ["server"]
+
+[[example]]
+name = "websockets"
+required-features = ["websocket", "server"]
+
+[[example]]
+name = "websockets_chat"
+required-features = ["websocket", "server"]
+
+[[test]]
+name = "body"
+required-features = ["test"]
+
+[[test]]
+name = "cookie"
+required-features = ["test"]
+
+[[test]]
+name = "cors"
+required-features = ["test"]
+
+[[test]]
+name = "ext"
+required-features = ["test"]
+
+[[test]]
+name = "filter"
+required-features = ["test"]
+
+[[test]]
+name = "fs"
+required-features = ["test"]
+
+[[test]]
+name = "header"
+required-features = ["test"]
+
+[[test]]
+name = "host"
+required-features = ["test"]
+
+[[test]]
+name = "method"
+required-features = ["test"]
+
+[[test]]
+name = "multipart"
+required-features = ["multipart", "test"]
+
+[[test]]
+name = "path"
+required-features = ["test"]
+
+[[test]]
+name = "query"
+required-features = ["test"]
+
+[[test]]
+name = "redirect"
+required-features = ["test"]
+
+[[test]]
+name = "reply_with"
+required-features = ["test"]
+
+[[test]]
+name = "tracing"
+required-features = ["test"]
+
+[[test]]
+name = "ws"
+required-features = ["websocket", "test"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("tls"))'] }

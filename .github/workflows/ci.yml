@@ -40,20 +40,24 @@ jobs:
 
     strategy:
       matrix:
-        build: [stable, beta, nightly, tls, no-default-features, compression]
+        build: [stable, beta, nightly, without-test, multipart, websocket, compression]
 
         include:
+          - build: stable
+            features: "--features test"
           - build: beta
             rust: beta
+            features: "--features server"
           - build: nightly
             rust: nightly
             benches: true
-          - build: tls
-            features: "--features tls"
-          - build: no-default-features
-            features: "--no-default-features"
+            features: "--features test"
           - build: compression
-            features: "--features compression"
+            features: "--features compression,test"
+          - build: multipart
+            features: "--features multipart,test"
+          - build: websocket
+            features: "--features websocket,test"
 
     steps:
       - name: Checkout
@@ -83,4 +87,4 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo doc
-        run: cargo rustdoc -- -D broken_intra_doc_links
+        run: cargo rustdoc --all-features -- -D 'rustdoc::broken_intra_doc_links'

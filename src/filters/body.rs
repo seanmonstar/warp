@@ -4,14 +4,16 @@
 
 use std::error::Error as StdError;
 use std::fmt;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
+use crate::bodyt::Body;
 use bytes::{Buf, Bytes};
-use futures_util::{future, ready, Stream, TryFutureExt};
+use futures_util::future;
+use futures_util::Stream;
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
-use hyper::Body;
+use http_body_util::BodyDataStream;
+use http_body_util::BodyExt;
+use mime;
 use serde::de::DeserializeOwned;
 
 use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
@@ -76,7 +78,7 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rej
 pub fn stream(
 ) -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, crate::Error>>,), Error = Rejection> + Copy
 {
-    body().map(|body: Body| BodyStream { body })
+    body().map(|body| BodyDataStream::new(body))
 }
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
@@ -103,11 +105,14 @@ pub fn stream(
 ///     });
 /// ```
 pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
-    body().and_then(|body: hyper::Body| {
-        hyper::body::to_bytes(body).map_err(|err| {
-            tracing::debug!("to_bytes error: {}", err);
-            reject::known(BodyReadError(err))
-        })
+    body().and_then(|mut body| async move {
+        BodyExt::collect(&mut body)
+            .await
+            .map(|b| b.to_bytes())
+            .map_err(|err| {
+                tracing::debug!("to_bytes error: {}", err);
+                reject::known(BodyReadError(err))
+            })
     })
 }
 
@@ -141,11 +146,14 @@ pub fn bytes() -> impl Filter<Extract = (Bytes,), Error = Rejection> + Copy {
 ///     .map(full_body);
 /// ```
 pub fn aggregate() -> impl Filter<Extract = (impl Buf,), Error = Rejection> + Copy {
-    body().and_then(|body: ::hyper::Body| {
-        hyper::body::aggregate(body).map_err(|err| {
-            tracing::debug!("aggregate error: {}", err);
-            reject::known(BodyReadError(err))
-        })
+    body().and_then(|mut body: crate::bodyt::Body| async move {
+        http_body_util::BodyExt::collect(&mut body)
+            .await
+            .map(|collected| collected.aggregate())
+            .map_err(|err| {
+                tracing::debug!("aggregate error: {}", err);
+                reject::known(BodyReadError(err))
+            })
     })
 }
 
@@ -285,29 +293,6 @@ fn is_content_type<D: Decode>() -> impl Filter<Extract = (), Error = Rejection> 
     })
 }
 
-// ===== BodyStream =====
-
-struct BodyStream {
-    body: Body,
-}
-
-impl Stream for BodyStream {
-    type Item = Result<Bytes, crate::Error>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let opt_item = ready!(Pin::new(&mut self.get_mut().body).poll_next(cx));
-
-        match opt_item {
-            None => Poll::Ready(None),
-            Some(item) => {
-                let stream_buf = item.map_err(crate::Error::new);
-
-                Poll::Ready(Some(stream_buf))
-            }
-        }
-    }
-}
-
 // ===== Rejections =====
 
 /// An error used in rejections when deserializing a request body fails.
@@ -329,7 +314,7 @@ impl StdError for BodyDeserializeError {
 }
 
 #[derive(Debug)]
-pub(crate) struct BodyReadError(::hyper::Error);
+pub(crate) struct BodyReadError(crate::Error);
 
 impl fmt::Display for BodyReadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

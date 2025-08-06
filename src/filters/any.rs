@@ -6,7 +6,7 @@ use std::task::{Context, Poll};
 
 use crate::filter::{Filter, FilterBase, Internal};
 
-/// A [`Filter`](crate::Filter) that matches any route.
+/// A [`Filter`] that matches any route.
 ///
 /// This can be a useful building block to build new filters from,
 /// since [`Filter`] is otherwise a sealed trait.
