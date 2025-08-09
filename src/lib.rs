@@ -124,6 +124,8 @@ pub use self::filters::{
     // any() function
     any::any,
     body,
+    // with_cloneable() function
+    cloneable::with_cloneable,
     cookie,
     // cookie() function
     cookie::cookie,
