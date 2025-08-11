@@ -9,7 +9,6 @@ use crate::filter::Filter;
 use crate::reject::IsReject;
 use crate::reply::Reply;
 #[cfg(feature = "tls")]
-use crate::tls::TlsConfigBuilder;
 
 /// Create a `Server` with the provided `Filter`.
 pub fn serve<F>(filter: F) -> Server<F, accept::LazyTcp, run::Standard>
@@ -102,7 +101,18 @@ where
     R: run::Run,
 {
     #[cfg(feature = "tls")]
-    pub fn tls(self) -> Server<F, accept::Tls<A>, R> {}
+    pub fn tls(self) -> Server<F, accept::TlsBuilder<A>, R> {
+        let config = crate::tls::TlsConfigBuilder::new();
+        Server {
+            acceptor: accept::TlsBuilder {
+                acceptor: self.acceptor,
+                config,
+            },
+            filter: self.filter,
+            pipeline: self.pipeline,
+            runner: self.runner,
+        }
+    }
 
     /// Add graceful shutdown support to this server.
     ///
@@ -141,7 +151,7 @@ where
 // // ===== impl Tls =====
 
 #[cfg(feature = "tls")]
-impl<F, A, R> Server<F, accept::Tls<A>, R>
+impl<F, A, R> Server<F, accept::TlsBuilder<A>, R>
 where
     F: Filter + Clone + Send + Sync + 'static,
     <F::Future as TryFuture>::Ok: Reply,
@@ -149,6 +159,28 @@ where
     A: accept::Accept,
     R: run::Run,
 {
+    /// Run this server.
+    ///
+    /// # Error
+    ///
+    /// This method returns an error if the TLS builder fails to load configured
+    /// certificates or keys.
+    pub async fn run(self) -> Result<(), crate::Error> {
+        let server = Server {
+            acceptor: accept::Tls {
+                acceptor: self.acceptor.acceptor,
+                config: std::sync::Arc::new(
+                    self.acceptor.config.build().map_err(crate::Error::new)?,
+                ),
+            },
+            filter: self.filter,
+            pipeline: self.pipeline,
+            runner: self.runner,
+        };
+        server.run().await;
+        Ok(())
+    }
+
     // TLS config methods
 
     /// Specify the file path to read the private key.
@@ -226,11 +258,13 @@ where
         self.with_tls(|tls| tls.ocsp_resp(resp.as_ref()))
     }
 
-    fn with_tls<Func>(self, func: Func) -> Self
+    fn with_tls<Func>(mut self, func: Func) -> Self
     where
-        Func: FnOnce(TlsConfigBuilder) -> TlsConfigBuilder,
+        Func: FnOnce(crate::tls::TlsConfigBuilder) -> crate::tls::TlsConfigBuilder,
     {
-        let tls = func(tls);
+        let tls = func(self.acceptor.config);
+        self.acceptor.config = tls;
+        self
     }
 }
 
@@ -258,16 +292,40 @@ mod accept {
 
     #[cfg(feature = "tls")]
     #[derive(Debug)]
-    pub struct Tls<A>(pub(super) A);
+    pub struct TlsBuilder<A> {
+        pub(super) acceptor: A,
+        pub(super) config: crate::tls::TlsConfigBuilder,
+    }
+
+    #[cfg(feature = "tls")]
+    #[derive(Debug)]
+    pub struct Tls<A> {
+        pub(super) acceptor: A,
+        pub(super) config: std::sync::Arc<tokio_rustls::rustls::ServerConfig>,
+    }
 
     #[cfg(feature = "tls")]
     impl<A: Accept> Accept for Tls<A> {
-        type IO = hyper_util::rt::TokioIo<tokio::net::TcpStream>;
-        type AcceptError = std::convert::Infallible;
-        type Accepting = std::future::Ready<Result<Self::IO, Self::AcceptError>>;
+        type IO = hyper_util::rt::TokioIo<
+            tokio_rustls::server::TlsStream<hyper_util::rt::TokioIo<A::IO>>,
+        >;
+        type AcceptError = std::io::Error;
+        type Accepting = std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<Self::IO, Self::AcceptError>> + Send>,
+        >;
         async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error> {
-            let (io, _addr) = self.0.accept().await?;
-            Ok(std::future::ready(Ok(hyper_util::rt::TokioIo::new(io))))
+            let fut = self.acceptor.accept().await?;
+            let io = fut.await.map_err(|_| std::io::ErrorKind::Other)?;
+            let io = hyper_util::rt::TokioIo::new(io);
+            let acceptor = tokio_rustls::TlsAcceptor::from(self.config.clone());
+            let handshake = acceptor.accept(io);
+            let fut = async move {
+                match handshake.await {
+                    Ok(stream) => Ok(hyper_util::rt::TokioIo::new(stream)),
+                    Err(e) => Err(e),
+                }
+            };
+            Ok(Box::pin(fut))
         }
     }
 }

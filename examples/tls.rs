@@ -12,6 +12,8 @@ async fn main() {
     let routes = warp::any().map(|| "Hello, World!");
 
     warp::serve(routes)
+        .bind(([127, 0, 0, 1], 3030))
+        .await
         .tls()
         // RSA
         .cert_path("examples/tls/cert.pem")
@@ -19,8 +21,9 @@ async fn main() {
         // ECC
         // .cert_path("examples/tls/cert.ecc.pem")
         // .key_path("examples/tls/key.ecc")
-        .run(([127, 0, 0, 1], 3030))
-        .await;
+        .run()
+        .await
+        .expect("tls error");
 }
 
 #[cfg(not(feature = "tls"))]

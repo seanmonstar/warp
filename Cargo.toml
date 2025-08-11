@@ -47,8 +47,9 @@ tower-service = "0.3"
 tokio-tungstenite = { version = "0.27", optional = true }
 percent-encoding = "2.1"
 pin-project = "1.0"
-#tokio-rustls = { version = "0.26", default-features = false, features = ["logging", "tls12", "ring"], optional = true }
-#rustls-pemfile = { version = "2.0", optional = true }
+tokio-rustls = { version = "0.25", default-features = false, features = ["logging", "tls12", "ring"], optional = true }
+rustls = { version = "0.23", optional = true }
+rustls-pemfile = { version = "2.0", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.5"
@@ -65,8 +66,7 @@ multipart = ["dep:multer"]
 websocket = ["hyper/client", "hyper/http1", "dep:tokio-tungstenite", "hyper-util/tokio"]
 server = ["hyper/server", "hyper/http1", "hyper/http2", "dep:hyper-util", "tokio/net"]
 test = ["server"]
-# tls might come back, uncertain
-#tls = ["tokio-rustls", "rustls-pemfile"]
+tls = ["tokio-rustls", "rustls", "rustls-pemfile"]
 
 # Enable compression-related filters
 compression = ["compression-brotli", "compression-gzip"]
