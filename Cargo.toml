@@ -26,7 +26,7 @@ all-features = true
 async-compression = { version = "0.4.5", features = ["tokio"], optional = true }
 bytes = "1.0"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
-futures-channel = { version = "0.3.17", features = ["sink"]}
+futures-channel = { version = "0.3.17", features = ["sink"], optional = true }
 headers = "0.4"
 http = "1"
 http-body = "1"
@@ -65,7 +65,7 @@ default = []
 multipart = ["dep:multer"]
 websocket = ["dep:hyper", "dep:tokio-tungstenite", "hyper-util/tokio"]
 server = ["dep:hyper", "dep:hyper-util", "tokio/net"]
-test = ["server", "hyper/client", "hyper/http1"]
+test = ["server", "hyper/client", "hyper/http1", "dep:futures-channel"]
 # tls might come back, uncertain
 #tls = ["tokio-rustls", "rustls-pemfile"]
 
