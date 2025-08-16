@@ -106,3 +106,12 @@ impl From<Option<Bytes>> for Body {
         }
     }
 }
+
+impl<E> From<BoxBody<Bytes, E>> for Body
+where
+    E: Into<Box<dyn std::error::Error + Send + Sync>> + Send + 'static,
+{
+    fn from(body: BoxBody<Bytes, E>) -> Self {
+        Body(body.map_err(crate::Error::new).boxed())
+    }
+}
