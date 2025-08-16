@@ -171,6 +171,7 @@ pub use self::server::Server;
 pub use self::service::service;
 #[doc(hidden)]
 pub use http;
+#[cfg(any(feature = "server", feature = "websocket"))]
 #[doc(hidden)]
 pub use hyper;
 

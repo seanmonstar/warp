@@ -4,8 +4,8 @@ use std::task::{Context, Poll};
 use bytes::Buf;
 use bytes::Bytes;
 use futures_util::StreamExt;
+use http_body::Frame;
 use http_body_util::{combinators::BoxBody, BodyExt};
-use hyper::body::Frame;
 
 #[derive(Debug)]
 pub struct Body(BoxBody<Bytes, crate::Error>);
@@ -16,7 +16,7 @@ impl Default for Body {
     }
 }
 
-impl hyper::body::Body for Body {
+impl http_body::Body for Body {
     type Data = Bytes;
     type Error = crate::Error;
 
@@ -31,7 +31,7 @@ impl hyper::body::Body for Body {
         self.0.is_end_stream()
     }
 
-    fn size_hint(&self) -> hyper::body::SizeHint {
+    fn size_hint(&self) -> http_body::SizeHint {
         self.0.size_hint()
     }
 }
@@ -47,7 +47,7 @@ impl Body {
 
     pub(crate) fn wrap<B>(body: B) -> Self
     where
-        B: hyper::body::Body + Send + Sync + 'static,
+        B: http_body::Body + Send + Sync + 'static,
         B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         let body = body

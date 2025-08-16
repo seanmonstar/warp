@@ -29,8 +29,9 @@ futures-util = { version = "0.3", default-features = false, features = ["sink"] 
 futures-channel = { version = "0.3.17", features = ["sink"]}
 headers = "0.4"
 http = "1"
+http-body = "1"
 http-body-util = "0.1.2"
-hyper = { version = "1", features = ["server", "http1", "http2"] }
+hyper = { version = "1", optional = true }
 hyper-util = { version = "0.1.12", features = ["server", "server-graceful", "server-auto", "http1", "http2", "service", "tokio"], optional = true }
 log = "0.4"
 mime = "0.3"
@@ -40,7 +41,7 @@ scoped-tls = "1.0"
 serde = "1.0"
 serde_json = "1.0"
 serde_urlencoded = "0.7.1"
-tokio = { version = "1.0", features = ["fs", "sync", "time"] }
+tokio = { version = "1.0", features = ["io-util", "fs", "sync", "time"] }
 tokio-util = { version = "0.7.1", features = ["io"] }
 tracing = { version = "0.1.21", default-features = false, features = ["log", "std"] }
 tower-service = "0.3"
@@ -62,9 +63,9 @@ tokio-stream = { version = "0.1.1", features = ["net"] }
 [features]
 default = []
 multipart = ["dep:multer"]
-websocket = ["hyper/client", "hyper/http1", "dep:tokio-tungstenite", "hyper-util/tokio"]
-server = ["hyper/server", "hyper/http1", "hyper/http2", "dep:hyper-util", "tokio/net"]
-test = ["server"]
+websocket = ["dep:hyper", "dep:tokio-tungstenite", "hyper-util/tokio"]
+server = ["dep:hyper", "dep:hyper-util", "tokio/net"]
+test = ["server", "hyper/client", "hyper/http1"]
 # tls might come back, uncertain
 #tls = ["tokio-rustls", "rustls-pemfile"]
 
