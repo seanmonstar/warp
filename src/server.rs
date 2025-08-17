@@ -256,6 +256,17 @@ mod accept {
         }
     }
 
+    #[cfg(unix)]
+    impl Accept for tokio::net::UnixListener {
+        type IO = hyper_util::rt::TokioIo<tokio::net::UnixStream>;
+        type AcceptError = std::convert::Infallible;
+        type Accepting = std::future::Ready<Result<Self::IO, Self::AcceptError>>;
+        async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error> {
+            let (io, _addr) = <tokio::net::UnixListener>::accept(self).await?;
+            Ok(std::future::ready(Ok(hyper_util::rt::TokioIo::new(io))))
+        }
+    }
+
     #[cfg(feature = "tls")]
     #[derive(Debug)]
     pub struct Tls<A>(pub(super) A);
