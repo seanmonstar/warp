@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### v0.4.2 (August 19, 2025)
+
+- **Features**:
+  - Add support for passing `UnixListener` to `incoming(listener)`.
+- **Fixes**:
+  - Reduce some dependencies when `server` is not enabled.
+
 ### v0.4.1 (August 6, 2025)
 
 - **Fixes**:
