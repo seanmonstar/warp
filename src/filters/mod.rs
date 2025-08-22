@@ -6,6 +6,7 @@
 //pub mod addr;
 pub mod any;
 pub mod body;
+pub mod cloneable;
 #[cfg(any(feature = "compression-brotli", feature = "compression-gzip"))]
 pub mod compression;
 pub mod cookie;
