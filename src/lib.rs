@@ -123,6 +123,7 @@ pub use self::filters::{
     //addr,
     // any() function
     any::any,
+    auth,
     body,
     cookie,
     // cookie() function
