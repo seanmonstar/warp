@@ -117,6 +117,11 @@ impl<'a> Info<'a> {
         self.route.full_path()
     }
 
+    /// View the URI query of the request.
+    pub fn query(&self) -> Option<&str> {
+        self.route.query()
+    }
+
     /// View the `http::Version` of the request.
     pub fn version(&self) -> http::Version {
         self.route.version()
