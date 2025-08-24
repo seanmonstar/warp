@@ -12,15 +12,16 @@ use std::str::FromStr;
 /// Creates a `Filter` that requires a cookie by name.
 ///
 /// If found, extracts the value of the cookie, otherwise rejects.
-pub fn cookie<T>(name: &'static str) -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+pub fn cookie<T>(name: impl ToString) -> impl Filter<Extract = One<T>, Error = Rejection> + Clone
 where
-    T: FromStr + Send + 'static,
+    T: FromStr + Send,
 {
+    let name = name.to_string();
     header::header2().and_then(move |cookie: Cookie| {
         let cookie = cookie
-            .get(name)
-            .ok_or_else(|| crate::reject::missing_cookie(name))
-            .and_then(|s| T::from_str(s).map_err(|_| crate::reject::missing_cookie(name)));
+            .get(name.as_str())
+            .ok_or_else(|| crate::reject::missing_cookie(name.clone()))
+            .and_then(|s| T::from_str(s).map_err(|_| crate::reject::missing_cookie(name.clone())));
         future::ready(cookie)
     })
 }
@@ -30,13 +31,14 @@ where
 /// If found, extracts the value of the cookie, otherwise continues
 /// the request, extracting `None`.
 pub fn optional<T>(
-    name: &'static str,
-) -> impl Filter<Extract = One<Option<T>>, Error = Infallible> + Copy
+    name: impl ToString,
+) -> impl Filter<Extract = One<Option<T>>, Error = Infallible> + Clone
 where
-    T: FromStr + Send + 'static,
+    T: FromStr + Send,
 {
+    let name = name.to_string();
     header::optional2().map(move |opt: Option<Cookie>| {
-        let cookie = opt.and_then(|cookie| cookie.get(name).map(|x| T::from_str(x)));
+        let cookie = opt.and_then(|cookie| cookie.get(name.as_str()).map(|x| T::from_str(x)));
         match cookie {
             Some(Ok(t)) => Some(t),
             Some(Err(_)) => None,
