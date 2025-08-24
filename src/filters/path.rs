@@ -274,6 +274,50 @@ pub fn param<T: FromStr + Send + 'static>(
     })
 }
 
+/// A custom path matching filter.
+///
+/// This will call a function with the remaining path segment and allow the function
+/// to extract whatever it wishes and return the number of characters to advance int he path
+/// to continue standard path() filters.
+///
+/// The function can reject with any warp error. To pass on to other routes
+/// reject with warp::rejcct::not_found().
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+///
+/// let route = warp::path::custom(|tail: &str| {
+///         Ok((
+///             10,
+///             ("Something Good".to_string(),)
+///         ))
+///     })
+///     .map(|data: String| {
+///         format!("You found /{}", data)
+///     });
+/// ```
+pub fn custom<F, T>(fun: F) -> impl Filter<Extract = T, Error = Rejection> + Copy
+where
+    F: FnOnce(&str) -> Result<(usize, T), Rejection> + Copy + 'static,
+    T: Tuple + Send + 'static,
+{
+    filter_fn(move |route| {
+        let remaining = route.path();
+        let result = fun(remaining);
+        match result {
+            Ok((skip, extracted)) => {
+                if skip > 0 {
+                    route.set_unmatched_path(skip);
+                }
+                future::ok(extracted)
+            }
+            Err(err) => future::err(err),
+        }
+    })
+}
+
 /// Extract the unmatched tail of the path.
 ///
 /// This will return a `Tail`, which allows access to the rest of the path
