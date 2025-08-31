@@ -57,7 +57,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = "0.2"
 serde_derive = "1.0"
 handlebars = "6.0"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread", "signal"] }
 tokio-stream = "0.1.1"
 
 [features]
