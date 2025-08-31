@@ -7,11 +7,16 @@ async fn main() {
 
     pretty_env_logger::init();
 
-    let listener = UnixListener::bind("/tmp/warp.sock").unwrap();
+    let socket = "/tmp/warp.sock";
+
+    let listener = UnixListener::bind(socket).unwrap();
     warp::serve(warp::fs::dir("examples/dir"))
         .incoming(listener)
+        .graceful(async { tokio::signal::ctrl_c().await.unwrap() })
         .run()
         .await;
+
+    std::fs::remove_file(socket).unwrap();
 }
 
 #[cfg(not(unix))]
