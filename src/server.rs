@@ -104,22 +104,6 @@ where
     #[cfg(feature = "tls")]
     pub fn tls(self) -> Server<F, accept::Tls<A>, R> {}
 
-    /// Add graceful shutdown support to this server.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # async fn ex(addr: std::net::SocketAddr) {
-    /// # use warp::Filter;
-    /// # let filter = warp::any().map(|| "ok");
-    /// warp::serve(filter)
-    ///     .bind(addr).await
-    ///     .graceful(async {
-    ///         // some signal in here, such as ctrl_c
-    ///     })
-    ///     .run().await;
-    /// # }
-    /// ```
     pub fn graceful<Fut>(self, shutdown_signal: Fut) -> Server<F, A, run::Graceful<Fut>>
     where
         Fut: Future<Output = ()> + Send + 'static,
