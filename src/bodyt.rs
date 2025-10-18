@@ -92,6 +92,12 @@ impl From<String> for Body {
     }
 }
 
+impl From<&'static [u8]> for Body {
+    fn from(v: &'static [u8]) -> Self {
+        Bytes::from(v).into()
+    }
+}
+
 impl From<Vec<u8>> for Body {
     fn from(v: Vec<u8>) -> Self {
         Bytes::from(v).into()
