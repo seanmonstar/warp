@@ -12,6 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use futures_util::ready;
 use hyper::server::accept::Accept;
 use hyper::server::conn::{AddrIncoming, AddrStream};
+use rustls_pki_types::pem::PemObject;
 use tokio_rustls::rustls::server::WebPkiClientVerifier;
 use tokio_rustls::rustls::{Error as TlsError, RootCertStore, ServerConfig};
 
@@ -173,9 +174,9 @@ impl TlsConfigBuilder {
 
     pub(crate) fn build(mut self) -> Result<ServerConfig, TlsConfigError> {
         let mut cert_rdr = BufReader::new(self.cert);
-        let cert = rustls_pemfile::certs(&mut cert_rdr)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_e| TlsConfigError::CertParseError)?;
+        let cert: Result<Vec<rustls_pki_types::CertificateDer<'_>>, _> =
+            rustls_pki_types::CertificateDer::pem_reader_iter(&mut cert_rdr).collect();
+        let cert = cert.map_err(|_| TlsConfigError::CertParseError)?;
 
         let mut key_vec = Vec::new();
         self.key
@@ -186,33 +187,22 @@ impl TlsConfigBuilder {
             return Err(TlsConfigError::EmptyKey);
         }
 
-        let mut key_opt = None;
-        let mut key_cur = std::io::Cursor::new(key_vec);
-        for item in rustls_pemfile::read_all(&mut key_cur)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_e| TlsConfigError::InvalidIdentityPem)?
-        {
-            match item {
-                rustls_pemfile::Item::Pkcs1Key(k) => key_opt = Some(k.into()),
-                rustls_pemfile::Item::Pkcs8Key(k) => key_opt = Some(k.into()),
-                rustls_pemfile::Item::Sec1Key(k) => key_opt = Some(k.into()),
-                _ => return Err(TlsConfigError::UnknownPrivateKeyFormat),
-            }
-        }
-        let key = match key_opt {
-            Some(v) => v,
-            _ => return Err(TlsConfigError::MissingPrivateKey),
+        let key = {
+            let mut data = Vec::new();
+            self.key
+                .read_to_end(&mut data)
+                .map_err(|e| TlsConfigError::Io(e))?;
+            rustls_pki_types::PrivateKeyDer::from_pem_slice(&data)
+                .map_err(|_| TlsConfigError::MissingPrivateKey)?
         };
 
         fn read_trust_anchor(
-            trust_anchor: Box<dyn Read + Send + Sync>,
+            mut trust_anchor: Box<dyn Read + Send + Sync>,
         ) -> Result<RootCertStore, TlsConfigError> {
-            let trust_anchors = {
-                let mut reader = BufReader::new(trust_anchor);
-                rustls_pemfile::certs(&mut reader)
+            let trust_anchors: Vec<_> =
+                rustls_pki_types::CertificateDer::pem_reader_iter(&mut trust_anchor)
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(TlsConfigError::Io)?
-            };
+                    .map_err(|_e| TlsConfigError::CertParseError)?;
 
             let mut store = RootCertStore::empty();
             let (added, _skipped) = store.add_parsable_certificates(trust_anchors);
