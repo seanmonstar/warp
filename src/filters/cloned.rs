@@ -15,7 +15,7 @@ use std::convert::Infallible;
 /// use warp::Filter;
 ///
 /// let state = Arc::new(vec![33, 41]);
-/// let with_state = warp::with_cloneable(state);
+/// let with_state = warp::cloned(state);
 ///
 /// let route = warp::path::param()
 ///     .and(with_state)
@@ -23,7 +23,7 @@ use std::convert::Infallible;
 ///         db.contains(&param_id)
 ///     });
 /// ```
-pub fn with_cloneable<C: Clone + Send>(
+pub fn cloned<C: Clone + Send>(
     value: C,
 ) -> impl Filter<Extract = (C,), Error = Infallible> + Clone {
     crate::any().map(move || value.clone())
