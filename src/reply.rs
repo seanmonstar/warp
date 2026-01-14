@@ -127,6 +127,29 @@ impl Reply for Json {
     }
 }
 
+/// Converts a [`Stream`](futures_util::Stream) of data chunks into a reply.
+///
+/// # Example
+///
+/// ```
+/// use warp::Filter;
+/// use futures_util::stream;
+/// use bytes::Bytes;
+///
+/// let route = warp::any().map(|| {
+///     let chunks = vec![Ok::<_, std::io::Error>(Bytes::from("hello"))];
+///     warp::reply::stream(stream::iter(chunks))
+/// });
+/// ```
+pub fn stream<S, B, E>(stream: S) -> impl Reply
+where
+    S: futures_util::Stream<Item = Result<B, E>> + Send + Sync + 'static,
+    B: Into<bytes::Bytes>,
+    E: Into<Box<dyn std::error::Error + Send + Sync>> + Send + 'static,
+{
+    Response::new(Body::wrap_stream(stream))
+}
+
 /// Reply with a body and `content-type` set to `text/html; charset=utf-8`.
 ///
 /// # Example
