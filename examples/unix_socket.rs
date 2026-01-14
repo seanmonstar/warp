@@ -1,19 +1,22 @@
-/*
 #![deny(warnings)]
 
 #[cfg(unix)]
 #[tokio::main]
 async fn main() {
     use tokio::net::UnixListener;
-    use tokio_stream::wrappers::UnixListenerStream;
 
     pretty_env_logger::init();
 
-    let listener = UnixListener::bind("/tmp/warp.sock").unwrap();
-    let incoming = UnixListenerStream::new(listener);
+    let socket = "/tmp/warp.sock";
+
+    let listener = UnixListener::bind(socket).unwrap();
     warp::serve(warp::fs::dir("examples/dir"))
-        .run_incoming(incoming)
+        .incoming(listener)
+        .graceful(async { tokio::signal::ctrl_c().await.unwrap() })
+        .run()
         .await;
+
+    std::fs::remove_file(socket).unwrap();
 }
 
 #[cfg(not(unix))]
@@ -21,5 +24,3 @@ async fn main() {
 async fn main() {
     panic!("Must run under Unix-like platform!");
 }
-*/
-fn main() {}

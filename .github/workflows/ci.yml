@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@stable
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install rust
         uses: dtolnay/rust-toolchain@master
@@ -81,10 +81,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@nightly
 
       - name: cargo doc
-        run: cargo rustdoc --all-features -- -D 'rustdoc::broken_intra_doc_links'
+        run: cargo doc --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: "--cfg docsrs -D rustdoc::broken_intra_doc_links"

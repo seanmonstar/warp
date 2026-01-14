@@ -75,7 +75,7 @@ where
     F: Filter,
     <F::Future as TryFuture>::Ok: Reply,
     <F::Future as TryFuture>::Error: IsReject,
-    B: hyper::body::Body + Send + Sync + 'static,
+    B: http_body::Body + Send + Sync + 'static,
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Response = Response;

@@ -9,8 +9,7 @@ use async_compression::tokio::bufread::BrotliEncoder;
 use async_compression::tokio::bufread::{DeflateEncoder, GzipEncoder};
 
 use crate::bodyt::Body;
-use http::header::HeaderValue;
-use hyper::header::{CONTENT_ENCODING, CONTENT_LENGTH};
+use http::header::{HeaderValue, CONTENT_ENCODING, CONTENT_LENGTH};
 use tokio_util::io::{ReaderStream, StreamReader};
 
 use crate::filter::{Filter, WrapSealed};
