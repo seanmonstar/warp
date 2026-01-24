@@ -164,6 +164,10 @@ name = "websockets_chat"
 required-features = ["websocket", "server"]
 
 [[test]]
+name = "addr"
+required-features = ["test"]
+
+[[test]]
 name = "body"
 required-features = ["test"]
 

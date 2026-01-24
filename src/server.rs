@@ -235,10 +235,14 @@ where
 }
 
 mod accept {
+    use std::net::SocketAddr;
+
     pub trait Accept {
         type IO: hyper::rt::Read + hyper::rt::Write + Send + Unpin + 'static;
         type AcceptError: std::fmt::Debug;
-        type Accepting: super::Future<Output = Result<Self::IO, Self::AcceptError>> + Send + 'static;
+        type Accepting: super::Future<Output = Result<(Self::IO, Option<SocketAddr>), Self::AcceptError>>
+            + Send
+            + 'static;
         #[allow(async_fn_in_trait)]
         async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error>;
     }
@@ -249,10 +253,14 @@ mod accept {
     impl Accept for tokio::net::TcpListener {
         type IO = hyper_util::rt::TokioIo<tokio::net::TcpStream>;
         type AcceptError = std::convert::Infallible;
-        type Accepting = std::future::Ready<Result<Self::IO, Self::AcceptError>>;
+        type Accepting =
+            std::future::Ready<Result<(Self::IO, Option<SocketAddr>), Self::AcceptError>>;
         async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error> {
-            let (io, _addr) = <tokio::net::TcpListener>::accept(self).await?;
-            Ok(std::future::ready(Ok(hyper_util::rt::TokioIo::new(io))))
+            let (io, addr) = <tokio::net::TcpListener>::accept(self).await?;
+            Ok(std::future::ready(Ok((
+                hyper_util::rt::TokioIo::new(io),
+                Some(addr),
+            ))))
         }
     }
 
@@ -260,10 +268,14 @@ mod accept {
     impl Accept for tokio::net::UnixListener {
         type IO = hyper_util::rt::TokioIo<tokio::net::UnixStream>;
         type AcceptError = std::convert::Infallible;
-        type Accepting = std::future::Ready<Result<Self::IO, Self::AcceptError>>;
+        type Accepting =
+            std::future::Ready<Result<(Self::IO, Option<SocketAddr>), Self::AcceptError>>;
         async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error> {
             let (io, _addr) = <tokio::net::UnixListener>::accept(self).await?;
-            Ok(std::future::ready(Ok(hyper_util::rt::TokioIo::new(io))))
+            Ok(std::future::ready(Ok((
+                hyper_util::rt::TokioIo::new(io),
+                None,
+            ))))
         }
     }
 
@@ -275,10 +287,52 @@ mod accept {
     impl<A: Accept> Accept for Tls<A> {
         type IO = hyper_util::rt::TokioIo<tokio::net::TcpStream>;
         type AcceptError = std::convert::Infallible;
-        type Accepting = std::future::Ready<Result<Self::IO, Self::AcceptError>>;
+        type Accepting =
+            std::future::Ready<Result<(Self::IO, Option<SocketAddr>), Self::AcceptError>>;
         async fn accept(&mut self) -> Result<Self::Accepting, std::io::Error> {
-            let (io, _addr) = self.0.accept().await?;
-            Ok(std::future::ready(Ok(hyper_util::rt::TokioIo::new(io))))
+            let (io, addr) = self.0.accept().await?;
+            Ok(std::future::ready(Ok((
+                hyper_util::rt::TokioIo::new(io),
+                addr,
+            ))))
+        }
+    }
+}
+
+mod middleware {
+    use std::net::SocketAddr;
+    use std::task::{Context, Poll};
+    use tower_service::Service;
+
+    #[derive(Clone, Debug)]
+    pub(super) struct RemoteAddrService<S> {
+        inner: S,
+        remote_addr: Option<SocketAddr>,
+    }
+
+    impl<S> RemoteAddrService<S> {
+        pub(super) fn new(inner: S, remote_addr: Option<SocketAddr>) -> Self {
+            Self { inner, remote_addr }
+        }
+    }
+
+    impl<S, B> Service<http::Request<B>> for RemoteAddrService<S>
+    where
+        S: Service<http::Request<B>>,
+    {
+        type Response = S::Response;
+        type Error = S::Error;
+        type Future = S::Future;
+
+        fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            self.inner.poll_ready(cx)
+        }
+
+        fn call(&mut self, mut req: http::Request<B>) -> Self::Future {
+            if let Some(addr) = self.remote_addr {
+                req.extensions_mut().insert(addr);
+            }
+            self.inner.call(req)
         }
     }
 }
@@ -317,15 +371,16 @@ mod run {
                     }
                 };
                 let svc = crate::service(server.filter.clone());
-                let svc = hyper_util::service::TowerToHyperService::new(svc);
                 tokio::spawn(async move {
-                    let io = match accepting.await {
-                        Ok(io) => io,
+                    let (io, remote_addr) = match accepting.await {
+                        Ok(pair) => pair,
                         Err(err) => {
                             tracing::debug!("server accept error: {:?}", err);
                             return;
                         }
                     };
+                    let svc = super::middleware::RemoteAddrService::new(svc, remote_addr);
+                    let svc = hyper_util::service::TowerToHyperService::new(svc);
                     if let Err(err) = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
                     )
@@ -375,16 +430,17 @@ mod run {
                     }
                 };
                 let svc = crate::service(server.filter.clone());
-                let svc = hyper_util::service::TowerToHyperService::new(svc);
                 let watcher = graceful_util.watcher();
                 tokio::spawn(async move {
-                    let io = match accepting.await {
-                        Ok(io) => io,
+                    let (io, remote_addr) = match accepting.await {
+                        Ok(pair) => pair,
                         Err(err) => {
                             tracing::debug!("server accepting error: {:?}", err);
                             return;
                         }
                     };
+                    let svc = super::middleware::RemoteAddrService::new(svc, remote_addr);
+                    let svc = hyper_util::service::TowerToHyperService::new(svc);
                     let mut hyper = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
                     );

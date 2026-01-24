@@ -123,7 +123,6 @@ use self::inner::OneOrTuple;
 /// Starts a new test `RequestBuilder`.
 pub fn request() -> RequestBuilder {
     RequestBuilder {
-        remote_addr: None,
         req: Request::default(),
     }
 }
@@ -140,7 +139,6 @@ pub fn ws() -> WsBuilder {
 #[must_use = "RequestBuilder does nothing on its own"]
 #[derive(Debug)]
 pub struct RequestBuilder {
-    remote_addr: Option<SocketAddr>,
     req: Request,
 }
 
@@ -249,7 +247,7 @@ impl RequestBuilder {
     ///     .remote_addr(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080));
     /// ```
     pub fn remote_addr(mut self, addr: SocketAddr) -> Self {
-        self.remote_addr = Some(addr);
+        self.req.extensions_mut().insert(addr);
         self
     }
 

@@ -120,7 +120,7 @@ pub use self::filters::multipart;
 pub use self::filters::ws;
 #[doc(hidden)]
 pub use self::filters::{
-    //addr,
+    addr,
     // any() function
     any::any,
     body,
