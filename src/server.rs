@@ -304,6 +304,8 @@ mod middleware {
     use std::task::{Context, Poll};
     use tower_service::Service;
 
+    use crate::filters::addr::RemoteAddr;
+
     #[derive(Clone, Debug)]
     pub(super) struct RemoteAddrService<S> {
         inner: S,
@@ -330,7 +332,7 @@ mod middleware {
 
         fn call(&mut self, mut req: http::Request<B>) -> Self::Future {
             if let Some(addr) = self.remote_addr {
-                req.extensions_mut().insert(addr);
+                req.extensions_mut().insert(RemoteAddr(addr));
             }
             self.inner.call(req)
         }
