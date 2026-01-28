@@ -1,7 +1,9 @@
 use scoped_tls::scoped_thread_local;
 use std::cell::RefCell;
 use std::mem;
+use std::net::SocketAddr;
 
+use crate::addr::RemoteAddr;
 use crate::{bodyt::Body, Request};
 
 scoped_thread_local!(static ROUTE: RefCell<Route>);
@@ -116,6 +118,13 @@ impl Route {
             index,
         );
         self.segments_index = index;
+    }
+
+    pub(crate) fn remote_addr(&self) -> Option<SocketAddr> {
+        self.req
+            .extensions()
+            .get::<RemoteAddr>()
+            .map(|RemoteAddr(addr)| *addr)
     }
 
     pub(crate) fn take_body(&mut self) -> Option<Body> {
