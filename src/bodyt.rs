@@ -5,10 +5,10 @@ use bytes::Buf;
 use bytes::Bytes;
 use futures_util::StreamExt;
 use http_body::Frame;
-use http_body_util::{combinators::BoxBody, BodyExt};
+use http_body_util::{combinators::UnsyncBoxBody, BodyExt};
 
 #[derive(Debug)]
-pub struct Body(BoxBody<Bytes, crate::Error>);
+pub struct Body(UnsyncBoxBody<Bytes, crate::Error>);
 
 impl Default for Body {
     fn default() -> Self {
@@ -41,24 +41,24 @@ impl Body {
         Body(
             http_body_util::Empty::<Bytes>::new()
                 .map_err(crate::Error::new)
-                .boxed(),
+                .boxed_unsync(),
         )
     }
 
     pub(crate) fn wrap<B>(body: B) -> Self
     where
-        B: http_body::Body + Send + Sync + 'static,
+        B: http_body::Body + Send + 'static,
         B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     {
         let body = body
             .map_frame(|f| f.map_data(|mut buf| buf.copy_to_bytes(buf.remaining())))
             .map_err(crate::Error::new);
-        Body(http_body_util::BodyExt::boxed(body))
+        Body(http_body_util::BodyExt::boxed_unsync(body))
     }
 
     pub(crate) fn wrap_stream<S, B, E>(stream: S) -> Self
     where
-        S: futures_util::Stream<Item = Result<B, E>> + Send + Sync + 'static,
+        S: futures_util::Stream<Item = Result<B, E>> + Send + 'static,
         B: Into<Bytes>,
         E: Into<Box<dyn std::error::Error + Send + Sync>> + Send + 'static,
     {
@@ -66,7 +66,7 @@ impl Body {
             item.map(|buf| Frame::data(buf.into()))
                 .map_err(crate::Error::new)
         }));
-        Body(http_body_util::BodyExt::boxed(body))
+        Body(http_body_util::BodyExt::boxed_unsync(body))
     }
 }
 
@@ -75,7 +75,7 @@ impl From<Bytes> for Body {
         Body(
             http_body_util::Full::new(b)
                 .map_err(crate::Error::new)
-                .boxed(),
+                .boxed_unsync(),
         )
     }
 }

@@ -143,7 +143,7 @@ impl Reply for Json {
 /// ```
 pub fn stream<S, B, E>(stream: S) -> impl Reply
 where
-    S: futures_util::Stream<Item = Result<B, E>> + Send + Sync + 'static,
+    S: futures_util::Stream<Item = Result<B, E>> + Send + 'static,
     B: Into<bytes::Bytes>,
     E: Into<Box<dyn std::error::Error + Send + Sync>> + Send + 'static,
 {
