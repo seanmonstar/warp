@@ -371,9 +371,9 @@ impl Configured {
                     }
                 } else {
                     tracing::trace!(
-                        "preflight request missing access-control-request-method header"
+                        "missing access-control-request-method header, not a valid preflight request"
                     );
-                    return Err(Forbidden::MethodNotAllowed);
+                    return Ok(Validated::NotCors);
                 }
 
                 if let Some(req_headers) = headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {

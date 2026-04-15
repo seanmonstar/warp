@@ -182,3 +182,17 @@ async fn with_log() {
 
     assert_eq!(res.status(), 200);
 }
+
+#[tokio::test]
+async fn notcors() {
+    let cors = warp::cors();
+    let route = warp::any().map(warp::reply).with(cors);
+
+    let res = warp::test::request()
+        .method("OPTIONS")
+        .header("origin", "http://example.com")
+        .reply(&route)
+        .await;
+
+    assert_eq!(res.status(), 200);
+}
