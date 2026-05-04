@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### v0.4.3 (May 4, 2026)
+
+- **Features**:
+  - Re-implement `addr::remote()` filter from v0.3.x.
+  - Implement `From<&'static [u8]>` for `Body`.
+  - Add `reply::stream()` helper.
+- **Fixes**:
+  - Fix returning error from CORS if no request-method header.
+
 ### v0.4.2 (August 19, 2025)
 
 - **Features**:
