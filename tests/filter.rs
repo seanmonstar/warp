@@ -92,6 +92,23 @@ async fn or() {
 }
 
 #[tokio::test]
+async fn negate() {
+    use warp::reject::reject;
+    let _ = pretty_env_logger::try_init();
+
+    let a = warp::header::<String>("warp");
+    let f = a.negate(|_| reject());
+
+    assert!(warp::test::request().matches(&f).await);
+    assert!(
+        !warp::test::request()
+            .header("warp", "speed")
+            .matches(&f)
+            .await
+    );
+}
+
+#[tokio::test]
 async fn or_else() {
     let _ = pretty_env_logger::try_init();
 
