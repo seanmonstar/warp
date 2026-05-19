@@ -121,6 +121,7 @@ pub use self::filters::ws;
 #[doc(hidden)]
 pub use self::filters::{
     addr,
+    auth,
     // any() function
     any::any,
     body,
