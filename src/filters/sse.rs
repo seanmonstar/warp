@@ -229,7 +229,7 @@ impl fmt::Display for Event {
 /// ```
 pub fn last_event_id<T>() -> impl Filter<Extract = One<Option<T>>, Error = Rejection> + Copy
 where
-    T: FromStr + Send + Sync + 'static,
+    T: FromStr + Send + 'static,
 {
     header::optional("last-event-id")
 }
@@ -313,7 +313,7 @@ where
 /// ```
 pub fn reply<S>(event_stream: S) -> impl Reply
 where
-    S: TryStream<Ok = Event> + Send + Sync + 'static,
+    S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     SseReply { event_stream }
@@ -326,7 +326,7 @@ struct SseReply<S> {
 
 impl<S> Reply for SseReply<S>
 where
-    S: TryStream<Ok = Event> + Send + Sync + 'static,
+    S: TryStream<Ok = Event> + Send + 'static,
     S::Error: StdError + Send + Sync + 'static,
 {
     #[inline]
