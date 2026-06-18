@@ -5,6 +5,7 @@
 
 pub mod addr;
 pub mod any;
+pub mod auth;
 pub mod body;
 #[cfg(any(feature = "compression-brotli", feature = "compression-gzip"))]
 pub mod compression;
