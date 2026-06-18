@@ -18,6 +18,7 @@ pub mod log;
 pub mod method;
 #[cfg(feature = "multipart")]
 pub mod multipart;
+pub mod none;
 pub mod path;
 pub mod query;
 pub mod reply;
