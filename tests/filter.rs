@@ -146,6 +146,23 @@ async fn unify() {
     assert_eq!(ex, 1);
 }
 
+#[tokio::test]
+async fn flatten() {
+    let a = warp::path::param::<u32>();
+    let b = a.flatten(|v| async move {
+        if v == 1 {
+            warp::path::param::<u32>().boxed()
+        } else {
+            warp::path::param::<u32>().map(|x| x * 2).boxed()
+        }
+    });
+
+    let ex1 = warp::test::request().path("/1/2").filter(&b).await.unwrap();
+    assert_eq!(ex1, 2);
+    let ex2 = warp::test::request().path("/3/2").filter(&b).await.unwrap();
+    assert_eq!(ex2, 4);
+}
+
 #[should_panic]
 #[tokio::test]
 async fn nested() {
