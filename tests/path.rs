@@ -2,7 +2,11 @@
 #[macro_use]
 extern crate warp;
 
+use bytes::Bytes;
 use futures_util::future;
+use http_body_util::BodyExt;
+use http_body_util::Empty;
+use tower_service::Service;
 use warp::Filter;
 
 #[tokio::test]
@@ -328,6 +332,27 @@ async fn full_path() {
         .await
         .unwrap();
     assert_eq!(ex.as_str(), "/");
+}
+
+#[tokio::test]
+async fn full_path_connect_authority_form() {
+    let route = warp::path::full().map(|path: warp::path::FullPath| path.as_str().to_owned());
+    let mut service = warp::service(route);
+
+    let request = http::Request::builder()
+        .method("CONNECT")
+        .uri("example.com:443")
+        .body(Empty::<Bytes>::new())
+        .unwrap();
+
+    assert_eq!(request.uri().path(), "");
+    assert_eq!(request.uri().path_and_query(), None);
+
+    let response = service.call(request).await.unwrap();
+    assert_eq!(response.status(), http::StatusCode::OK);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+
+    assert_eq!(&body[..], b"/");
 }
 
 #[tokio::test]
