@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>html + javascript served at warp speeds</title>
+</head>
+
+<body>
+    <h1>warp</h1>
+    <!-- whichever path you put here must be exposed by the warp router.
+         In this case it's the `warp::path("examples/html-with-js/public").and(warp::fs::dir("examples/html-with-js/public"))`
+         which makes it so the browser can fetch the public/index.js file-->
+    <script src="examples/html-with-js/public/index.js"></script>
+
+</body>
+
+</html>
