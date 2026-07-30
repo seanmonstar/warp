@@ -184,7 +184,7 @@ async fn with_log() {
 }
 
 #[tokio::test]
-async fn notcors() {
+async fn notpreflight() {
     let cors = warp::cors();
     let route = warp::any().map(warp::reply).with(cors);
 
@@ -195,4 +195,8 @@ async fn notcors() {
         .await;
 
     assert_eq!(res.status(), 200);
+    assert_eq!(
+        res.headers()["access-control-allow-origin"],
+        "http://example.com"
+    );
 }

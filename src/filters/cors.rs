@@ -349,6 +349,7 @@ enum Validated {
     Preflight(HeaderValue),
     Simple(HeaderValue),
     NotCors,
+    NotPreflight(HeaderValue),
 }
 
 impl Configured {
@@ -359,7 +360,7 @@ impl Configured {
     ) -> Result<Validated, Forbidden> {
         match (headers.get(header::ORIGIN), method) {
             (Some(origin), &http::Method::OPTIONS) => {
-                // OPTIONS requests are preflight CORS requests...
+                // OPTIONS requests may be preflight CORS requests...
 
                 if !self.is_origin_allowed(origin) {
                     return Err(Forbidden::OriginNotAllowed);
@@ -373,7 +374,7 @@ impl Configured {
                     tracing::trace!(
                         "missing access-control-request-method header, not a valid preflight request"
                     );
-                    return Ok(Validated::NotCors);
+                    return Ok(Validated::NotPreflight(origin.clone()));
                 }
 
                 if let Some(req_headers) = headers.get(header::ACCESS_CONTROL_REQUEST_HEADERS) {
@@ -507,6 +508,10 @@ mod internal {
                 Ok(Validated::NotCors) => future::Either::Right(WrappedFuture {
                     inner: self.inner.filter(Internal),
                     wrapped: None,
+                }),
+                Ok(Validated::NotPreflight(origin)) => future::Either::Right(WrappedFuture {
+                    inner: self.inner.filter(Internal),
+                    wrapped: Some((self.config.clone(), origin)),
                 }),
                 Err(err) => {
                     let rejection = crate::reject::known(CorsForbidden { kind: err });
