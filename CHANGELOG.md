@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### v0.4.4 (November 13, 2026)
+
+- **Fixes**:
+  - Strip line endings from user input to SSE types.
+  - Normalize absent `path_and_query` to `root`.
+
 ### v0.4.3 (May 4, 2026)
 
 - **Features**:
