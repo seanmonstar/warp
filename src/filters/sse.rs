@@ -98,6 +98,7 @@ impl Event {
 
     /// Set Server-sent event comment
     /// Comment field (":<comment-text>")
+    /// Carriage returns and line feeds are stripped from the comment.
     pub fn comment<T: Into<String>>(mut self, comment: T) -> Event {
         self.comment = Some(comment.into());
         self
@@ -105,6 +106,7 @@ impl Event {
 
     /// Set Server-sent event event
     /// Event name field ("event:<event-name>")
+    /// Carriage returns and line feeds are stripped from the event name.
     pub fn event<T: Into<String>>(mut self, event: T) -> Event {
         self.event = Some(event.into());
         self
@@ -119,29 +121,47 @@ impl Event {
 
     /// Set Server-sent event id
     /// Identifier field ("id:<identifier>")
+    /// Carriage returns and line feeds are stripped from the identifier.
     pub fn id<T: Into<String>>(mut self, id: T) -> Event {
         self.id = Some(id.into());
         self
     }
 }
 
+// Prevent line terminators in single-line values from introducing new fields or events.
+fn write_single_line(f: &mut fmt::Formatter<'_>, value: &str) -> fmt::Result {
+    for part in value.split(['\r', '\n']) {
+        f.write_str(part)?;
+    }
+    Ok(())
+}
+
 impl fmt::Display for Event {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref comment) = &self.comment {
             ":".fmt(f)?;
-            comment.fmt(f)?;
+            write_single_line(f, comment)?;
             f.write_char('\n')?;
         }
 
         if let Some(ref event) = &self.event {
             "event:".fmt(f)?;
-            event.fmt(f)?;
+            write_single_line(f, event)?;
             f.write_char('\n')?;
         }
 
         match self.data {
             Some(DataType::Text(ref data)) => {
-                for line in data.split('\n') {
+                let lines = data.split('\r').enumerate().flat_map(|(i, line)| {
+                    // Treat CRLF as a single line ending.
+                    let line = if i > 0 {
+                        line.strip_prefix('\n').unwrap_or(line)
+                    } else {
+                        line
+                    };
+                    line.split('\n')
+                });
+                for line in lines {
                     "data:".fmt(f)?;
                     line.fmt(f)?;
                     f.write_char('\n')?;
@@ -157,7 +177,7 @@ impl fmt::Display for Event {
 
         if let Some(ref id) = &self.id {
             "id:".fmt(f)?;
-            id.fmt(f)?;
+            write_single_line(f, id)?;
             f.write_char('\n')?;
         }
 
@@ -511,4 +531,74 @@ mod sealed {
     }
 
     impl StdError for SseError {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Event;
+
+    #[test]
+    fn single_line_fields_strip_line_endings() {
+        for ending in ["\n", "\r", "\r\n"] {
+            for value in ["plain".to_owned(), format!("{ending}plain{ending}{ending}")] {
+                assert_eq!(
+                    Event::default()
+                        .comment(&value)
+                        .event(&value)
+                        .id(&value)
+                        .to_string(),
+                    ":plain\nevent:plain\nid:plain\n\n",
+                    "{value:?}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn line_endings_do_not_inject_fields() {
+        let event = Event::default()
+            .comment("keep\r\ndata:forged\n\nalive")
+            .data("hi\r\revent:admin\rdata:forged\r\nx")
+            .event("a\rid:1")
+            .id("2\nretry:5");
+        assert_eq!(
+            event.to_string(),
+            ":keepdata:forgedalive\nevent:aid:1\ndata:hi\ndata:\ndata:event:admin\ndata:data:forged\ndata:x\nid:2retry:5\n\n",
+        );
+    }
+
+    #[test]
+    fn data_line_endings() {
+        for ending in ["\n", "\r", "\r\n"] {
+            for (data, expected) in [
+                (String::new(), "data:\n\n"),
+                (
+                    format!("first{ending}second"),
+                    "data:first\ndata:second\n\n",
+                ),
+                (format!("{ending}second"), "data:\ndata:second\n\n"),
+                (format!("first{ending}"), "data:first\ndata:\n\n"),
+                (
+                    format!("first{ending}{ending}second"),
+                    "data:first\ndata:\ndata:second\n\n",
+                ),
+            ] {
+                assert_eq!(
+                    Event::default().data(&data).to_string(),
+                    expected,
+                    "{data:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn data_mixed_line_endings() {
+        assert_eq!(
+            Event::default()
+                .data("first\rsecond\nthird\r\nfourth\n\rfifth\r\r\nsixth")
+                .to_string(),
+            "data:first\ndata:second\ndata:third\ndata:fourth\ndata:\ndata:fifth\ndata:\ndata:sixth\n\n",
+        );
+    }
 }
