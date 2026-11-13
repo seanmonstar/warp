@@ -123,7 +123,7 @@ mod handlers {
             .clone()
             .into_iter()
             .skip(opts.offset.unwrap_or(0))
-            .take(opts.limit.unwrap_or(std::usize::MAX))
+            .take(opts.limit.unwrap_or(usize::MAX))
             .collect();
         Ok(warp::reply::json(&todos))
     }
