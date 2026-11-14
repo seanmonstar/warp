@@ -4,6 +4,10 @@
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use crate::bodyt::Body;
 use bytes::{Buf, Bytes};
@@ -11,12 +15,11 @@ use futures_util::future;
 use futures_util::Stream;
 use headers::ContentLength;
 use http::header::CONTENT_TYPE;
-use http_body_util::BodyDataStream;
 use http_body_util::BodyExt;
 use mime;
 use serde::de::DeserializeOwned;
 
-use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase, One};
 use crate::reject::{self, Rejection};
 
 type BoxError = Box<dyn StdError + Send + Sync>;
@@ -75,10 +78,27 @@ pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rej
 ///
 /// This does not have a default size limit, it would be wise to use one to
 /// prevent a overly large request from using too much memory.
-pub fn stream(
-) -> impl Filter<Extract = (impl Stream<Item = Result<impl Buf, crate::Error>>,), Error = Rejection> + Copy
-{
-    body().map(|body| BodyDataStream::new(body))
+pub fn stream() -> impl Filter<Extract = One<BodyStream>, Error = Rejection> + Copy {
+    body().map(BodyStream)
+}
+
+/// Represents a body as a byte stream
+pub struct BodyStream(Body);
+impl fmt::Debug for BodyStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BodyStream").finish()
+    }
+}
+impl Stream for BodyStream {
+    type Item = Result<Bytes, crate::Error>;
+    fn poll_next(mut self: Pin<&mut Self>, c: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use http_body::Body as _;
+        Pin::new(&mut self.0).poll_frame(c).map(|o| match o {
+            Some(Ok(f)) => f.into_data().ok().map(Ok),
+            Some(Err(e)) => Some(Err(e)),
+            None => None,
+        })
+    }
 }
 
 /// Returns a `Filter` that matches any request and extracts a `Future` of a
