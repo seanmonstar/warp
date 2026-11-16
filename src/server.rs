@@ -387,6 +387,7 @@ mod run {
                         hyper_util::rt::TokioExecutor::new(),
                     )
                     .http1()
+                    .timer(hyper_util::rt::TokioTimer::new())
                     .pipeline_flush(pipeline)
                     .serve_connection_with_upgrades(io, svc)
                     .await
@@ -446,7 +447,10 @@ mod run {
                     let mut hyper = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
                     );
-                    hyper.http1().pipeline_flush(pipeline);
+                    hyper
+                        .http1()
+                        .timer(hyper_util::rt::TokioTimer::new())
+                        .pipeline_flush(pipeline);
                     let conn = hyper.serve_connection_with_upgrades(io, svc);
                     let conn = watcher.watch(conn);
                     if let Err(err) = conn.await {
