@@ -41,8 +41,26 @@ async fn content_length_limit() {
 
     let limit = warp::body::content_length_limit(30).map(warp::reply);
 
+    // Neither `content-length` nor `transfer-encoding` means an empty body
+    // (RFC 9112 6.3), so there's nothing to limit.
     let res = warp::test::request().reply(&limit).await;
-    assert_eq!(res.status(), 411, "missing content-length returns 411");
+    assert_eq!(
+        res.status(),
+        200,
+        "missing content-length and transfer-encoding succeeds"
+    );
+
+    // `transfer-encoding` without `content-length` means the length can't be
+    // determined up front.
+    let res = warp::test::request()
+        .header("transfer-encoding", "chunked")
+        .reply(&limit)
+        .await;
+    assert_eq!(
+        res.status(),
+        411,
+        "missing content-length with transfer-encoding returns 411"
+    );
 
     let res = warp::test::request()
         .header("content-length", "999")

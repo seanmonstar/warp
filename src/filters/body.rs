@@ -9,14 +9,14 @@ use crate::bodyt::Body;
 use bytes::{Buf, Bytes};
 use futures_util::future;
 use futures_util::Stream;
-use headers::ContentLength;
-use http::header::CONTENT_TYPE;
+use headers::{ContentLength, HeaderMapExt};
+use http::header::{CONTENT_LENGTH, CONTENT_TYPE, TRANSFER_ENCODING};
 use http_body_util::BodyDataStream;
 use http_body_util::BodyExt;
 use mime;
 use serde::de::DeserializeOwned;
 
-use crate::filter::{filter_fn, filter_fn_one, Filter, FilterBase};
+use crate::filter::{filter_fn, filter_fn_one, Filter};
 use crate::reject::{self, Rejection};
 
 type BoxError = Box<dyn StdError + Send + Sync>;
@@ -35,8 +35,11 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 
 /// Require a `content-length` header to have a value no greater than some limit.
 ///
-/// Rejects if `content-length` header is missing, is invalid, or has a number
-/// larger than the limit provided.
+/// Rejects if `content-length` header is present but invalid, or has a
+/// number larger than the limit provided. A request with neither a
+/// `content-length` nor a `transfer-encoding` header has no body (per
+/// [RFC 9112 §6.3](https://httpwg.org/specs/rfc9112.html#rfc.section.6.3)),
+/// so it passes through with nothing to limit.
 ///
 /// # Example
 ///
@@ -48,20 +51,34 @@ pub(crate) fn body() -> impl Filter<Extract = (Body,), Error = Rejection> + Copy
 ///     .and(warp::body::aggregate());
 /// ```
 pub fn content_length_limit(limit: u64) -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    crate::filters::header::header2()
-        .map_err(crate::filter::Internal, |_| {
-            tracing::debug!("content-length missing");
-            reject::length_required()
-        })
-        .and_then(move |ContentLength(length)| {
-            if length <= limit {
-                future::ok(())
+    filter_fn(move |route| {
+        let headers = route.headers();
+
+        let result =
+            if !headers.contains_key(CONTENT_LENGTH) && !headers.contains_key(TRANSFER_ENCODING) {
+                // Neither header is present, so per RFC 9112 the body is empty.
+                // There's nothing to limit.
+                tracing::trace!("content-length and transfer-encoding both missing; body is empty");
+                Ok(())
             } else {
-                tracing::debug!("content-length: {} is over limit {}", length, limit);
-                future::err(reject::payload_too_large())
-            }
-        })
-        .untuple_one()
+                match headers.typed_get::<ContentLength>() {
+                    Some(ContentLength(length)) => {
+                        if length <= limit {
+                            Ok(())
+                        } else {
+                            tracing::debug!("content-length: {} is over limit {}", length, limit);
+                            Err(reject::payload_too_large())
+                        }
+                    }
+                    None => {
+                        tracing::debug!("content-length missing or invalid");
+                        Err(reject::length_required())
+                    }
+                }
+            };
+
+        future::ready(result)
+    })
 }
 
 /// Create a `Filter` that extracts the request body as a `futures::Stream`.
