@@ -51,9 +51,12 @@ Hooray! `warp` also includes built-in support for WebSockets
 - [`sse.rs`](./sse.rs) - Basic Server-Side Event
 - [`sse_chat.rs`](./sse_chat.rs) - Full SSE app
 
-### TLS
+### Unix-domain sockets
 
-- [`tls.rs`](./tls.rs) - can i haz security?
+- [`unix_socket.rs`](./unix_socket.rs) - Serve files through a Unix-domain socket.
+
+On Unix, start the example with `cargo run --features server --example unix_socket`.
+Use `curl --unix-socket /tmp/warp.sock http://localhost/` to request the index page.
 
 ### Debugging
 
