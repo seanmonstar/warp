@@ -274,6 +274,103 @@ pub fn param<T: FromStr + Send + 'static>(
     })
 }
 
+/// Extract a parameter from a path segment.
+///
+/// This will try to parse a value from the current request path
+/// segment, and if successful, the value is returned as the `Filter`'s
+/// "extracted" value.
+///
+/// If the value could not be parsed, rejects with a custom [`Rejection`][].
+///
+/// You'll need to implement [`reject::Reject`][] as a marker trait.
+///
+/// Since [`warp::reject::custom`][] is used to create a `Rejection` under the hood,
+/// a [`recover`][] filter should convert this `Rejection` into a `Reply`, or else
+/// this will be returned as a `500 Internal Server Error`.
+///
+/// [`reject::Reject`]: ../../reject/trait.Reject.html
+/// [`Rejection`]: ../../reject/struct.Rejection.html
+/// [`recover`]: ../trait.Filter.html#method.recover
+/// [`warp::reject::custom`]: ../../reject/fn.custom.html
+///
+///
+/// # Example
+///
+/// ```
+/// use futures::future;
+/// use std::convert::From;
+/// use std::str::FromStr;
+/// use warp::{
+///     http::{
+///         status,
+///         Response,
+///     },
+///     reject::{
+///         Reject,
+///         Rejection,
+///     },
+///     Filter,
+/// };
+///
+/// #[derive(Debug)]
+/// struct MyStruct {
+///     id: u32,
+/// }
+///
+/// impl FromStr for MyStruct {
+///     type Err = MyRejection;
+///
+///     fn from_str(s: &str) -> Result<Self, Self::Err> {
+///         let id = s.parse::<u32>().map_err(|_| MyRejection)?;
+///
+///         Ok(MyStruct { id })
+///     }
+/// }
+///
+/// #[derive(Debug)]
+/// struct MyRejection;
+///
+/// impl std::fmt::Display for MyRejection {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "My Rejection: something wrong happened.")
+///     }
+/// }
+///
+/// impl Reject for MyRejection {};
+///
+/// let route = warp::path::param_with_reject()
+///     .map(|id: MyStruct| {
+///         format!("You asked for /{:?}", id)
+///     })
+///    .recover(|err: Rejection| {
+///        let err = {
+///            if let Some(e) = err.find::<MyRejection>() {
+///                Ok(Response::builder()
+///                .status(status::StatusCode::from_u16(404).unwrap())
+///                .body(e.to_string())
+///                )
+///            } else {
+///                Err(err)
+///            }
+///        };
+///        future::ready(err)
+///    });
+///
+/// ```
+pub fn param_with_reject<T>() -> impl Filter<Extract = One<T>, Error = Rejection> + Copy
+where
+    T: FromStr + Send + 'static,
+    T::Err: reject::Reject,
+{
+    filter_segment(|seg| {
+        log::trace!("param?: {:?}", seg);
+        if seg.is_empty() {
+            return Err(reject::not_found());
+        }
+        T::from_str(seg).map(one).map_err(|err| reject::custom(err))
+    })
+}
+
 /// Extract the unmatched tail of the path.
 ///
 /// This will return a `Tail`, which allows access to the rest of the path
