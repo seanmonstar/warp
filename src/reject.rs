@@ -68,6 +68,7 @@ use http::{
 };
 
 pub(crate) use self::sealed::{CombineRejection, IsReject};
+use crate::filters::auth::AuthenticationScheme as AuthScheme;
 
 /// Rejects a request with `404 Not Found`.
 #[inline]
@@ -106,6 +107,23 @@ pub(crate) fn invalid_header(name: &'static str) -> Rejection {
 pub(crate) fn missing_cookie(name: &'static str) -> Rejection {
     known(MissingCookie { name })
 }
+
+// 401 Unauthorized
+#[inline]
+pub(crate) fn unauthorized(
+    scheme: crate::filters::auth::AuthenticationScheme,
+    realm: &'static str,
+) -> Rejection {
+    known(crate::filters::auth::UnauthorizedChallenge { realm, scheme })
+}
+
+// 403 Forbidden
+/* unused
+#[inline]
+pub(crate) fn forbidden() -> Rejection {
+    known(Forbidden { _p: () })
+}
+*/
 
 // 405 Method Not Allowed
 #[inline]
@@ -272,6 +290,8 @@ macro_rules! enum_known {
 
 enum_known! {
     MethodNotAllowed(MethodNotAllowed),
+    Unauthorized(crate::filters::auth::UnauthorizedChallenge),
+    Forbidden(Forbidden),
     InvalidHeader(InvalidHeader),
     MissingHeader(MissingHeader),
     MissingCookie(MissingCookie),
@@ -418,6 +438,8 @@ impl Rejections {
         match *self {
             Rejections::Known(ref k) => match *k {
                 Known::MethodNotAllowed(_) => StatusCode::METHOD_NOT_ALLOWED,
+                Known::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+                Known::Forbidden(_) => StatusCode::FORBIDDEN,
                 Known::InvalidHeader(_)
                 | Known::MissingHeader(_)
                 | Known::MissingCookie(_)
@@ -441,6 +463,35 @@ impl Rejections {
 
     fn into_response(&self) -> crate::reply::Response {
         match *self {
+            Rejections::Known(Known::Unauthorized(
+                crate::filters::auth::UnauthorizedChallenge { realm, ref scheme },
+            )) => {
+                let mut res = http::Response::new(Body::from(""));
+                *res.status_mut() = self.status();
+                match *scheme {
+                    AuthScheme::Basic => res.headers_mut().insert(
+                        "www-authenticate",
+                        HeaderValue::from_str(format!("Basic realm=\"{}\"", realm).as_str())
+                            .unwrap(),
+                    ),
+                    AuthScheme::Bearer => res.headers_mut().insert(
+                        "www-authenticate",
+                        HeaderValue::from_str(format!("Bearer realm=\"{}\"", realm).as_str())
+                            .unwrap(),
+                    ),
+                    /*
+                    AuthScheme::Digest
+                    | AuthScheme::Hoba
+                    | AuthScheme::Mutual
+                    | AuthScheme::Negotiate
+                    | AuthScheme::OAuth
+                    | AuthScheme::ScramSha1
+                    | AuthScheme::ScramSha256
+                    | AuthScheme::Vapid => unimplemented!(),
+                    */
+                };
+                res
+            }
             Rejections::Known(ref e) => {
                 let mut res = http::Response::new(Body::from(e.to_string()));
                 *res.status_mut() = self.status();
@@ -540,6 +591,11 @@ unit_error! {
 unit_error! {
     /// The request's content-type is not supported
     pub UnsupportedMediaType: "The request's content-type is not supported"
+}
+
+unit_error! {
+    /// Forbidden request
+    pub Forbidden: "Forbidden"
 }
 
 /// Missing request header
