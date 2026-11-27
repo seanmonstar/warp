@@ -3,6 +3,7 @@ mod and_then;
 mod boxed;
 mod map;
 mod map_err;
+mod negate;
 mod or;
 mod or_else;
 mod recover;
@@ -25,6 +26,7 @@ use self::and_then::AndThen;
 pub use self::boxed::BoxedFilter;
 pub(crate) use self::map::Map;
 pub(crate) use self::map_err::MapErr;
+pub(crate) use self::negate::Negate;
 pub(crate) use self::or::Or;
 use self::or_else::OrElse;
 use self::recover::Recover;
@@ -297,6 +299,36 @@ pub trait Filter: FilterBase {
         <F::Output as TryFuture>::Error: IsReject,
     {
         Recover {
+            filter: self,
+            callback: fun,
+        }
+    }
+
+    /// Compose this `Filter` with a function receiving the extracted items and
+    /// returning a rejection. The resulting `Filter` will match whenever the
+    /// original filter does not.
+    ///
+    /// This can be considered to be an "inversion" of a filter where the
+    /// the extracted items become the rejection and a rejection becomes
+    /// a match.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use warp::Filter;
+    /// use warp::reject::reject;
+    ///
+    /// // Matches anything without this header
+    /// warp::header::<String>("X-Malicious-User")
+    ///     .negate(|_| reject());
+    /// ```
+    fn negate<F>(self, fun: F) -> Negate<Self, F>
+    where
+        Self: Sized,
+        F: Func<Self::Extract> + Clone,
+        F::Output: IsReject,
+    {
+        Negate {
             filter: self,
             callback: fun,
         }
